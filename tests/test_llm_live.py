@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from pydantic import BaseModel
 
 from sec_agent.config import Settings
+from sec_agent.llm.cache import ReplayCache
 from sec_agent.llm.client import LLMClient, Role
 from sec_agent.llm.ledger import CostLedger
 from sec_agent.llm.pricing import cost_usd
@@ -59,11 +62,35 @@ async def test_structured_output_and_ledger_match_usage(role):
 
 
 async def test_system_prompt_cache_is_read_on_second_call():
-    # The second call shares the long system prompt, so it should read from the cache.
+    # The second call shares the long system prompt, so it should read from the cache. Anthropic
+    # keeps a cache entry for 5 minutes, so a rerun would find the first call already cached.
+    # A fresh run id makes the prompt new each time, so the first call always writes.
+    system = f"{LONG_SYSTEM} Run id: {uuid.uuid4()}."
     ledger = CostLedger(max_usd=0.10)
     client = LLMClient(Settings(), ledger)
     for question in ("Answer about passage one. " + USER, "Answer about passage two. " + USER):
-        await client.complete(Role.CRITIC, system=LONG_SYSTEM, user=question, output_type=Verdict)
+        await client.complete(Role.CRITIC, system=system, user=question, output_type=Verdict)
     first, second = ledger.entries
     assert first.cache_write_tokens > 0
     assert second.cache_read_tokens > 0
+
+
+async def test_repeat_call_is_replayed_for_free(tmp_path):
+    # The local replay cache, not Anthropic's prompt cache above: an identical second call must
+    # be answered from disk, cost nothing, and leave the ledger total unchanged.
+    ledger = CostLedger(max_usd=0.10)
+    client = LLMClient(Settings(), ledger, cache=ReplayCache(tmp_path / "cache.sqlite"))
+    first = await client.complete(
+        Role.CRITIC, system="Answer briefly.", user=USER, output_type=Verdict
+    )
+    spent = ledger.spent_usd
+    second = await client.complete(
+        Role.CRITIC, system="Answer briefly.", user=USER, output_type=Verdict
+    )
+    assert spent > 0
+    assert not first.replayed
+    assert second.replayed
+    assert second.cost_usd == 0
+    assert second.output == first.output
+    assert ledger.spent_usd == spent
+    assert [entry.replayed for entry in ledger.entries] == [False, True]
