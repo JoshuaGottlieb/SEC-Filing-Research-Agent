@@ -1,0 +1,82 @@
+[project]
+name = "sec-agent"
+version = "0.1.0"
+description = "Multi-agent research assistant that compares SEC 10-K and 10-Q filings and writes cited briefs."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "anthropic",
+    "beautifulsoup4",
+    "chromadb",
+    "duckdb",
+    "edgartools",
+    "httpx",
+    "jinja2",
+    "langchain-core",
+    "langgraph",
+    "langgraph-checkpoint-sqlite",
+    "lxml",
+    "mcp",
+    "numpy",
+    "pandas",
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "pyyaml",
+    "rank-bm25",
+    "rapidfuzz",
+    "scipy",
+    "sentence-transformers",
+    "streamlit",
+    "tenacity",
+    "torch",
+    "typer",
+]
+
+[project.scripts]
+sec-agent = "sec_agent.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "respx",
+    "ruff",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sec_agent"]
+
+# CPU-only PyTorch: the default build pulls several GB of CUDA libraries.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+# The pytest cache can't be written reliably on VirtualBox shared folders.
+addopts = "-m 'not live and not corpus' -p no:cacheprovider"
+markers = [
+    "live: calls paid or external services; run on demand with -m live",
+    "corpus: validates downloaded filings; run on demand with -m corpus after `sec-agent ingest`",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+# Renames fail on VirtualBox shared folders, so keep the cache on local disk.
+cache-dir = "~/.cache/sec-agent/ruff"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

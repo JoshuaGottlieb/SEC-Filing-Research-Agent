@@ -1,0 +1,196 @@
+companies:
+- ticker: WDC
+  company: WESTERN DIGITAL CORP
+  cik: '0000106040'
+  filings:
+  - form: 10-K
+    fiscal_year: 2026
+    fiscal_period: FY
+    period_end: '2026-07-03'
+    filed_date: '2026-08-14'
+    accession: 0001628280-26-057139
+    primary_document: wdc-20260703.htm
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-06-27'
+    filed_date: '2025-08-14'
+    accession: 0000106040-25-000038
+    primary_document: wdc-20250627.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q3
+    period_end: '2026-04-03'
+    filed_date: '2026-05-01'
+    accession: 0001628280-26-029054
+    primary_document: wdc-20260403.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q3
+    period_end: '2025-03-28'
+    filed_date: '2025-05-02'
+    accession: 0000106040-25-000026
+    primary_document: wdc-20250328.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-01-02'
+    filed_date: '2026-01-30'
+    accession: 0001628280-26-004207
+    primary_document: wdc-20260102.htm
+- ticker: UBOH
+  company: UNITED BANCSHARES INC/OH
+  cik: 0001087456
+  filings:
+  - form: 10-K
+    fiscal_year: 2022
+    fiscal_period: FY
+    period_end: '2022-12-31'
+    filed_date: '2023-03-13'
+    accession: 0001437749-23-006386
+    primary_document: uboh20221231_10k.htm
+  - form: 10-K
+    fiscal_year: 2021
+    fiscal_period: FY
+    period_end: '2021-12-31'
+    filed_date: '2022-03-07'
+    accession: 0001437749-22-005332
+    primary_document: uboh20211231_10k.htm
+  - form: 10-Q
+    fiscal_year: 2022
+    fiscal_period: Q3
+    period_end: '2022-09-30'
+    filed_date: '2022-11-08'
+    accession: 0001437749-22-026222
+    primary_document: uboh20220930_10q.htm
+  - form: 10-Q
+    fiscal_year: 2021
+    fiscal_period: Q3
+    period_end: '2021-09-30'
+    filed_date: '2021-11-02'
+    accession: 0001437749-21-024933
+    primary_document: uboh20210930_10q.htm
+  - form: 10-Q
+    fiscal_year: 2022
+    fiscal_period: Q2
+    period_end: '2022-06-30'
+    filed_date: '2022-08-11'
+    accession: 0001437749-22-020159
+    primary_document: uboh20220630_10q.htm
+- ticker: MKSI
+  company: MKS INC
+  cik: 0001049502
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-02-24'
+    accession: 0001193125-26-066820
+    primary_document: mksi-20251231.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-02-25'
+    accession: 0000950170-25-026433
+    primary_document: mksi-20241231.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-06'
+    accession: 0001193125-26-337821
+    primary_document: mksi-20260630.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-08-07'
+    accession: 0001193125-25-175092
+    primary_document: mksi-20250630.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-05-07'
+    accession: 0001049502-26-000062
+    primary_document: mksi-20260331.htm
+- ticker: COSM
+  company: Cosmos Health Inc.
+  cik: '0001474167'
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-04-15'
+    accession: 0001477932-26-002278
+    primary_document: cosm_10k.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-04-15'
+    accession: 0001477932-25-002759
+    primary_document: cosm_10k.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-18'
+    accession: 0001477932-26-005146
+    primary_document: cosm_10q.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-08-18'
+    accession: 0001477932-25-005997
+    primary_document: cosm_10q.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-05-20'
+    accession: 0001477932-26-003357
+    primary_document: cosm_10q.htm
+- ticker: INGM
+  company: Ingram Micro Holding Corp
+  cik: 0001897762
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-27'
+    filed_date: '2026-03-03'
+    accession: 0001628280-26-013588
+    primary_document: ingm-20251227.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-28'
+    filed_date: '2025-03-05'
+    accession: 0001628280-25-010298
+    primary_document: ingm-20241228.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q3
+    period_end: '2026-09-26'
+    filed_date: '2026-10-29'
+    accession: 0001628280-26-068236
+    primary_document: ingm-20260926.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q3
+    period_end: '2025-09-27'
+    filed_date: '2025-10-30'
+    accession: 0001628280-25-047537
+    primary_document: ingm-20250927.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-27'
+    filed_date: '2026-07-30'
+    accession: 0001628280-26-051053
+    primary_document: ingm-20260627.htm

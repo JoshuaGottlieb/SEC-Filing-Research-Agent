@@ -1,0 +1,196 @@
+companies:
+- ticker: JPM
+  company: JPMORGAN CHASE & CO
+  cik: 0000019617
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-02-13'
+    accession: 0001628280-26-008131
+    primary_document: jpm-20251231.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-02-14'
+    accession: 0000019617-25-000270
+    primary_document: jpm-20241231.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-06'
+    accession: 0001628280-26-054343
+    primary_document: jpm-20260630.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-08-05'
+    accession: 0000019617-25-000615
+    primary_document: jpm-20250630.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-05-01'
+    accession: 0001628280-26-029344
+    primary_document: jpm-20260331.htm
+- ticker: GE
+  company: GENERAL ELECTRIC CO
+  cik: '0000040545'
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-01-29'
+    accession: 0000040545-26-000008
+    primary_document: ge-20251231.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-02-03'
+    accession: 0000040545-25-000015
+    primary_document: ge-20241231.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-07-16'
+    accession: 0000040545-26-000049
+    primary_document: ge-20260630.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-07-21'
+    accession: 0000040545-25-000111
+    primary_document: ge-20250630.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-04-21'
+    accession: 0000040545-26-000027
+    primary_document: ge-20260331.htm
+- ticker: CVX
+  company: CHEVRON CORP
+  cik: 0000093410
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-02-24'
+    accession: 0000093410-26-000078
+    primary_document: cvx-20251231.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-02-21'
+    accession: 0000093410-25-000009
+    primary_document: cvx-20241231.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-06'
+    accession: 0000093410-26-000167
+    primary_document: cvx-20260630.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-08-07'
+    accession: 0000093410-25-000062
+    primary_document: cvx-20250630.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-05-07'
+    accession: 0000093410-26-000113
+    primary_document: cvx-20260331.htm
+- ticker: TR
+  company: TOOTSIE ROLL INDUSTRIES INC
+  cik: 0000098677
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-02-27'
+    accession: 0001104659-26-021621
+    primary_document: tr-20251231x10k.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-02-28'
+    accession: 0001558370-25-001926
+    primary_document: tr-20241231x10k.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-07'
+    accession: 0001104659-26-092633
+    primary_document: tr-20260630x10q.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-08-08'
+    accession: 0001558370-25-010878
+    primary_document: tr-20250630x10q.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-05-08'
+    accession: 0001104659-26-057824
+    primary_document: tr-20260331x10q.htm
+- ticker: AAPL
+  company: Apple Inc.
+  cik: 0000320193
+  filings:
+  - form: 10-K
+    fiscal_year: 2026
+    fiscal_period: FY
+    period_end: '2026-09-26'
+    filed_date: '2026-11-03'
+    accession: 0000320193-26-000026
+    primary_document: aapl-20260926.htm
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-09-27'
+    filed_date: '2025-10-31'
+    accession: 0000320193-25-000079
+    primary_document: aapl-20250927.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-03-28'
+    filed_date: '2026-05-01'
+    accession: 0000320193-26-000013
+    primary_document: aapl-20260328.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-03-29'
+    filed_date: '2025-05-02'
+    accession: 0000320193-25-000057
+    primary_document: aapl-20250329.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2025-12-27'
+    filed_date: '2026-01-30'
+    accession: 0000320193-26-000006
+    primary_document: aapl-20251227.htm

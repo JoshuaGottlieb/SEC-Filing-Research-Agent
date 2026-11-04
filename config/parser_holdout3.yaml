@@ -1,0 +1,196 @@
+companies:
+- ticker: RXST
+  company: RxSight, Inc.
+  cik: 0001111485
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-02-25'
+    accession: 0001193125-26-071775
+    primary_document: rxst-20251231.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-02-25'
+    accession: 0000950170-25-026681
+    primary_document: rxst-20241231.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q3
+    period_end: '2026-09-30'
+    filed_date: '2026-11-03'
+    accession: 0001193125-26-445381
+    primary_document: rxst-20260930.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q3
+    period_end: '2025-09-30'
+    filed_date: '2025-11-05'
+    accession: 0001193125-25-266986
+    primary_document: rxst-20250930.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-05'
+    accession: 0001193125-26-335153
+    primary_document: rxst-20260630.htm
+- ticker: LODE
+  company: Comstock Inc.
+  cik: 0001120970
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-03-24'
+    accession: 0001437749-26-009589
+    primary_document: lode20251231_10k.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-03-06'
+    accession: 0001437749-25-006453
+    primary_document: lode20241231_10k.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-07-23'
+    accession: 0001437749-26-024304
+    primary_document: lode20260630_10q.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-08-14'
+    accession: 0001437749-25-026942
+    primary_document: lode20250630_10q.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-05-07'
+    accession: 0001437749-26-015573
+    primary_document: lode20260331c_10q.htm
+- ticker: AATC
+  company: AUTOSCOPE TECHNOLOGIES CORP
+  cik: 0000943034
+  filings:
+  - form: 10-K
+    fiscal_year: 2021
+    fiscal_period: FY
+    period_end: '2021-12-31'
+    filed_date: '2022-03-22'
+    accession: 0000897101-22-000298
+    primary_document: aatc-20211231.htm
+  - form: 10-K
+    fiscal_year: 2020
+    fiscal_period: FY
+    period_end: '2020-12-31'
+    filed_date: '2021-03-11'
+    accession: 0000897101-21-000169
+    primary_document: isns-20201231.htm
+  - form: 10-Q
+    fiscal_year: 2022
+    fiscal_period: Q3
+    period_end: '2022-09-30'
+    filed_date: '2022-11-16'
+    accession: 0000897101-22-001001
+    primary_document: aatc-20220930.htm
+  - form: 10-Q
+    fiscal_year: 2021
+    fiscal_period: Q3
+    period_end: '2021-09-30'
+    filed_date: '2021-11-15'
+    accession: 0000897101-21-000947
+    primary_document: aatc-20210930.htm
+  - form: 10-Q
+    fiscal_year: 2022
+    fiscal_period: Q2
+    period_end: '2022-06-30'
+    filed_date: '2022-08-11'
+    accession: 0000897101-22-000775
+    primary_document: aatc-20220630.htm
+- ticker: ECG
+  company: Everus Construction Group, Inc.
+  cik: 0002015845
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-02-25'
+    accession: 0002015845-26-000010
+    primary_document: q42025-20251231.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-02-28'
+    accession: 0002015845-25-000012
+    primary_document: q42024-20241231.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-05'
+    accession: 0002015845-26-000050
+    primary_document: ecg-20260630.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-08-13'
+    accession: 0002015845-25-000076
+    primary_document: ecg-20250630.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-05-06'
+    accession: 0002015845-26-000030
+    primary_document: ecg-20260331.htm
+- ticker: T
+  company: AT&T INC.
+  cik: '0000732717'
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-02-09'
+    accession: 0000732717-26-000120
+    primary_document: t-20251231.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-02-12'
+    accession: 0000732717-25-000013
+    primary_document: t-20241231.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q3
+    period_end: '2026-09-30'
+    filed_date: '2026-10-21'
+    accession: 0000732717-26-000372
+    primary_document: t-20260930.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q3
+    period_end: '2025-09-30'
+    filed_date: '2025-10-31'
+    accession: 0000732717-25-000171
+    primary_document: t-20250930.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-07-22'
+    accession: 0000732717-26-000297
+    primary_document: t-20260630.htm

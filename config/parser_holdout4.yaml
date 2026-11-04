@@ -1,0 +1,196 @@
+companies:
+- ticker: JBL
+  company: JABIL INC
+  cik: 0000898293
+  filings:
+  - form: 10-K
+    fiscal_year: 2026
+    fiscal_period: FY
+    period_end: '2026-08-31'
+    filed_date: '2026-10-23'
+    accession: 0001628280-26-067038
+    primary_document: jbl-20260831.htm
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-08-31'
+    filed_date: '2025-10-17'
+    accession: 0001628280-25-045293
+    primary_document: jbl-20250831.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q3
+    period_end: '2026-05-31'
+    filed_date: '2026-06-30'
+    accession: 0001628280-26-046138
+    primary_document: jbl-20260531.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q3
+    period_end: '2025-05-31'
+    filed_date: '2025-06-30'
+    accession: 0001628280-25-033410
+    primary_document: jbl-20250531.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-02-28'
+    filed_date: '2026-04-08'
+    accession: 0001628280-26-024148
+    primary_document: jbl-20260228.htm
+- ticker: CFOR
+  company: CapForce Inc.
+  cik: 0001293818
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-05-26'
+    accession: 0001829126-26-005672
+    primary_document: capforceinc_10k.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-08-21'
+    accession: 0001829126-25-006628
+    primary_document: opgeninc_10k.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-19'
+    accession: 0001829126-26-009079
+    primary_document: capforceinc_10q.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-10-31'
+    accession: 0001829126-25-008771
+    primary_document: opgeninc_10q.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-06-12'
+    accession: 0001829126-26-006444
+    primary_document: capforceinc_10q.htm
+- ticker: UNFI
+  company: UNITED NATURAL FOODS INC
+  cik: 0001020859
+  filings:
+  - form: 10-K
+    fiscal_year: 2026
+    fiscal_period: FY
+    period_end: '2026-08-01'
+    filed_date: '2026-09-14'
+    accession: 0001020859-26-000025
+    primary_document: unfi-20260801.htm
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-08-02'
+    filed_date: '2025-10-01'
+    accession: 0001020859-25-000054
+    primary_document: unfi-20250802.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q3
+    period_end: '2026-05-02'
+    filed_date: '2026-06-09'
+    accession: 0001020859-26-000015
+    primary_document: unfi-20260502.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q3
+    period_end: '2025-05-03'
+    filed_date: '2025-06-10'
+    accession: 0001020859-25-000029
+    primary_document: unfi-20250503.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-01-31'
+    filed_date: '2026-03-10'
+    accession: 0001020859-26-000006
+    primary_document: unfi-20260131.htm
+- ticker: MEGR
+  company: First America Resources Corp
+  cik: '0001525306'
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-04-01'
+    accession: 0001477932-26-001906
+    primary_document: fstj_10k.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-06-30'
+    filed_date: '2024-09-30'
+    accession: 0001477932-24-006019
+    primary_document: fstj_10k.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-13'
+    accession: 0001477932-26-004986
+    primary_document: fstj_10q.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-09-29'
+    accession: 0001477932-25-007146
+    primary_document: fstj_10q.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-05-15'
+    accession: 0001477932-26-003147
+    primary_document: fstj_10q.htm
+- ticker: RGS
+  company: REGIS CORP
+  cik: '0000716643'
+  filings:
+  - form: 10-K
+    fiscal_year: 2026
+    fiscal_period: FY
+    period_end: '2026-06-30'
+    filed_date: '2026-09-01'
+    accession: 0000716643-26-000031
+    primary_document: rgs-20260630.htm
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-06-30'
+    filed_date: '2025-09-03'
+    accession: 0000716643-25-000031
+    primary_document: rgs-20250630.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q3
+    period_end: '2026-03-31'
+    filed_date: '2026-05-13'
+    accession: 0000716643-26-000023
+    primary_document: rgs-20260331.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q3
+    period_end: '2025-03-31'
+    filed_date: '2025-05-13'
+    accession: 0000716643-25-000021
+    primary_document: rgs-20250331.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2025-12-31'
+    filed_date: '2026-02-05'
+    accession: 0000716643-26-000006
+    primary_document: rgs-20251231.htm

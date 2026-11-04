@@ -1,0 +1,196 @@
+companies:
+- ticker: AVT
+  company: AVNET INC
+  cik: 0000008858
+  filings:
+  - form: 10-K
+    fiscal_year: 2026
+    fiscal_period: FY
+    period_end: '2026-06-27'
+    filed_date: '2026-08-14'
+    accession: 0001104659-26-096346
+    primary_document: avt-20260627x10k.htm
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-06-28'
+    filed_date: '2025-08-15'
+    accession: 0000008858-25-000028
+    primary_document: avt-20250628x10k.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q3
+    period_end: '2026-03-28'
+    filed_date: '2026-05-01'
+    accession: 0000008858-26-000042
+    primary_document: avt-20260328x10q.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q3
+    period_end: '2025-03-29'
+    filed_date: '2025-05-02'
+    accession: 0000008858-25-000018
+    primary_document: avt-20250329x10q.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2025-12-27'
+    filed_date: '2026-01-30'
+    accession: 0000008858-26-000025
+    primary_document: avt-20251227x10q.htm
+- ticker: ALB
+  company: ALBEMARLE CORP
+  cik: 0000915913
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-02-11'
+    accession: 0000915913-26-000018
+    primary_document: alb-20251231.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-02-12'
+    accession: 0000915913-25-000026
+    primary_document: alb-20241231.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-05'
+    accession: 0000915913-26-000102
+    primary_document: alb-20260630.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-08-04'
+    accession: 0000915913-25-000133
+    primary_document: alb-20250630.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-05-06'
+    accession: 0000915913-26-000072
+    primary_document: alb-20260331.htm
+- ticker: EYE
+  company: National Vision Holdings, Inc.
+  cik: '0001710155'
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2026-01-03'
+    filed_date: '2026-03-04'
+    accession: 0001628280-26-014379
+    primary_document: eye-20260103.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-28'
+    filed_date: '2025-02-26'
+    accession: 0001710155-25-000011
+    primary_document: eye-20241228.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-07-04'
+    filed_date: '2026-08-13'
+    accession: 0001628280-26-056493
+    primary_document: eye-20260704.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-28'
+    filed_date: '2025-08-07'
+    accession: 0001710155-25-000047
+    primary_document: eye-20250628.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-04-04'
+    filed_date: '2026-05-14'
+    accession: 0001628280-26-034824
+    primary_document: eye-20260404.htm
+- ticker: CVV
+  company: CVD EQUIPMENT CORP
+  cik: 0000766792
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-03-30'
+    accession: 0001493152-26-013567
+    primary_document: form10-k.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-03-19'
+    accession: 0001493152-25-010917
+    primary_document: form10-k.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-12'
+    accession: 0001493152-26-037328
+    primary_document: form10-q.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-08-12'
+    accession: 0001641172-25-023180
+    primary_document: form10-q.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-05-14'
+    accession: 0001493152-26-023044
+    primary_document: form10-q.htm
+- ticker: FLXS
+  company: FLEXSTEEL INDUSTRIES INC
+  cik: '0000037472'
+  filings:
+  - form: 10-K
+    fiscal_year: 2026
+    fiscal_period: FY
+    period_end: '2026-06-30'
+    filed_date: '2026-08-19'
+    accession: 0001193125-26-357097
+    primary_document: flxs-20260630.htm
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-06-30'
+    filed_date: '2025-08-22'
+    accession: 0000950170-25-110965
+    primary_document: flxs-20250630.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q3
+    period_end: '2025-03-31'
+    filed_date: '2025-04-23'
+    accession: 0000950170-25-057522
+    primary_document: flxs-20250331.htm
+  - form: 10-Q
+    fiscal_year: 2024
+    fiscal_period: Q3
+    period_end: '2024-03-31'
+    filed_date: '2024-05-01'
+    accession: 0000950170-24-051378
+    primary_document: flxs-20240331.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2024-12-31'
+    filed_date: '2025-02-05'
+    accession: 0000950170-25-014645
+    primary_document: flxs-20241231.htm
