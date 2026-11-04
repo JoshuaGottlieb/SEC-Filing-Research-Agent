@@ -1,0 +1,118 @@
+companies:
+- ticker: HSY
+  company: HERSHEY CO
+  cik: '0000047111'
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-02-17'
+    accession: 0001628280-26-008586
+    primary_document: hsy-20251231.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-02-18'
+    accession: 0000047111-25-000014
+    primary_document: hsy-20241231.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-28'
+    filed_date: '2026-07-30'
+    accession: 0001628280-26-050900
+    primary_document: hsy-20260628.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-29'
+    filed_date: '2025-07-30'
+    accession: 0000047111-25-000112
+    primary_document: hsy-20250629.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-29'
+    filed_date: '2026-04-30'
+    accession: 0001628280-26-028682
+    primary_document: hsy-20260329.htm
+- ticker: MAT
+  company: MATTEL INC /DE/
+  cik: '0000063276'
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2025-12-31'
+    filed_date: '2026-02-23'
+    accession: 0001628280-26-010716
+    primary_document: mat-20251231.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-31'
+    filed_date: '2025-02-26'
+    accession: 0001628280-25-007887
+    primary_document: mat-20241231.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-06-30'
+    filed_date: '2026-08-06'
+    accession: 0001628280-26-054347
+    primary_document: mat-20260630.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-30'
+    filed_date: '2025-07-29'
+    accession: 0001628280-25-036429
+    primary_document: mat-20250630.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-03-31'
+    filed_date: '2026-05-01'
+    accession: 0001628280-26-029316
+    primary_document: mat-20260331.htm
+- ticker: SWK
+  company: STANLEY BLACK & DECKER, INC.
+  cik: 0000093556
+  filings:
+  - form: 10-K
+    fiscal_year: 2025
+    fiscal_period: FY
+    period_end: '2026-01-03'
+    filed_date: '2026-02-24'
+    accession: 0000093556-26-000009
+    primary_document: swk-20260103.htm
+  - form: 10-K
+    fiscal_year: 2024
+    fiscal_period: FY
+    period_end: '2024-12-28'
+    filed_date: '2025-02-18'
+    accession: 0000093556-25-000007
+    primary_document: swk-20241228.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q2
+    period_end: '2026-07-04'
+    filed_date: '2026-07-29'
+    accession: 0000093556-26-000031
+    primary_document: swk-20260704.htm
+  - form: 10-Q
+    fiscal_year: 2025
+    fiscal_period: Q2
+    period_end: '2025-06-28'
+    filed_date: '2025-07-29'
+    accession: 0000093556-25-000143
+    primary_document: swk-20250628.htm
+  - form: 10-Q
+    fiscal_year: 2026
+    fiscal_period: Q1
+    period_end: '2026-04-04'
+    filed_date: '2026-04-29'
+    accession: 0000093556-26-000015
+    primary_document: swk-20260404.htm
