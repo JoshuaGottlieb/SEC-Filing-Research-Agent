@@ -5,6 +5,8 @@
   facts            A view of both, leaving out table figures XBRL already reports, and
                    any whose row can't be told apart from another in the same filing.
   unparsed_tables  Tables that didn't parse cleanly, waiting to be chunked as text.
+  chunks           The passages retrieval searches. This is their source of truth; the vector
+                   index is built from it and can always be rebuilt.
 
 Only filings that passed validation can be loaded. A table fact always keeps the text it
 was read from. Its sign is as displayed, and its duration describes its column, so a
@@ -16,13 +18,14 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
 from types import TracebackType
 
 import duckdb
 import pandas as pd
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from sec_agent.edgar.corpus import CorpusCompany, CorpusFiling
 from sec_agent.edgar.xbrl import dimensions_json, duration_of, read_contexts, read_inline_fact
@@ -38,7 +41,7 @@ from sec_agent.ingest.table_facts import (
     parse_tables,
 )
 from sec_agent.ingest.tables import parse_html_tree
-from sec_agent.schemas import Section
+from sec_agent.schemas import Chunk, FiscalPeriod, FormType, Section
 
 # Bump when table parsing or fact loading changes, so that stored facts are rebuilt.
 FACTS_VERSION = 6
@@ -51,7 +54,7 @@ DUPLICATE_MIN_SIGNIFICANT_DIGITS = 4
 # find which section the table sits in; a shorter caption would match unrelated text.
 MIN_LOCATOR_CHARS = 15
 
-# Four tables and one view. Each filing's rows are replaced together in one transaction, and
+# Five tables and one view. Each filing's rows are replaced together in one transaction, and
 # `loaded_filings` records the FACTS_VERSION used, so out-of-date rows can be rebuilt.
 # In table_facts, xbrl_fact_id is set when the same figure is already tagged, and `ambiguous`
 # marks facts that share every label but differ in value; the `facts` view hides both kinds.
@@ -81,6 +84,13 @@ CREATE TABLE IF NOT EXISTS unparsed_tables (
     section VARCHAR, table_index INTEGER NOT NULL, title VARCHAR, reasons VARCHAR NOT NULL,
     text VARCHAR NOT NULL
 );
+CREATE TABLE IF NOT EXISTS chunks (
+    chunk_id VARCHAR PRIMARY KEY, paragraph_id VARCHAR NOT NULL, paragraph_ids VARCHAR[] NOT NULL,
+    ticker VARCHAR NOT NULL, cik VARCHAR NOT NULL, accession VARCHAR NOT NULL,
+    form VARCHAR NOT NULL, fiscal_year INTEGER NOT NULL, fiscal_period VARCHAR NOT NULL,
+    period_end DATE NOT NULL, section VARCHAR NOT NULL, position INTEGER NOT NULL,
+    text VARCHAR NOT NULL, token_count INTEGER NOT NULL
+);
 CREATE OR REPLACE VIEW facts AS
     SELECT 'xbrl' AS source, fact_id, ticker, accession, form, fiscal_year, fiscal_period,
            concept AS name, CAST(NULL AS VARCHAR) AS table_title,
@@ -102,6 +112,14 @@ SEARCH_COLUMNS = (
     "row_group, column_label, segment, dimensions, start_date, end_date, duration, value, unit, "
     "raw_text, section, heading, context"
 )
+# The columns a Chunk is rebuilt from, in the order _chunk_from_row reads them.
+CHUNK_COLUMNS = (
+    "chunk_id, paragraph_id, ticker, cik, form, fiscal_year, fiscal_period, period_end, section, "
+    "accession, text, token_count"
+)
+# Everything keyed to a filing that a reload makes out of date. Chunks are included so a reload
+# can't leave passages behind from text that has since changed.
+FILING_TABLES = ("xbrl_facts", "table_facts", "unparsed_tables", "chunks", "loaded_filings")
 
 
 class FactRow(BaseModel):
@@ -131,6 +149,20 @@ class FactRow(BaseModel):
     section: str | None = None
     heading: str | None = None
     context: str | None = None
+
+
+class SourcedChunk(BaseModel):
+    """A chunk and every paragraph its text came from.
+
+    `Chunk.paragraph_id` holds one id, but a chunk usually joins several short paragraphs. Change
+    detection works on paragraphs and must find every chunk that holds one, so the full list is
+    stored beside the chunk.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    chunk: Chunk
+    paragraph_ids: tuple[str, ...] = Field(min_length=1)
 
 
 class LoadSummary(BaseModel):
@@ -251,6 +283,24 @@ def find_xbrl_duplicate(fact: TableFact, by_end: dict[date, list[tuple[float, st
     return None
 
 
+def _chunk_from_row(row: tuple) -> Chunk:
+    """Rebuild a Chunk from a row read with CHUNK_COLUMNS."""
+    chunk_id, paragraph_id, ticker, cik, form, year, fiscal_period, period_end, *rest = row
+    section, accession, text, token_count = rest
+    return Chunk(
+        chunk_id=chunk_id,
+        paragraph_id=paragraph_id,
+        ticker=ticker,
+        cik=cik,
+        form=FormType(form),
+        period=FiscalPeriod(fiscal_year=year, fiscal_period=fiscal_period, period_end=period_end),
+        section=Section(section),
+        accession=accession,
+        text=text,
+        token_count=token_count,
+    )
+
+
 def mark_ambiguous(rows: list[dict]) -> set[int]:
     """Flag facts that share every name but differ in value. Returns their table numbers.
 
@@ -311,7 +361,7 @@ class FactStore:
 
     def remove_filing(self, accession: str) -> None:
         """Take out a filing that stopped passing, because rules can tighten after it loaded."""
-        for name in ("xbrl_facts", "table_facts", "unparsed_tables", "loaded_filings"):
+        for name in FILING_TABLES:
             self._db.execute(f"DELETE FROM {name} WHERE accession = ?", [accession])
 
     def _insert(self, table: str, rows: list[dict]) -> None:
@@ -416,7 +466,7 @@ class FactStore:
         # One transaction, so a failure never leaves a filing half replaced.
         self._db.execute("BEGIN TRANSACTION")
         try:
-            for name in ("xbrl_facts", "table_facts", "unparsed_tables", "loaded_filings"):
+            for name in FILING_TABLES:
                 self._db.execute(f"DELETE FROM {name} WHERE accession = ?", [filing.accession])
             self._insert("xbrl_facts", xbrl)
             self._insert("table_facts", fact_rows)
@@ -491,9 +541,65 @@ class FactStore:
         names = [column[0] for column in cursor.description]
         return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
 
+    def replace_chunks(self, accession: str, chunks: Sequence[SourcedChunk]) -> None:
+        """Swap in a filing's chunks, so re-chunking can't duplicate or orphan any."""
+        if any(item.chunk.accession != accession for item in chunks):
+            raise ValueError(f"every chunk must belong to {accession}")
+        rows = [
+            {
+                "chunk_id": item.chunk.chunk_id,
+                "paragraph_id": item.chunk.paragraph_id,
+                "paragraph_ids": list(item.paragraph_ids),
+                "ticker": item.chunk.ticker,
+                "cik": item.chunk.cik,
+                "accession": accession,
+                "form": item.chunk.form.value,
+                "fiscal_year": item.chunk.period.fiscal_year,
+                "fiscal_period": item.chunk.period.fiscal_period,
+                "period_end": item.chunk.period.period_end,
+                "section": item.chunk.section.value,
+                "position": position,
+                "text": item.chunk.text,
+                "token_count": item.chunk.token_count,
+            }
+            for position, item in enumerate(chunks)
+        ]
+        # One transaction, so a failure never leaves a filing with half its chunks.
+        self._db.execute("BEGIN TRANSACTION")
+        try:
+            self._db.execute("DELETE FROM chunks WHERE accession = ?", [accession])
+            self._insert("chunks", rows)
+            self._db.execute("COMMIT")
+        except Exception:
+            self._db.execute("ROLLBACK")
+            raise
+
+    def get_chunk(self, chunk_id: str) -> Chunk | None:
+        """One chunk by id, or None. This makes the store a `ChunkLookup`."""
+        row = self._db.execute(
+            f"SELECT {CHUNK_COLUMNS} FROM chunks WHERE chunk_id = ?", [chunk_id]
+        ).fetchone()
+        return _chunk_from_row(row) if row else None
+
+    def chunks(self, accession: str) -> list[Chunk]:
+        """A filing's chunks in reading order."""
+        rows = self._db.execute(
+            f"SELECT {CHUNK_COLUMNS} FROM chunks WHERE accession = ? ORDER BY position",
+            [accession],
+        ).fetchall()
+        return [_chunk_from_row(row) for row in rows]
+
+    def chunk_ids_for_paragraph(self, paragraph_id: str) -> tuple[str, ...]:
+        """Every chunk holding text from a paragraph, including chunks that only overlap it."""
+        rows = self._db.execute(
+            "SELECT chunk_id FROM chunks WHERE list_contains(paragraph_ids, ?) ORDER BY position",
+            [paragraph_id],
+        ).fetchall()
+        return tuple(row[0] for row in rows)
+
     def count(self, table: str, ticker: str | None = None) -> int:
         # The table name is placed into SQL text, so it must be one of these.
-        allowed = {"xbrl_facts", "table_facts", "unparsed_tables", "facts"}
+        allowed = {"xbrl_facts", "table_facts", "unparsed_tables", "facts", "chunks"}
         if table not in allowed:
             raise ValueError(f"Unknown table {table}")
         where = "WHERE ticker = ?" if ticker else ""
