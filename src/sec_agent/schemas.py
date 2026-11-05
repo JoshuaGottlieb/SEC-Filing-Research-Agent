@@ -34,6 +34,10 @@ class Section(StrEnum):
     MDNA = "mdna"
     MARKET_RISK = "market_risk"
     FINANCIAL_NOTES = "financial_notes"
+    # A table outside the five sections above, such as share repurchases or stock performance.
+    # Its figures stay searchable, and a citation never claims it came from MD&A. No parsed
+    # section uses this value, so comparing sections by name never sees it.
+    OTHER = "other"
 
 
 class ComparisonType(StrEnum):
