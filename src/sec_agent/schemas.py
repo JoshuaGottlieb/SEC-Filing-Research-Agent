@@ -76,6 +76,25 @@ class NumericCheck(StrEnum):
     NOT_APPLICABLE = "not_applicable"
 
 
+class MetricName(StrEnum):
+    """The metrics the catalog computes (T1.6). A claim names metrics from this list, so the
+    thought generator and the metric checker cannot spell one differently. Add a member here
+    when the catalog gains a metric, such as segment mix."""
+
+    GROSS_MARGIN = "gross_margin"
+    OPERATING_MARGIN = "operating_margin"
+    NET_MARGIN = "net_margin"
+    REVENUE_GROWTH = "revenue_growth"
+    COGS_RATIO = "cogs_ratio"
+    SGA_RATIO = "sga_ratio"
+
+
+class Direction(StrEnum):
+    # Which way a metric moved from the prior period to the current one.
+    UP = "up"
+    DOWN = "down"
+
+
 class NodeStatus(StrEnum):
     # A Tree-of-Thought node is kept in the beam or pruned; pruned nodes stay on record.
     PENDING = "pending"
@@ -173,6 +192,27 @@ class Chunk(Record):
     token_count: int = Field(gt=0)
 
 
+class RetrievedPassage(Record):
+    """One passage a search returned, with the reranker's score for the query."""
+
+    chunk: Chunk
+    # The cross-encoder's raw score. The minimum-score cutoff (T2.3) applies to this value.
+    score: float
+
+
+class RetrievalResult(Record):
+    """The best passages from each of a comparison's two filings for one query."""
+
+    query: str = Field(min_length=1)
+    current: tuple[RetrievedPassage, ...] = ()
+    prior: tuple[RetrievedPassage, ...] = ()
+
+    @property
+    def incomplete(self) -> bool:
+        # A change is a difference, so evidence from only one period cannot show one.
+        return not self.current or not self.prior
+
+
 class MetricFact(Record):
     """One reported XBRL value. `segment` is None for company-wide facts."""
 
@@ -200,6 +240,52 @@ class MetricValue(Record):
     value: float
     unit: str
     input_fact_ids: tuple[str, ...] = Field(min_length=1)
+
+
+class MetricExpectation(Record):
+    """A metric movement that a claim implies, such as gross margin down."""
+
+    metric: MetricName
+    direction: Direction
+
+
+class MetricOutcome(Record):
+    """How one expected metric movement compared with the computed values."""
+
+    metric: MetricName
+    # NOT_APPLICABLE when the movement could not be checked, for example no data in a period.
+    check: NumericCheck
+    # The computed metrics this outcome rests on, so a numeric claim traces to its figures.
+    metric_ids: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _outcome_cites_its_metrics(self) -> MetricOutcome:
+        if self.check is not NumericCheck.NOT_APPLICABLE and not self.metric_ids:
+            raise ValueError("an agree or contradict outcome must cite the metrics it rests on")
+        return self
+
+
+class MetricCheckResult(Record):
+    """The outcomes of testing a claim's metric expectations, one per expectation."""
+
+    outcomes: tuple[MetricOutcome, ...] = ()
+
+    @property
+    def check(self) -> NumericCheck:
+        # The overall verdict is derived, never stored, so it cannot disagree with the outcomes.
+        # One contradicting metric contradicts the claim even if another agrees. Metrics that
+        # could not be checked count for nothing: missing data is not contradicting evidence.
+        checks = {outcome.check for outcome in self.outcomes}
+        if NumericCheck.CONTRADICT in checks:
+            return NumericCheck.CONTRADICT
+        if NumericCheck.AGREE in checks:
+            return NumericCheck.AGREE
+        return NumericCheck.NOT_APPLICABLE
+
+    @property
+    def metric_ids(self) -> tuple[str, ...]:
+        # Every metric any outcome cites, in order, without repeats.
+        return tuple(dict.fromkeys(id_ for outcome in self.outcomes for id_ in outcome.metric_ids))
 
 
 class Change(Record):
@@ -236,6 +322,32 @@ class Change(Record):
         return self
 
 
+class RankedChanges(Record):
+    """The material changes of one comparison, most material first.
+
+    What the change-detection code hands to the Tree-of-Thought controller. Later steps run
+    findings in this order and a budget stop drops the last ones, so an unranked or misordered
+    list would drop the wrong changes without any error. The validator makes that impossible.
+
+    PROVISIONAL. Added with the contract, before the two lanes were built. Revisit when they
+    are brought back together (T5.5): the real output of T3.3 may need different rules, such
+    as ties or a cap on the list. See the plan's T3.3 and T5.5 rows.
+    """
+
+    comparison_id: str
+    changes: tuple[Change, ...] = ()
+
+    @model_validator(mode="after")
+    def _ranks_are_complete_and_in_order(self) -> RankedChanges:
+        if any(change.comparison_id != self.comparison_id for change in self.changes):
+            raise ValueError("every change must belong to the list's comparison")
+        ranks = [change.materiality_rank for change in self.changes]
+        # A missing rank (None), a repeat, a gap, or a wrong order all fail this one check.
+        if ranks != list(range(1, len(ranks) + 1)):
+            raise ValueError("changes must be ranked 1 to n, in order, each rank used once")
+        return self
+
+
 class TreeNode(Record):
     """One node of a ToT tree. Pruned nodes are kept for the audit trail.
 
@@ -251,7 +363,16 @@ class TreeNode(Record):
     thought: str
     expected_evidence: str | None = None
     query_plan: str | None = None
+    # Depth 1: the metric movements the claim implies. Empty for a text-only claim, whose
+    # numeric check is then not applicable (gap 1 in the plan).
+    expected_metrics: tuple[MetricExpectation, ...] = ()
     retrieved_chunk_ids: tuple[str, ...] = ()
+    # Depth 2: the highest reranker score among the passages retrieved for this node.
+    # PROVISIONAL. Added with the contract so the controller's tie rule (prefer the branch whose
+    # best supporting passage scores higher) still works on a saved or resumed tree. Decide at
+    # T4.4 whether to keep it or store a score per retrieved passage instead, and check the
+    # choice against T5.5 resume. See the plan's T4.4 row.
+    best_passage_score: float | None = None
     metric_ids: tuple[str, ...] = ()
     numeric_check: NumericCheck | None = None
     score: float | None = Field(default=None, ge=0, le=1)
