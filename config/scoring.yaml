@@ -1,0 +1,48 @@
+# How Tree-of-Thought scores a branch (T4.3), read by tot/scoring.py.
+#
+# The rubric and the 0.30 threshold are the ToT design's initial estimates, to be tuned on the
+# labeled benchmark. Everything marked "chosen by hand" has no measurement behind it yet.
+
+# Below this a branch is pruned. The design's value, an initial estimate.
+threshold: 0.30
+
+# The full rubric at depth 2, where passages have been retrieved. The design's weights. When
+# numerical consistency is not applicable it is removed and the others are rescaled (gap 1).
+rubric:
+  evidence_support: 0.40
+  numerical_consistency: 0.30
+  no_contradiction: 0.20
+  specificity: 0.10
+
+# The pre-screen at depth 1, where nothing has been retrieved yet, so only the two criteria that
+# need no retrieval count. The design's rescaling: 0.30 and 0.10 become 0.75 and 0.25.
+prescreen:
+  evidence_support: 0.0
+  numerical_consistency: 0.75
+  no_contradiction: 0.0
+  specificity: 0.25
+
+# What each level the critic can choose is worth. The critic picks a level with a written meaning,
+# not a number, so the scores stay comparable across calls and can be retuned without new calls.
+evidence_support:
+  # The rubric's top case: a passage directly states the cause.
+  states_cause: 1.0
+  # The rubric also credits "clearly implies", but less than a statement. Chosen by hand.
+  implies: 0.7
+  # Fits the claim without bearing on its cause: what a plausible label rests on. Chosen by hand.
+  consistent: 0.4
+  none: 0.0
+
+no_contradiction:
+  none: 1.0
+  # Halfway, because the conflict is unclear. Chosen by hand.
+  possible: 0.5
+  direct: 0.0
+
+specificity:
+  specific: 1.0
+  # Halfway, so a partly testable text-only claim clears the threshold at depth 1, where this
+  # criterion is all it has. The pre-screen should only remove clearly unsupported candidates.
+  # Chosen by hand.
+  partial: 0.5
+  vague: 0.0
