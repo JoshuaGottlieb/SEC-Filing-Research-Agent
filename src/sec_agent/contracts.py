@@ -63,6 +63,17 @@ class MetricChecker(Protocol):
     `MetricCheckResult.check`: any CONTRADICT outcome makes it CONTRADICT, so a claim with one
     metric moving as expected and another the opposite way is contradicted. No expectations
     gives NOT_APPLICABLE.
+
+    An AGREE or CONTRADICT outcome cites the values from both periods, and each resolves through
+    `MetricLookup`, so a caller can compute the change. A ratio move under about 5 basis points
+    (chosen by hand) is too small to call, so it is NOT_APPLICABLE. A NOT_APPLICABLE outcome may
+    cite nothing, and callers must not rely on what it cites.
+
+    `revenue_growth` differs on both counts. Its outcome cites its one value, and its direction
+    is about revenue, not about growth: UP means revenue rose (the value is above 0) and DOWN
+    means revenue fell. "Growth slowed to 2%" must not be written as `revenue_growth` DOWN:
+    revenue still rose, so this returns CONTRADICT. Such a claim carries no expectation for
+    `revenue_growth`.
     """
 
     def check(
@@ -86,7 +97,24 @@ class MetricLookup(Protocol):
     """Fetches a computed metric by id, or None if there is no such metric.
 
     Built by lane 1 (the metric catalog, T1.6); used by the citation checker (T5.1) to trace
-    a numeric claim to the metric it cites.
+    a numeric claim to the metric it cites and compare the claim's figure with its value.
+
+    What a `MetricValue` holds:
+
+    - `unit` is `ratio` or `USD`. A `ratio` is an unrounded, signed fraction: 0.37512 is 37.512%,
+      so rounding for comparison is the caller's job. `USD` is whole dollars with any table scale
+      already applied. All six current metrics are ratios, so `USD` does not appear yet, and a
+      dollar figure cannot trace through this interface.
+    - `name` is a `MetricName` value.
+    - `metric_id` is opaque: do not parse it. Pair two values by `name`, `period` and `duration`.
+    - `duration` is 3m for a 10-Q and 12m for a 10-K. Compare only values of the same duration.
+
+    A change between two values is the caller's to compute. A relative change needs a positive
+    prior value: a net margin can be negative or near zero, where "a 5.1% fall" means nothing.
+
+    `revenue_growth` is never paired. It is one signed value (0.044 is 4.4%) dated to the current
+    period, with both periods' revenue in `input_fact_ids`. Its value already describes a change,
+    so the only figure it supports is that value, with no basis-point or relative change from it.
     """
 
     def get_metric(self, metric_id: str) -> MetricValue | None: ...
