@@ -15,16 +15,22 @@ not that the quote supports the claim; that is the entailment judge's job (T5.2)
 from __future__ import annotations
 
 import re
-from collections.abc import Collection
+from collections import defaultdict
+from collections.abc import Collection, Iterable, Iterator
 from enum import StrEnum
+from itertools import combinations
 from typing import NamedTuple
 
 from sec_agent.contracts import ChunkLookup, MetricLookup
+from sec_agent.ingest.table_facts import _scale_caption
 from sec_agent.schemas import (
+    Chunk,
     Citation,
     Claim,
     ExplanationLabel,
     FiscalPeriod,
+    MetricName,
+    MetricValue,
     Record,
 )
 
@@ -181,16 +187,6 @@ _QUOTE_TRANSLATION = str.maketrans(
     }
 )
 
-# A stated figure: money, a percentage, basis points, or a count scaled in words. Bare numbers are
-# left out because "Item 7", "Note 12" and "fiscal 2025" are not figures, so "200 stores" is not
-# caught. A check that fails sound claims on those would teach nobody anything.
-_FIGURE = re.compile(
-    r"[$€£] ?\d[\d,]*(?:\.\d+)?(?: (?:thousand|million|billion|trillion)\b)?"
-    r"|\d[\d,]*(?:\.\d+)? ?(?:%|percent\b|percentage points?\b|basis points?\b|bps\b)"
-    r"|\d[\d,]*(?:\.\d+)? (?:thousand|million|billion|trillion)\b"
-)
-
-
 # Tables put a figure's symbol in its own cell: "Net sales | $ | 11,692.6" and "4.4 | %" (6,338 and
 # 491 times in the real chunks). A model writes "$11,692.6" and "4.4%". Applied to both sides, so
 # this joins a symbol to its own number and cannot make a changed figure match. Never across a line
@@ -228,8 +224,12 @@ class CitationFailureKind(StrEnum):
     WRONG_PERIOD = "wrong_period"
     # The claim cites a metric id that does not resolve.
     UNKNOWN_METRIC = "unknown_metric"
-    # The claim states a figure that neither a metric nor a cited quote backs.
+    # The claim states a figure, cites no metric, and no cited quote backs it.
     UNTRACED_FIGURE = "untraced_figure"
+    # The claim cites metrics, and its figure matches neither them nor a cited quote.
+    FIGURE_MISMATCH = "figure_mismatch"
+    # The figure's digits are in a cited table, but the table states no scale to confirm it.
+    UNKNOWN_SCALE = "unknown_scale"
 
 
 class CitationFailure(Record):
@@ -300,6 +300,229 @@ def _check_citation(
     return failures
 
 
+class _FigureKind(StrEnum):
+    MONEY = "money"
+    # Percent values are in percent (37.5), and point moves in percentage points (2.0 is 200 basis
+    # points). They are kept apart because they differ: a margin going from 39.5% to 37.5% fell 2
+    # points but 5.1%, and writing "fell 2%" for it is the common mistake.
+    PERCENT = "percent"
+    POINTS = "points"
+    COUNT = "count"
+    # A table cell with no symbol. It sits under a "$" column as often as not, so it can be money
+    # or a count. Only read from table quotes: in prose a bare number is usually not a figure.
+    BARE = "bare"
+
+
+class _Figure(NamedTuple):
+    kind: _FigureKind
+    # Always a magnitude. The sign is left to `MetricChecker`, which judges a claim's direction,
+    # and filings show a negative as "(60.2)", which reads as a move as often as a negative level.
+    value: float
+    # Half a unit in the last displayed place, so "37.5%" covers 37.45 to 37.55.
+    tolerance: float
+    text: str
+    currency: str | None = None
+    # What a word multiplied the number by: "million" is 1,000,000, and no word is 1.
+    word_scale: float = 1.0
+
+
+# A number with whatever marks it as a figure. Numbers cut from a word or a longer number are not
+# matched, so the "2025" in "FY2025" is not read. A ")" can sit before the unit, as in "(60.2)%".
+_NUMBER = re.compile(
+    r"(?P<currency>[$€£])?(?<![\w.,])(?P<number>\d(?:[\d,]*\d)?(?:\.\d+)?)(?!\w)"
+    r"(?:\)?[ -]?(?P<unit>%|percent\b|percentage[ -]points?\b|basis[ -]points?\b|bps\b"
+    r"|thousand\b|million\b|billion\b|trillion\b))?"
+)
+_WORD_SCALES = {"thousand": 1e3, "million": 1e6, "billion": 1e9, "trillion": 1e12}
+# How many percentage points one of each unit is.
+_POINT_UNITS = {"percentage point": 1.0, "basis point": 0.01, "bp": 0.01}
+
+
+def _parse_figures(text: str, *, bare: bool = False) -> Iterator[_Figure]:
+    """The figures in normalized text, each as a kind, a value and a display tolerance.
+
+    A number with no symbol or unit is not a figure unless `bare`: "Item 7", "Note 12" and
+    "fiscal 2025" are not figures in a claim, so "200 stores" is not caught either.
+    """
+    for match in _NUMBER.finditer(text):
+        digits = match["number"].replace(",", "")
+        number = float(digits)
+        step = 0.5 * 10 ** -len(digits.partition(".")[2])
+        unit = (match["unit"] or "").replace("-", " ").removesuffix("s")
+        currency = match["currency"]
+        if unit in ("%", "percent"):
+            yield _Figure(_FigureKind.PERCENT, number, step, match.group())
+        elif unit in _POINT_UNITS:
+            size = _POINT_UNITS[unit]
+            yield _Figure(_FigureKind.POINTS, number * size, step * size, match.group())
+        elif unit or currency:
+            scale = _WORD_SCALES.get(unit, 1.0)
+            kind = _FigureKind.MONEY if currency else _FigureKind.COUNT
+            yield _Figure(
+                kind, number * scale, step * scale, match.group(), currency, word_scale=scale
+            )
+        elif bare:
+            yield _Figure(_FigureKind.BARE, number, step, match.group())
+
+
+def _matches(claimed: _Figure, evidence: _Figure) -> bool:
+    """Whether the evidence rounds to the claimed figure at the precision the claim displays.
+
+    Only the claim's tolerance counts, so a claim may round its source ("$11.7 billion" from
+    11,692.6 million) but not be more precise than it ("$11,692.6 million" from "$11.7 billion").
+    """
+    if evidence.kind is _FigureKind.BARE:
+        if claimed.kind not in (_FigureKind.MONEY, _FigureKind.COUNT):
+            return False
+    elif (claimed.kind, claimed.currency) != (evidence.kind, evidence.currency):
+        return False
+    # The factor only absorbs floating point error in a value that rounds exactly to the edge.
+    return abs(claimed.value - evidence.value) <= claimed.tolerance * (1 + 1e-9)
+
+
+# A relative change means little from a prior ratio this small: a margin going from 0.5% to 1% is
+# "up 100%". Lane 1 left the cutoff to the caller. 1% (0.01) is chosen by hand.
+MIN_PRIOR_FOR_RELATIVE_CHANGE = 0.01
+
+
+def _computed_figures(metrics: Iterable[MetricValue]) -> list[_Figure]:
+    """What a claim may state from these metrics: levels, point changes and relative changes.
+
+    The conventions are in `contracts.MetricLookup`. Only ratios are read: no `USD` metric exists
+    yet, so one that appeared would match nothing and fail loudly rather than pass unread.
+    """
+
+    def figure(kind: _FigureKind, value: float, label: str) -> _Figure:
+        return _Figure(kind, value, 0.0, label)
+
+    figures: list[_Figure] = []
+    pairable: defaultdict[tuple[str, str], list[MetricValue]] = defaultdict(list)
+    for metric in metrics:
+        if metric.unit != "ratio":
+            continue
+        level = abs(metric.value) * 100
+        figures.append(figure(_FigureKind.PERCENT, level, f"{level:.2f}%"))
+        # Revenue growth already describes a change, so it supports only its own value.
+        if metric.name != MetricName.REVENUE_GROWTH.value:
+            pairable[(metric.name, metric.duration)].append(metric)
+    for values in pairable.values():
+        for first, second in combinations(values, 2):
+            if first.period == second.period:
+                continue
+            prior, current = sorted((first, second), key=lambda value: value.period.period_end)
+            move = abs(current.value - prior.value)
+            figures.append(figure(_FigureKind.POINTS, move * 100, f"{move * 100:.2f} points"))
+            if prior.value >= MIN_PRIOR_FOR_RELATIVE_CHANGE:
+                relative = move / prior.value * 100
+                figures.append(figure(_FigureKind.PERCENT, relative, f"{relative:.2f}% change"))
+    return figures
+
+
+_EXCEPT = re.compile(r"\bexcept\b", re.IGNORECASE)
+_ABOUT_SHARES = re.compile(r"\bshares?\b")
+
+
+def _table_scales(text: str) -> tuple[set[float], bool]:
+    """The scales a table chunk states, and whether a caption stating one makes an exception.
+
+    Uses the parser's own rule for what states a scale, cell by cell, so a long sentence that
+    merely mentions millions does not count and both lines of a two-scale table do.
+    """
+    scales: set[float] = set()
+    has_exception = False
+    for line in text.split("\n"):
+        for cell in line.split(" | "):
+            scale, _ = _scale_caption([cell])
+            if scale is not None:
+                scales.add(scale)
+                has_exception = has_exception or _EXCEPT.search(cell) is not None
+    return scales, has_exception
+
+
+def _quote_figures(quote: str, chunk: Chunk) -> tuple[list[_Figure], list[_Figure]]:
+    """What a verified quote supports, and any figures from a table that states no scale.
+
+    Scale only applies to a table's own unscaled numbers. A prose chunk says "$5 million" in full,
+    and its "(in millions)" would not govern its other sentences.
+
+    A table with a known scale requires the scaled value, so a bare "$11,692.6" fails against
+    11,692.6 in millions: that reads as about eleven thousand dollars. The exception is a caption
+    such as "(In thousands, except share data)", which does not cover per-share rows. There, a
+    quote about shares also supports the value as displayed. A table with two scales supports
+    either. A table with no stated scale supports only what it displays, so its numbers come back
+    separately: they back a claim with no scale word, and a claim that adds one asserts what the
+    table does not state, so it fails with `UNKNOWN_SCALE` instead of looking invented.
+    """
+    # The chunker joins a table's cells with this. Prose does not contain it.
+    if " | " not in chunk.text:
+        return list(_parse_figures(quote)), []
+    scales, has_exception = _table_scales(chunk.text)
+    figures: list[_Figure] = []
+    unscaled: list[_Figure] = []
+    for figure in _parse_figures(quote, bare=True):
+        if figure.word_scale != 1.0 or figure.kind in (_FigureKind.PERCENT, _FigureKind.POINTS):
+            figures.append(figure)
+            continue
+        if not scales:
+            unscaled.append(figure)
+            continue
+        if has_exception and _ABOUT_SHARES.search(quote):
+            figures.append(figure)
+        figures += [figure._replace(value=figure.value * scale) for scale in scales]
+    return figures, unscaled
+
+
+def _check_figures(
+    claim: Claim, chunks: ChunkLookup, metrics: Collection[MetricValue]
+) -> list[CitationFailure]:
+    """Require each figure in the claim's text to match a cited metric or a verified quote.
+
+    Each figure is judged on its own, so one good metric does not excuse a wrong number beside it.
+    Only a quote that really is in its chunk counts: an altered quote backs nothing. Details name
+    the claim's figure and values computed here, never filing text.
+    """
+    figures = {
+        figure.text: figure for figure in _parse_figures(_normalize_quote(claim.text))
+    }.values()
+    if not figures:
+        return []
+    computed = _computed_figures(metrics)
+    evidence: list[_Figure] = list(computed)
+    unscaled: list[_Figure] = []
+    for citation in claim.citations:
+        chunk = chunks.get_chunk(citation.chunk_id)
+        quote = _normalize_quote(citation.quote)
+        if chunk is not None and _appears_in(quote, _normalize_quote(chunk.text)):
+            supported, from_unscaled_table = _quote_figures(quote, chunk)
+            evidence += supported
+            unscaled += from_unscaled_table
+
+    failures: list[CitationFailure] = []
+    for figure in figures:
+        if any(_matches(figure, candidate) for candidate in evidence):
+            continue
+        if figure.word_scale == 1.0 and any(_matches(figure, number) for number in unscaled):
+            continue
+        if figure.word_scale != 1.0 and any(
+            _matches(figure, number._replace(value=number.value * figure.word_scale))
+            for number in unscaled
+        ):
+            kind = CitationFailureKind.UNKNOWN_SCALE
+            detail = f"the cited table states no scale, so {figure.text!r} cannot be confirmed"
+        elif metrics:
+            kind = CitationFailureKind.FIGURE_MISMATCH
+            values = ", ".join(candidate.text for candidate in computed) or "no ratio values"
+            detail = (
+                f"{figure.text!r} matches no cited quote and none of the values computed from "
+                f"the cited metrics: {values}"
+            )
+        else:
+            kind = CitationFailureKind.UNTRACED_FIGURE
+            detail = f"no metric or cited quote backs the figure {figure.text!r}"
+        failures.append(CitationFailure(kind=kind, detail=detail))
+    return failures
+
+
 def check_citations(
     claim: Claim,
     claim_periods: Collection[FiscalPeriod],
@@ -317,37 +540,30 @@ def check_citations(
     correctly, and the chunk must be from one of `claim_periods`. `Section.OTHER` needs no special
     case: section equality already stops an `other` table being cited as MD&A, and the reverse.
 
-    Each metric id must resolve. A figure in the claim's text must rest on a metric or appear in a
-    cited quote: the plan's rule names only metrics, but a figure can be reported in text and have
-    no computed metric, such as a table in `Section.OTHER`. A metric's value is not compared with
-    the figure, since a claim may state a difference between two values. Its period is not checked
-    because metric ids come from the metric checker, which is limited to the comparison, and not
-    from the model.
+    Each metric id must resolve. Each figure in the claim's text must match, by value, something
+    computed from a cited metric or a figure in a verified cited quote (see `_check_figures`). The
+    plan's rule names only metrics, but a figure can be reported in text and have no computed
+    metric, such as a table in `Section.OTHER`, and all current metrics are ratios, so a dollar
+    figure can only trace to a quote. A metric's period is not checked because metric ids come
+    from the metric checker, which is limited to the comparison, and not from the model.
     """
     failures = [
         failure
         for citation in claim.citations
         for failure in _check_citation(citation, claim_periods, chunks)
     ]
-    failures += [
-        CitationFailure(
-            kind=CitationFailureKind.UNKNOWN_METRIC,
-            detail=f"no metric {metric_id!r}",
-            metric_id=metric_id,
-        )
-        for metric_id in claim.metric_ids
-        if metrics.get_metric(metric_id) is None
-    ]
-    if not claim.metric_ids:
-        text = _normalize_quote(claim.text)
-        quotes = [_normalize_quote(citation.quote) for citation in claim.citations]
-        figures = dict.fromkeys(match.group() for match in _FIGURE.finditer(text))
-        failures += [
-            CitationFailure(
-                kind=CitationFailureKind.UNTRACED_FIGURE,
-                detail=f"no metric or cited quote backs the figure {figure!r}",
+    resolved: list[MetricValue] = []
+    for metric_id in claim.metric_ids:
+        metric = metrics.get_metric(metric_id)
+        if metric is None:
+            failures.append(
+                CitationFailure(
+                    kind=CitationFailureKind.UNKNOWN_METRIC,
+                    detail=f"no metric {metric_id!r}",
+                    metric_id=metric_id,
+                )
             )
-            for figure in figures
-            if not any(_appears_in(figure, quote) for quote in quotes)
-        ]
+        else:
+            resolved.append(metric)
+    failures += _check_figures(claim, chunks, resolved)
     return CitationCheckResult(claim_id=claim.claim_id, failures=tuple(failures))
