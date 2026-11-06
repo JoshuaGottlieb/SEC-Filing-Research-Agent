@@ -170,6 +170,23 @@ class MetricCatalog:
             return None
         return _Amount(revenue.value - cost.value, (*revenue.fact_ids, *cost.fact_ids))
 
+    def line_item(self, filing: Filing, item: str) -> float | None:
+        """A line item's dollars for the filing's own period, exactly as the metrics use it.
+
+        `item` is a key of `line_items` in the config, such as REVENUE or GROSS_PROFIT. Gross
+        profit is computed when the filer reports none, as for the ratios. None means the figure
+        can't be given: the filing doesn't report it, or reports it twice with different values.
+        This is what T1.4 checks against the filed statements.
+        """
+        if item not in self._config.line_items:
+            known = sorted(self._config.line_items)
+            raise ValueError(f"unknown line item {item!r}, expected one of {known}")
+        try:
+            amount = self._amount(filing, item)
+        except _ConflictingFigures:
+            return None
+        return None if amount is None else amount.value
+
     def ratio(self, filing: Filing, name: MetricName) -> MetricValue | None:
         """One of the ratios over revenue, for one filing's period, or None if it can't be."""
         try:
