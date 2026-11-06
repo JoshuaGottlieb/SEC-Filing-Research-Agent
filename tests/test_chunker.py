@@ -99,12 +99,14 @@ def table(
     text: str = "Title\nLabel | 2025\nRow | 1",
     title: str | None = "Title",
     section: str | None = "mdna",
+    caption: str | None = None,
 ) -> dict:
     return {
         "table_id": f"{ACCESSION}:t{number}",
         "section": section,
         "title": title,
         "text": text,
+        "scale_caption": caption,
     }
 
 
@@ -356,6 +358,89 @@ def test_a_table_row_over_the_limit_is_cut():
     assert {f"w{i}" for i in range(1300)} <= combined
 
 
+def long_table_rows() -> list[str]:
+    return [f"Row{i} | a | b | c | d | e | f | g | h | i" for i in range(100)]
+
+
+def test_a_caption_from_outside_the_table_joins_its_chunk_after_the_title():
+    chunk = chunk_table(FILING, table(caption="(in millions)"), count)[0].chunk
+    assert chunk.text == "Title\n(in millions)\nLabel | 2025\nRow | 1"
+
+
+def test_a_caption_goes_first_when_a_table_has_no_title():
+    text = "Label | 2025\nRow | 1"
+    chunk = chunk_table(FILING, table(text=text, title=None, caption="(in millions)"), count)[0]
+    assert chunk.chunk.text == "(in millions)\nLabel | 2025\nRow | 1"
+
+
+def test_a_caption_already_in_the_rows_is_not_added_twice():
+    text = "Title\n(in millions)\nLabel | 2025\nRow | 1"
+    chunk = chunk_table(FILING, table(text=text, caption="(in millions)"), count)[0].chunk
+    assert chunk.text == text
+
+
+def test_no_caption_adds_nothing():
+    assert chunk_table(FILING, table(), count)[0].chunk.text == "Title\nLabel | 2025\nRow | 1"
+
+
+def test_every_part_of_a_split_table_states_its_caption():
+    text = "\n".join(["Title", "Region | 2025", *long_table_rows()])
+    chunks = chunk_table(FILING, table(text=text, caption="(in thousands)"), count)
+    assert len(chunks) > 1
+    for item in chunks:
+        lines = item.chunk.text.split("\n")
+        assert lines[:3] == ["Title", "(in thousands)", "Region | 2025"]
+        assert item.chunk.token_count <= MAX_TOKENS
+
+
+def test_a_caption_inside_the_rows_still_reaches_every_part():
+    # The caption is a row of its own, so only one part would hold it without being repeated.
+    rows = long_table_rows()
+    text = "\n".join(["Title", "Region | 2025", "(in thousands)", *rows])
+    chunks = chunk_table(FILING, table(text=text, caption="(in thousands)"), count)
+    assert len(chunks) > 1
+    for item in chunks:
+        assert item.chunk.text.count("(in thousands)") == 1
+
+
+def test_a_caption_survives_when_the_header_is_too_long_to_repeat():
+    labels = " | ".join(f"label{i}" for i in range(150))
+    text = "\n".join(["Title", labels, *long_table_rows()])
+    chunks = chunk_table(FILING, table(text=text, caption="(in thousands)"), count)
+    assert len(chunks) > 1
+    assert labels not in chunks[1].chunk.text
+    for item in chunks:
+        assert "(in thousands)" in item.chunk.text
+        assert item.chunk.token_count <= MAX_TOKENS
+
+
+def test_every_stated_scale_reaches_every_part_of_a_two_scale_table():
+    text = "\n".join(["Title", "Region | 2025", *long_table_rows()])
+    caption = "(in millions)\n(in thousands)"
+    chunks = chunk_table(FILING, table(text=text, caption=caption), count)
+    assert len(chunks) > 1
+    for item in chunks:
+        assert "(in millions)\n(in thousands)" in item.chunk.text
+
+
+def test_no_row_is_lost_when_a_caption_takes_up_room():
+    rows = long_table_rows()
+    text = "\n".join(["Title", "Region | 2025", *rows])
+    chunks = chunk_table(FILING, table(text=text, caption="(in thousands)"), count)
+    seen = {line for item in chunks for line in item.chunk.text.split("\n")}
+    assert set(rows) <= seen
+
+
+def test_a_caption_that_tips_a_table_over_the_limit_splits_it():
+    rows = ["Row | a | b | c"] * 62
+    text = "\n".join(["Title", "Labels", *rows])
+    assert count(text) <= MAX_TOKENS
+    caption = " ".join(["(amounts in thousands)"] * 60)
+    chunks = chunk_table(FILING, table(text=text, caption=caption), count)
+    assert len(chunks) > 1
+    assert max(item.chunk.token_count for item in chunks) <= MAX_TOKENS
+
+
 def test_chunk_filing_includes_tables_after_the_text():
     parsed = parsed_filing({Section.MDNA: section_of(Section.MDNA, paragraphs([60]))})
     chunks = chunk_filing(FILING, parsed, [table(3)], count)
@@ -550,6 +635,13 @@ def test_all_pinned_filings_chunk_within_limits(real_count):
                 if item.chunk.paragraph_id not in {t["table_id"] for t in tables}:
                     for pid in item.paragraph_ids:
                         assert f":{item.chunk.section.value}:" in pid, item.chunk.chunk_id
+
+            # Every part of a table states each caption the store holds for it.
+            for t in tables:
+                for caption in (t["scale_caption"] or "").splitlines():
+                    for item in chunks:
+                        if item.chunk.paragraph_id == t["table_id"]:
+                            assert caption in item.chunk.text, item.chunk.chunk_id
 
             # Every paragraph with text is somewhere, so nothing was dropped in splitting.
             sources = {pid for item in chunks for pid in item.paragraph_ids}
