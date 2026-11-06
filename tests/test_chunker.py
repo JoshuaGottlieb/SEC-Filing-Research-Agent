@@ -617,7 +617,7 @@ def test_all_pinned_filings_chunk_within_limits(real_count):
     corpus = Corpus.load(REPO_ROOT / "config" / "corpus.yaml")
     filings = [(company, pinned) for company in corpus.companies for pinned in company.filings]
     assert len(filings) == 15
-    with FactStore(settings.duckdb_path) as store:
+    with FactStore(settings.duckdb_path, read_only=True) as store:
         for company, pinned in filings:
             parsed = load_validated_filing(
                 parsed_filing_path(settings.parsed_filings_dir, company.ticker, pinned.accession)
