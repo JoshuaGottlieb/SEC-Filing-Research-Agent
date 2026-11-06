@@ -88,27 +88,36 @@ class FakeChunks:
         return self._chunks.get(chunk_id)
 
 
+def metric(metric_id: str = "m1", value: float = 0.375, **fields: Any) -> MetricValue:
+    # Follows the conventions in contracts.MetricLookup: an unrounded, signed fraction.
+    return MetricValue(
+        **{
+            "metric_id": metric_id,
+            "ticker": "HSY",
+            "name": "gross_margin",
+            "period": CURRENT,
+            "duration": Duration.TWELVE_MONTHS,
+            "value": value,
+            "unit": "ratio",
+            "input_fact_ids": ("f1",),
+            **fields,
+        }
+    )
+
+
 class FakeMetrics:
-    def __init__(self, *metric_ids: str) -> None:
-        self._metric_ids = metric_ids
+    def __init__(self, *metrics: MetricValue) -> None:
+        self._metrics = {value.metric_id: value for value in metrics}
 
     def get_metric(self, metric_id: str) -> MetricValue | None:
-        if metric_id not in self._metric_ids:
-            return None
-        return MetricValue(
-            metric_id=metric_id,
-            ticker="HSY",
-            name="gross_margin",
-            period=CURRENT,
-            duration=Duration.TWELVE_MONTHS,
-            value=0.375,
-            unit="ratio",
-            input_fact_ids=("f1",),
-        )
+        return self._metrics.get(metric_id)
 
 
-def run(claim_: Claim, *chunks: Chunk, periods=(CURRENT,), metric_ids=("m1",)):
-    return check_citations(claim_, periods, FakeChunks(*chunks), FakeMetrics(*metric_ids))
+DEFAULT_METRICS = (metric(),)
+
+
+def run(claim_: Claim, *chunks: Chunk, periods=(CURRENT,), metrics=DEFAULT_METRICS):
+    return check_citations(claim_, periods, FakeChunks(*chunks), FakeMetrics(*metrics))
 
 
 def kinds(result) -> list[CitationFailureKind]:
@@ -335,12 +344,12 @@ def test_every_failure_is_reported_at_once():
 
 
 def test_a_numeric_claim_traces_to_a_metric_that_resolves():
-    claim_ = claim(text="Gross margin fell 200 basis points.", metric_ids=("m1",))
+    claim_ = claim(text="Gross margin was 37.5%.", metric_ids=("m1",))
     assert run(claim_).passed
 
 
 def test_a_metric_that_does_not_resolve_fails():
-    claim_ = claim(text="Gross margin fell 200 basis points.", metric_ids=("m1", "missing"))
+    claim_ = claim(text="Gross margin was 37.5%.", metric_ids=("m1", "missing"))
     result = run(claim_)
     assert kinds(result) == [CitationFailureKind.UNKNOWN_METRIC]
     assert result.failures[0].metric_id == "missing"
@@ -397,3 +406,329 @@ def test_an_unresolved_claim_with_no_evidence_has_nothing_to_fail():
     # It already goes to human review, so the checker has nothing to verify.
     claim_ = Claim(claim_id="c1", text="No explanation.", label=ExplanationLabel.UNRESOLVED)
     assert run(claim_).passed
+
+
+# Gross margin moved from 39.5% to 37.5%: 2 points, or a 5.06% relative fall.
+MARGIN_MOVE = (metric("now", 0.375), metric("before", 0.395, period=PRIOR))
+BOTH = ("now", "before")
+
+
+def with_metrics(text: str, *metrics: MetricValue):
+    ids = tuple(value.metric_id for value in metrics)
+    return run(claim(text=text, metric_ids=ids), metrics=metrics)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Gross margin was 37.5%.",
+        "Gross margin was 39.5% a year earlier.",
+        "Gross margin fell 200 basis points.",
+        "Gross margin fell 200 bps.",
+        "It was a 200-basis-point decline.",
+        "Gross margin fell 2 percentage points.",
+        "It was a 2-percentage-point decline.",
+        "Gross margin fell 2.0 percentage points.",
+        "Gross margin fell 5.1%.",
+        "Gross margin fell 5%.",
+        "Gross margin fell 5.06 percent.",
+        "Gross margin fell 200 basis points to 37.5%.",
+    ],
+)
+def test_a_figure_computed_from_the_cited_metrics_passes(text):
+    assert with_metrics(text, *MARGIN_MOVE).passed
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Gross margin fell 300 basis points.",
+        "Gross margin was 36%.",
+        "Gross margin fell 5.2%.",
+        "Gross margin fell 2.1 percentage points.",
+        # Display precision is strict: the computed move is 200 basis points, not 199.
+        "Gross margin fell 199 basis points.",
+        # The common mistake: 2 points is not a 2% fall.
+        "Gross margin fell 2%.",
+        # A relative fall is not a point move, either.
+        "Gross margin fell 5.1 percentage points.",
+        # No cited metric or quote holds dollars.
+        "Gross margin cost $2 million.",
+    ],
+)
+def test_a_figure_the_metrics_do_not_support_fails(text):
+    result = with_metrics(text, *MARGIN_MOVE)
+    assert kinds(result) == [CitationFailureKind.FIGURE_MISMATCH]
+
+
+def test_a_mismatch_reports_what_was_computed():
+    # So a rework can correct the number. These values come from code, not filing text.
+    detail = with_metrics("Gross margin fell 300 basis points.", *MARGIN_MOVE).failures[0].detail
+    assert "'300 basis points'" in detail
+    assert "37.50%" in detail
+    assert "2.00 points" in detail
+    assert "5.06% change" in detail
+
+
+def test_each_figure_is_judged_on_its_own():
+    # The old rule let any attached metric excuse every number in the claim.
+    result = with_metrics("Gross margin fell 300 basis points to 37.5%.", *MARGIN_MOVE)
+    assert kinds(result) == [CitationFailureKind.FIGURE_MISMATCH]
+    assert "'300 basis points'" in result.failures[0].detail
+
+
+def test_values_are_rounded_to_the_precision_the_claim_displays():
+    # Metric values are unrounded.
+    unrounded = metric("now", 0.37512)
+    assert with_metrics("Gross margin was 37.5%.", unrounded).passed
+    assert with_metrics("Gross margin was 37.51%.", unrounded).passed
+    assert with_metrics("Gross margin was 38%.", unrounded).passed
+    assert not with_metrics("Gross margin was 37.6%.", unrounded).passed
+
+
+def test_a_change_needs_values_from_both_periods():
+    assert not with_metrics("Gross margin fell 200 basis points.", metric("now", 0.375)).passed
+
+
+@pytest.mark.parametrize(
+    "other",
+    [
+        # A quarter is never compared with a year.
+        metric("before", 0.395, period=PRIOR, duration=Duration.THREE_MONTHS),
+        # Different metrics are never paired.
+        metric("before", 0.395, period=PRIOR, name="net_margin"),
+        # Two values from one period are not a move.
+        metric("before", 0.395),
+    ],
+)
+def test_only_like_values_are_paired(other):
+    assert not with_metrics(
+        "Gross margin fell 200 basis points.", metric("now", 0.375), other
+    ).passed
+
+
+def test_order_of_the_cited_metrics_does_not_matter():
+    assert with_metrics("Gross margin fell 5.1%.", *reversed(MARGIN_MOVE)).passed
+
+
+@pytest.mark.parametrize(
+    ("prior", "current", "relative", "points"),
+    [
+        # A negative prior value: "up 150%" means nothing.
+        (-0.02, 0.01, "150%", "3 percentage points"),
+        # Near zero: a tiny margin doubling says little.
+        (0.005, 0.01, "100%", "0.5 percentage points"),
+    ],
+)
+def test_a_relative_change_needs_a_positive_prior_value(prior, current, relative, points):
+    move = (
+        metric("now", current, name="net_margin"),
+        metric("before", prior, period=PRIOR, name="net_margin"),
+    )
+    assert with_metrics(f"Net margin rose {points}.", *move).passed
+    result = with_metrics(f"Net margin rose {relative}.", *move)
+    assert kinds(result) == [CitationFailureKind.FIGURE_MISMATCH]
+
+
+def test_the_relative_change_cutoff_is_inclusive():
+    move = (metric("now", 0.02), metric("before", 0.01, period=PRIOR))
+    assert with_metrics("Gross margin rose 100%.", *move).passed
+
+
+def test_revenue_growth_supports_only_its_own_value():
+    growth = metric("g", 0.044, name="revenue_growth")
+    assert with_metrics("Revenue grew 4.4%.", growth).passed
+    assert not with_metrics("Revenue grew 440 basis points.", growth).passed
+
+
+def test_revenue_growth_is_never_paired():
+    # Its value already describes a change, so two of them do not give another figure.
+    growth = (
+        metric("g", 0.044, name="revenue_growth"),
+        metric("g0", 0.024, name="revenue_growth", period=PRIOR),
+    )
+    assert not with_metrics("Revenue growth rose 2 percentage points.", *growth).passed
+    assert not with_metrics("Revenue growth rose 83.3%.", *growth).passed
+
+
+def test_a_metric_in_another_unit_supports_nothing():
+    # No USD metric exists yet. One that appeared should fail loudly, not pass unread.
+    dollars = metric("usd", 5_000_000.0, unit="USD")
+    assert not with_metrics("The charge was $5 million.", dollars).passed
+    assert not with_metrics("The charge was 500000000%.", dollars).passed
+
+
+def test_a_dollar_figure_with_metrics_attached_can_trace_to_a_quote():
+    table = make_chunk(text="(In millions)\nNet sales | $ | 11,692.6")
+    claim_ = claim(
+        citation("Net sales | $ | 11,692.6"),
+        text="Net sales were $11.7 billion and gross margin was 37.5%.",
+        metric_ids=("m1",),
+    )
+    assert run(claim_, table).passed
+
+
+def test_an_altered_quote_backs_no_figure():
+    result = run(claim(citation("Margin rose 99%"), text="Margin rose 99%."), make_chunk())
+    assert kinds(result) == [
+        CitationFailureKind.ALTERED_QUOTE,
+        CitationFailureKind.UNTRACED_FIGURE,
+    ]
+
+
+IN_MILLIONS = "(In millions)\nNet sales | $ | 11,692.6 | $ | 11,202.3"
+
+
+def traced(text: str, chunk_text: str, quote: str):
+    return run(claim(citation(quote), text=text), make_chunk(text=chunk_text))
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Net sales were $11,692.6 million.",
+        "Net sales were $11.7 billion.",
+        "Net sales were $11.69 billion.",
+        "Net sales were $12 billion.",
+    ],
+)
+def test_a_table_figure_is_read_at_the_tables_scale(text):
+    assert traced(text, IN_MILLIONS, "Net sales | $ | 11,692.6").passed
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Reads as about eleven thousand dollars.
+        "Net sales were $11,692.6.",
+        "Net sales were $11,692.6 thousand.",
+        "Net sales were $11,692.6 billion.",
+        "Net sales were $11.6 billion.",
+        "Net sales were $10 billion.",
+    ],
+)
+def test_a_table_figure_at_the_wrong_scale_fails(text):
+    result = traced(text, IN_MILLIONS, "Net sales | $ | 11,692.6")
+    assert kinds(result) == [CitationFailureKind.UNTRACED_FIGURE]
+
+
+def test_a_table_cell_without_a_symbol_is_read_at_the_scale():
+    table = "(In millions)\nNet sales | 11,692.6\nUnits sold | 40"
+    assert traced("Net sales were $11.7 billion.", table, "Net sales | 11,692.6").passed
+    assert traced("It sold 40 million units.", table, "Units sold | 40").passed
+
+
+def test_the_scale_is_read_from_the_chunk_not_only_the_quote():
+    # The quote is one row, and the caption is elsewhere in the chunk.
+    assert "million" not in "Net sales | $ | 11,692.6"
+    assert traced("Net sales were $11.7 billion.", IN_MILLIONS, "Net sales | $ | 11,692.6").passed
+
+
+NO_SCALE = "CONSOLIDATED STATEMENTS OF INCOME\nNet sales | $ | 11,692.6"
+
+
+def test_a_table_with_no_scale_supports_what_it_displays():
+    assert traced("Net sales were $11,692.6.", NO_SCALE, "Net sales | $ | 11,692.6").passed
+
+
+def test_a_table_with_no_scale_cannot_confirm_a_scaled_figure():
+    result = traced("Net sales were $11,692.6 million.", NO_SCALE, "Net sales | $ | 11,692.6")
+    assert kinds(result) == [CitationFailureKind.UNKNOWN_SCALE]
+    assert "states no scale" in result.failures[0].detail
+
+
+def test_a_table_with_no_scale_does_not_back_a_scale_word_by_rounding():
+    # $11.7 thousand rounds to the displayed 11,692.6, but the table never said "thousand", and
+    # these figures are more likely in millions. The digits differ, so this is not a scale problem.
+    result = traced("Net sales were $11.7 thousand.", NO_SCALE, "Net sales | $ | 11,692.6")
+    assert kinds(result) == [CitationFailureKind.UNTRACED_FIGURE]
+
+
+def test_an_unknown_scale_only_applies_when_the_digits_are_in_the_table():
+    result = traced("Net sales were $99 million.", NO_SCALE, "Net sales | $ | 11,692.6")
+    assert kinds(result) == [CitationFailureKind.UNTRACED_FIGURE]
+
+
+EXCEPT_SHARES = (
+    "(In thousands, except share data)\nNet sales | $ | 5,000\nNet income per share | $ | 1.25"
+)
+
+
+def test_a_caption_exception_lets_a_share_row_keep_its_displayed_value():
+    quote = "Net income per share | $ | 1.25"
+    assert traced("Earnings were $1.25 per share.", EXCEPT_SHARES, quote).passed
+
+
+def test_a_caption_exception_does_not_excuse_other_rows():
+    # The quote is not about shares, so it still needs the scaled value.
+    quote = "Net sales | $ | 5,000"
+    assert traced("Net sales were $5 million.", EXCEPT_SHARES, quote).passed
+    result = traced("Net sales were $5,000.", EXCEPT_SHARES, quote)
+    assert kinds(result) == [CitationFailureKind.UNTRACED_FIGURE]
+
+
+def test_a_share_row_needs_the_scaled_value_without_an_exception():
+    table = "(In thousands)\nNet income per share | $ | 1.25"
+    result = traced("Earnings were $1.25 per share.", table, "Net income per share | $ | 1.25")
+    assert kinds(result) == [CitationFailureKind.UNTRACED_FIGURE]
+
+
+def test_a_table_stating_two_scales_supports_either():
+    table = "(Dollars in millions)\n(Units in thousands)\nCell | 5"
+    assert traced("It was $5 million.", table, "Cell | 5").passed
+    assert traced("It was $5 thousand.", table, "Cell | 5").passed
+    for text in ("It was $5 billion.", "It was $5."):
+        assert not traced(text, table, "Cell | 5").passed
+
+
+def test_only_a_stated_scale_counts():
+    # The parser's own rule: a long sentence that merely mentions millions states no scale.
+    sentence = (
+        "Our products reach millions of households across many countries, and this table "
+        "summarizes the amounts reported for the two most recent fiscal years for each of our "
+        "segments as presented below."
+    )
+    table = f"{sentence}\nNet sales | $ | 5,000"
+    assert traced("Net sales were $5,000.", table, "Net sales | $ | 5,000").passed
+
+
+def test_a_percentage_in_a_scaled_table_is_not_scaled():
+    table = "(In millions)\nMargin | 4.4 | %"
+    assert traced("Margin was 4.4%.", table, "Margin | 4.4 | %").passed
+
+
+def test_a_figure_with_its_own_scale_word_is_not_scaled_again():
+    table = "(In thousands)\nProgram | $50 million"
+    assert traced("The program is $50 million.", table, "Program | $50 million").passed
+
+
+def test_scale_does_not_apply_to_prose():
+    # A sentence says its figures in full, and "in millions" elsewhere does not govern them.
+    prose = "Amounts are presented in millions. The fee was $5 per unit."
+    assert traced("The fee was $5.", prose, "The fee was $5 per unit.").passed
+    assert not traced("The fee was $5 million.", prose, "The fee was $5 per unit.").passed
+
+
+@pytest.mark.parametrize(
+    ("text", "quote", "passes"),
+    [
+        # The same value written differently.
+        ("It was $1.2 billion.", "It rose to $1,200 million", True),
+        ("It was $1,200 million.", "It rose to $1.2 billion", True),
+        ("It was a $5-million charge.", "a $5 million charge", True),
+        ("It grew 5 percent.", "grew 5%", True),
+        ("It grew 5-percent.", "grew 5%", True),
+        ("It fell 2 percentage points.", "fell 200 basis points", True),
+        # A claim may round its source.
+        ("It was $12 billion.", "It rose to $11.7 billion", True),
+        # But not be more precise than its source.
+        ("It was $11,692.6 million.", "It rose to $11.7 billion", False),
+        # The kinds must match.
+        ("It was €40 million.", "It was $40 million", False),
+        ("It grew 5%.", "grew 5 percentage points", False),
+        ("It sold 40 million units.", "It paid $40 million", False),
+    ],
+)
+def test_figures_are_compared_by_value(text, quote, passes):
+    prose = f"{quote} in the year."
+    assert traced(text, prose, quote).passed is passes
