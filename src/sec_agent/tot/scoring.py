@@ -1,0 +1,174 @@
+"""Turns a branch's criteria into its score. Plain code: the same inputs always give the same score.
+
+The critic and the metric checker supply the criteria, and nothing here calls a model. The rubric
+is in the ToT design and its numbers are in config/scoring.yaml.
+
+Numerical consistency has three states (gap 1). Not applicable removes the criterion and rescales
+the rest, because the design as first written had a bug: a text-only explanation, such as a new
+risk factor, scored at most 0.25 at depth 1, below the 0.30 threshold, so all of them were pruned.
+"""
+
+from __future__ import annotations
+
+from enum import StrEnum
+from pathlib import Path
+from typing import Self
+
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from sec_agent.config import REPO_ROOT
+from sec_agent.schemas import NumericCheck
+
+SCORING_CONFIG_PATH = REPO_ROOT / "config" / "scoring.yaml"
+
+
+class EvidenceSupport(StrEnum):
+    """How far retrieved passages support a claim. The controller's tie rule ranks by this too."""
+
+    STATES_CAUSE = "states_cause"
+    IMPLIES = "implies"
+    CONSISTENT = "consistent"
+    NONE = "none"
+
+
+class Contradiction(StrEnum):
+    """Whether a retrieved passage conflicts with a claim."""
+
+    NONE = "none"
+    POSSIBLE = "possible"
+    DIRECT = "direct"
+
+
+class Specificity(StrEnum):
+    """Whether a claim is testable and names the evidence that would support it."""
+
+    SPECIFIC = "specific"
+    PARTIAL = "partial"
+    VAGUE = "vague"
+
+
+class Weights(BaseModel):
+    """One set of criterion weights. They sum to 1 before any rescaling."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    evidence_support: float = Field(ge=0)
+    numerical_consistency: float = Field(ge=0)
+    no_contradiction: float = Field(ge=0)
+    specificity: float = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _sums_to_one(self) -> Self:
+        total = sum(self.model_dump().values())
+        # The tolerance only absorbs floating point error in the sum.
+        if abs(total - 1.0) > 1e-9:
+            raise ValueError(f"weights must sum to 1, not {total}")
+        return self
+
+
+class ScoringConfig(BaseModel):
+    """config/scoring.yaml. A level left out is an error, so no level silently scores nothing."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    threshold: float = Field(ge=0, le=1)
+    rubric: Weights
+    prescreen: Weights
+    evidence_support: dict[EvidenceSupport, float]
+    no_contradiction: dict[Contradiction, float]
+    specificity: dict[Specificity, float]
+
+    @model_validator(mode="after")
+    def _every_level_has_a_value(self) -> Self:
+        for levels, kind in (
+            (self.evidence_support, EvidenceSupport),
+            (self.no_contradiction, Contradiction),
+            (self.specificity, Specificity),
+        ):
+            if set(levels) != set(kind):
+                raise ValueError(f"{kind.__name__} needs a value for every level")
+            if not all(0 <= value <= 1 for value in levels.values()):
+                raise ValueError(f"{kind.__name__} values must be between 0 and 1")
+        return self
+
+    @classmethod
+    def load(cls, path: Path = SCORING_CONFIG_PATH) -> ScoringConfig:
+        return cls.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+
+
+def _numeric_value(check: NumericCheck) -> float | None:
+    """A check's value on the rubric. Not applicable is None, which removes the criterion."""
+    return {NumericCheck.AGREE: 1.0, NumericCheck.CONTRADICT: 0.0}.get(check)
+
+
+def _weighted(values: dict[str, float | None], weights: Weights) -> float:
+    """The weighted mean of the criteria that apply, so their weights rescale to sum to 1."""
+    weight_of = weights.model_dump()
+    applicable = {name: value for name, value in values.items() if value is not None}
+    total = sum(weight_of[name] for name in applicable)
+    score = sum(weight_of[name] * value for name, value in applicable.items()) / total
+    # Floating point error can land just above 1, and `TreeNode.score` refuses that.
+    return min(score, 1.0)
+
+
+def prescreen_score(check: NumericCheck, specificity: Specificity, config: ScoringConfig) -> float:
+    """A depth 1 candidate's score: numerical consistency and specificity only.
+
+    With numerical consistency not applicable, specificity is all that remains, so its weight
+    rescales from 0.25 to 1. This is the text-only case.
+    """
+    return _weighted(
+        {
+            "numerical_consistency": _numeric_value(check),
+            "specificity": config.specificity[specificity],
+        },
+        config.prescreen,
+    )
+
+
+def branch_score(
+    check: NumericCheck,
+    evidence: EvidenceSupport,
+    contradiction: Contradiction,
+    specificity: Specificity,
+    config: ScoringConfig,
+) -> float:
+    """A depth 2 evidence branch's score on the full rubric."""
+    return _weighted(
+        {
+            "evidence_support": config.evidence_support[evidence],
+            "numerical_consistency": _numeric_value(check),
+            "no_contradiction": config.no_contradiction[contradiction],
+            "specificity": config.specificity[specificity],
+        },
+        config.rubric,
+    )
+
+
+def prune_reason(
+    score: float,
+    check: NumericCheck,
+    config: ScoringConfig,
+    *,
+    only_wrong_period: bool = False,
+    rating_withdrawn: bool = False,
+) -> str | None:
+    """Why a scored branch must be pruned, or None if it may stay.
+
+    The hard gates come first and apply regardless of score. `only_wrong_period` means dropping
+    the branch's wrong-period citations left it with no evidence. This softens the ToT design,
+    which prunes on any wrong-period citation, so one careless pick cannot cost a good branch (the
+    user's decision, 2026-11-06). `rating_withdrawn` means quotes were dropped and the critic found
+    the verified ones left do not support the claim. What is kept in the beam, ties and the retry
+    for missing evidence are the controller's (T4.4).
+    """
+    if only_wrong_period:
+        return "hard gate: its only cited evidence is from the wrong period"
+    if rating_withdrawn:
+        return "no evidence: the quotes left after dropping failed ones do not support the claim"
+    if check is NumericCheck.CONTRADICT:
+        return "hard gate: computed metrics contradict the claim"
+    if score < config.threshold:
+        return f"score {score:.2f} is below the {config.threshold:.2f} threshold"
+    return None
