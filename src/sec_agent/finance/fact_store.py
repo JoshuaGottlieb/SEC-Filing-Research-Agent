@@ -17,6 +17,7 @@ is a hint: it's the last label-only row above, which isn't always a real groupin
 from __future__ import annotations
 
 import re
+from bisect import bisect_left, bisect_right
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date
@@ -106,6 +107,11 @@ CREATE OR REPLACE VIEW facts AS
            value, unit, raw_text, section, heading, context
     FROM table_facts WHERE xbrl_fact_id IS NULL AND NOT ambiguous;
 """
+
+# What marks a stored XBRL unit as plain US dollars. The stored unit is the label a filer chose,
+# not a standard name: the store holds usd, USD, U_USD and Unit_Standard_USD_<random>. Anchoring
+# keeps out usdPerShare, USDPShares and Unit_Divide_USD_shares_<random>, which also contain "USD".
+USD_UNIT_PATTERN = r"^(u_)?usd$|^unit_standard_usd_"
 
 # The columns of the `facts` view, in the order FactRow reads them.
 SEARCH_COLUMNS = (
@@ -334,10 +340,22 @@ def mark_ambiguous(rows: list[dict]) -> set[int]:
 class FactStore:
     """The DuckDB file holding facts. Use as a context manager so the file is closed."""
 
-    def __init__(self, path: Path) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = duckdb.connect(path)
-        self._db.execute(SCHEMA)
+    def __init__(self, path: Path, *, read_only: bool = False) -> None:
+        """Open the store, read-only if asked.
+
+        Several processes can hold the file read-only at once, but while any does, nothing can
+        write to it, and while one holds it read-write, nothing else can open it. One process can't
+        hold it both ways, so everything in a process must share one store. A read-only store
+        applies no schema, so it reads the file as the last writer left it.
+        """
+        if read_only:
+            self._db = duckdb.connect(path, read_only=True)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._db = duckdb.connect(path)
+            self._db.execute(SCHEMA)
+        # Each filing's dollar facts for find_usd_fact, as parallel lists sorted by magnitude.
+        self._usd_facts: dict[str, tuple[list[float], list[str]]] = {}
 
     def __enter__(self) -> FactStore:
         return self
@@ -364,6 +382,7 @@ class FactStore:
         """Take out a filing that stopped passing, because rules can tighten after it loaded."""
         for name in FILING_TABLES:
             self._db.execute(f"DELETE FROM {name} WHERE accession = ?", [accession])
+        self._usd_facts.pop(accession, None)
 
     def _insert(self, table: str, rows: list[dict]) -> None:
         if not rows:
@@ -481,6 +500,7 @@ class FactStore:
         except Exception:
             self._db.execute("ROLLBACK")
             raise
+        self._usd_facts.pop(filing.accession, None)
         return LoadSummary(
             xbrl_facts=len(xbrl),
             table_facts=len(fact_rows),
@@ -543,6 +563,30 @@ class FactStore:
         )
         names = [column[0] for column in cursor.description]
         return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
+
+    def find_usd_fact(self, accession: str, value: float, tolerance: float) -> str | None:
+        """A tagged dollar fact of this magnitude in one filing, or None. See `FactLookup`.
+
+        Of several matches it returns the nearest, then the lowest id, so a figure always traces
+        to the same fact. Segment values count. Table facts don't, as they would let a table
+        confirm itself. A caller makes many of these calls per citation, so a filing's facts are
+        read once and then searched in memory.
+        """
+        if accession not in self._usd_facts:
+            rows = self._db.execute(
+                "SELECT abs(value) AS magnitude, fact_id FROM xbrl_facts "
+                "WHERE accession = ? AND regexp_matches(unit, ?, 'i') ORDER BY magnitude, fact_id",
+                [accession, USD_UNIT_PATTERN],
+            ).fetchall()
+            self._usd_facts[accession] = ([row[0] for row in rows], [row[1] for row in rows])
+        magnitudes, fact_ids = self._usd_facts[accession]
+        target = abs(value)
+        start = bisect_left(magnitudes, target - tolerance)
+        stop = bisect_right(magnitudes, target + tolerance)
+        if start >= stop:
+            return None
+        nearest = min(range(start, stop), key=lambda i: (abs(magnitudes[i] - target), fact_ids[i]))
+        return fact_ids[nearest]
 
     def replace_chunks(self, accession: str, chunks: Sequence[SourcedChunk]) -> None:
         """Swap in a filing's chunks, so re-chunking can't duplicate or orphan any."""
