@@ -21,7 +21,7 @@ from enum import StrEnum
 from itertools import combinations
 from typing import NamedTuple
 
-from sec_agent.contracts import ChunkLookup, MetricLookup
+from sec_agent.contracts import ChunkLookup, FactLookup, MetricLookup
 from sec_agent.ingest.table_facts import SCALE_CAPTION, SCALE_FILLER, _scale_caption
 from sec_agent.schemas import (
     Chunk,
@@ -228,7 +228,8 @@ class CitationFailureKind(StrEnum):
     UNTRACED_FIGURE = "untraced_figure"
     # The claim cites metrics, and its figure matches neither them nor a cited quote.
     FIGURE_MISMATCH = "figure_mismatch"
-    # The figure's digits are in a cited table, but the table states no scale to confirm it.
+    # The figure's digits are in a cited table, but neither the table nor the filing's tagged facts
+    # confirm its scale.
     UNKNOWN_SCALE = "unknown_scale"
 
 
@@ -250,6 +251,9 @@ class CitationCheckResult(Record):
 
     claim_id: str
     failures: tuple[CitationFailure, ...] = ()
+    # The tagged facts that confirmed a scale for a cited table's numbers, for the audit trail. They
+    # support the scale only: `FactLookup` ignores period, so one can be a prior-year comparative.
+    scale_fact_ids: tuple[str, ...] = ()
 
     @property
     def passed(self) -> bool:
@@ -473,8 +477,111 @@ def _table_scales(text: str) -> _TableScales:
     return _TableScales(table, column, shares, has_exception)
 
 
-def _quote_figures(quote: str, chunk: Chunk) -> tuple[list[_Figure], list[_Figure]]:
-    """What a verified quote supports, and any figures from a table with no scale for them.
+# The scales a number can be confirmed at, in dollars. 1 is a table reported in whole dollars.
+_CANDIDATE_SCALES = (1.0, 1e3, 1e6, 1e9)
+# Below this a number is left as displayed. Such amounts are usually per share, so scaling them
+# would be wrong, and small values match a tagged fact by chance. Every measurement of this check
+# used this cutoff. Chosen by hand.
+_MIN_SCALABLE_NUMBER = 10.0
+# How many of a chunk's dollar cells must confirm one scale before it applies to the cells with no
+# fact of their own. Chosen by hand. On the 633 pinned chunks with a caption to check against, this
+# answered 524, all matching the caption, and declined 109.
+_MIN_VOTES = 2
+_MIN_VOTE_SHARE = 0.5
+# A dollar cell as the chunker writes it, or with the symbol inside the cell.
+_DOLLAR_CELL = re.compile(r"\$(?: \| )?\(?(\d(?:[\d,]*\d)?(?:\.\d+)?)\)?")
+
+
+def _confirmed_scales(
+    accession: str, number: float, step: float, facts: FactLookup
+) -> dict[float, str]:
+    """The scales at which a displayed number is a dollar fact the filing tagged, with its id."""
+    found: dict[float, str] = {}
+    for scale in _CANDIDATE_SCALES:
+        fact_id = facts.find_usd_fact(accession, number * scale, step * scale)
+        if fact_id is not None:
+            found[scale] = fact_id
+    return found
+
+
+def _voted_scale(chunk: Chunk, facts: FactLookup) -> float | None:
+    """The one scale most of a chunk's dollar cells confirm, or None if they do not agree on one.
+
+    A single coincidental fact should not set a table's scale: a wrong scale finds a fact for about
+    2% of figures, so this needs several cells and a share of them.
+    """
+    cells = set()
+    for match in _DOLLAR_CELL.finditer(chunk.text):
+        digits = match[1].replace(",", "")
+        number = float(digits)
+        if number >= _MIN_SCALABLE_NUMBER:
+            cells.add((number, 0.5 * 10 ** -len(digits.partition(".")[2])))
+    votes: dict[float, int] = dict.fromkeys(_CANDIDATE_SCALES, 0)
+    for number, step in cells:
+        for scale in _confirmed_scales(chunk.accession, number, step, facts):
+            votes[scale] += 1
+    ranked = sorted(votes.items(), key=lambda vote: vote[1], reverse=True)
+    best, top = ranked[0]
+    if top < _MIN_VOTES or top / len(cells) < _MIN_VOTE_SHARE or ranked[1][1] == top:
+        return None
+    return best
+
+
+class _QuoteEvidence(NamedTuple):
+    # What the quote supports, at the values it supports them.
+    figures: list[_Figure]
+    # Numbers from a table with no scale for them, which back only a claim with no scale word.
+    unscaled: list[_Figure]
+    scale_fact_ids: list[str]
+
+
+def _unscaled_table_figures(
+    quote: str, chunk: Chunk, scales: _TableScales, facts: FactLookup
+) -> _QuoteEvidence:
+    """Read a quote from a table with no stated scale for its dollars, using the tagged facts.
+
+    This never overrides a caption, because it only runs when no caption applies. The chunk's vote
+    wins when it gives an answer, because it rests on many cells: one number's own fact can match
+    by coincidence at the wrong scale, as small numbers such as 741 did in 14 of 969 real figures
+    until this order was used. A quote about shares also keeps the value as displayed under a vote,
+    because a price or a per-share amount in a table of thousands is not itself in thousands.
+    With no vote, a number is read at the scale of its own tagged fact. One nothing confirms stays
+    unscaled.
+    """
+    evidence = _QuoteEvidence([], [], [])
+    voted = _voted_scale(chunk, facts)
+    for figure in _parse_figures(quote, bare=True):
+        if figure.word_scale != 1.0 or figure.kind in (_FigureKind.PERCENT, _FigureKind.POINTS):
+            evidence.figures.append(figure)
+            continue
+        if figure.kind is _FigureKind.BARE:
+            evidence.figures.extend(
+                figure._replace(kind=_FigureKind.COUNT, value=figure.value * scale)
+                for scale in scales.shares
+            )
+        # `FactLookup` is dollars only, so a figure in another currency has nothing to confirm it.
+        if figure.value < _MIN_SCALABLE_NUMBER or figure.currency not in ("$", None):
+            evidence.unscaled.append(figure)
+            continue
+        confirmed = _confirmed_scales(chunk.accession, figure.value, figure.tolerance, facts)
+        if voted is not None:
+            if voted in confirmed:
+                evidence.scale_fact_ids.append(confirmed[voted])
+            if _ABOUT_SHARES.search(quote):
+                evidence.figures.append(figure)
+            evidence.figures.append(figure._replace(value=figure.value * voted))
+        elif confirmed:
+            evidence.scale_fact_ids.extend(confirmed.values())
+            evidence.figures.extend(
+                figure._replace(value=figure.value * scale) for scale in confirmed
+            )
+        else:
+            evidence.unscaled.append(figure)
+    return evidence
+
+
+def _quote_figures(quote: str, chunk: Chunk, facts: FactLookup) -> _QuoteEvidence:
+    """What a verified quote supports.
 
     Scale only applies to a table's own unscaled numbers. A prose chunk says "$5 million" in full,
     and its "(in millions)" would not govern its other sentences.
@@ -488,39 +595,37 @@ def _quote_figures(quote: str, chunk: Chunk) -> tuple[list[_Figure], list[_Figur
     the chunk does not say which column the number sits in: a repurchase table's "$98.50" price sits
     beside a dollar value in millions. A share scale only reads a symbol-less number as a count.
 
-    A table with no scale for its figures supports only what it displays, so those numbers come
-    back separately: they back a claim with no scale word, and a claim that adds one asserts what
-    the table does not state, so it fails with `UNKNOWN_SCALE` instead of looking invented.
+    With no scale for a table's dollars, the filing's tagged facts decide (see
+    `_unscaled_table_figures`). A number they do not confirm supports only what it displays, so a
+    claim that adds a scale word asserts what nothing states, and fails with `UNKNOWN_SCALE`.
     """
     # The chunker joins a table's cells with this. Prose does not contain it.
     if " | " not in chunk.text:
-        return list(_parse_figures(quote)), []
+        return _QuoteEvidence(list(_parse_figures(quote)), [], [])
     scales = _table_scales(chunk.text)
-    figures: list[_Figure] = []
-    unscaled: list[_Figure] = []
+    if not scales.table and not scales.column:
+        return _unscaled_table_figures(quote, chunk, scales, facts)
+    evidence = _QuoteEvidence([], [], [])
     for figure in _parse_figures(quote, bare=True):
         if figure.word_scale != 1.0 or figure.kind in (_FigureKind.PERCENT, _FigureKind.POINTS):
-            figures.append(figure)
+            evidence.figures.append(figure)
             continue
         if figure.kind is _FigureKind.BARE:
-            figures += [
+            evidence.figures.extend(
                 figure._replace(kind=_FigureKind.COUNT, value=figure.value * scale)
                 for scale in scales.shares
-            ]
-        if not scales.table and not scales.column:
-            unscaled.append(figure)
-            continue
+            )
         if not scales.table or (scales.has_exception and _ABOUT_SHARES.search(quote)):
-            figures.append(figure)
-        figures += [
+            evidence.figures.append(figure)
+        evidence.figures.extend(
             figure._replace(value=figure.value * scale) for scale in scales.table | scales.column
-        ]
-    return figures, unscaled
+        )
+    return evidence
 
 
 def _check_figures(
-    claim: Claim, chunks: ChunkLookup, metrics: Collection[MetricValue]
-) -> list[CitationFailure]:
+    claim: Claim, chunks: ChunkLookup, metrics: Collection[MetricValue], facts: FactLookup
+) -> tuple[list[CitationFailure], list[str]]:
     """Require each figure in the claim's text to match a cited metric or a verified quote.
 
     Each figure is judged on its own, so one good metric does not excuse a wrong number beside it.
@@ -531,17 +636,19 @@ def _check_figures(
         figure.text: figure for figure in _parse_figures(_normalize_quote(claim.text))
     }.values()
     if not figures:
-        return []
+        return [], []
     computed = _computed_figures(metrics)
     evidence: list[_Figure] = list(computed)
     unscaled: list[_Figure] = []
+    fact_ids: list[str] = []
     for citation in claim.citations:
         chunk = chunks.get_chunk(citation.chunk_id)
         quote = _normalize_quote(citation.quote)
         if chunk is not None and _appears_in(quote, _normalize_quote(chunk.text)):
-            supported, from_unscaled_table = _quote_figures(quote, chunk)
-            evidence += supported
-            unscaled += from_unscaled_table
+            found = _quote_figures(quote, chunk, facts)
+            evidence += found.figures
+            unscaled += found.unscaled
+            fact_ids += found.scale_fact_ids
 
     failures: list[CitationFailure] = []
     for figure in figures:
@@ -566,7 +673,7 @@ def _check_figures(
             kind = CitationFailureKind.UNTRACED_FIGURE
             detail = f"no metric or cited quote backs the figure {figure.text!r}"
         failures.append(CitationFailure(kind=kind, detail=detail))
-    return failures
+    return failures, fact_ids
 
 
 def check_citations(
@@ -574,6 +681,7 @@ def check_citations(
     claim_periods: Collection[FiscalPeriod],
     chunks: ChunkLookup,
     metrics: MetricLookup,
+    facts: FactLookup,
 ) -> CitationCheckResult:
     """Check a claim's citations and figures, and report everything that is wrong.
 
@@ -611,5 +719,10 @@ def check_citations(
             )
         else:
             resolved.append(metric)
-    failures += _check_figures(claim, chunks, resolved)
-    return CitationCheckResult(claim_id=claim.claim_id, failures=tuple(failures))
+    figure_failures, fact_ids = _check_figures(claim, chunks, resolved, facts)
+    failures += figure_failures
+    return CitationCheckResult(
+        claim_id=claim.claim_id,
+        failures=tuple(failures),
+        scale_fact_ids=tuple(dict.fromkeys(fact_ids)),
+    )
