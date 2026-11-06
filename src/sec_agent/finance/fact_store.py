@@ -44,7 +44,7 @@ from sec_agent.ingest.tables import parse_html_tree
 from sec_agent.schemas import Chunk, FiscalPeriod, FormType, Section
 
 # Bump when table parsing or fact loading changes, so that stored facts are rebuilt.
-FACTS_VERSION = 6
+FACTS_VERSION = 7
 # The XBRL breakdown that separates one business segment's figures from the company total.
 SEGMENT_AXIS = "us-gaap:StatementBusinessSegmentsAxis"
 # Below this many significant digits, two equal numbers are likely to be a coincidence.
@@ -82,8 +82,9 @@ CREATE TABLE IF NOT EXISTS unparsed_tables (
     table_id VARCHAR PRIMARY KEY, ticker VARCHAR NOT NULL, accession VARCHAR NOT NULL,
     form VARCHAR NOT NULL, fiscal_year INTEGER NOT NULL, fiscal_period VARCHAR NOT NULL,
     section VARCHAR, table_index INTEGER NOT NULL, title VARCHAR, reasons VARCHAR NOT NULL,
-    text VARCHAR NOT NULL
+    text VARCHAR NOT NULL, scale_caption VARCHAR
 );
+ALTER TABLE unparsed_tables ADD COLUMN IF NOT EXISTS scale_caption VARCHAR;
 CREATE TABLE IF NOT EXISTS chunks (
     chunk_id VARCHAR PRIMARY KEY, paragraph_id VARCHAR NOT NULL, paragraph_ids VARCHAR[] NOT NULL,
     ticker VARCHAR NOT NULL, cik VARCHAR NOT NULL, accession VARCHAR NOT NULL,
@@ -460,6 +461,8 @@ class FactStore:
                     "title": table.title,
                     "reasons": "; ".join(reasons),
                     "text": table.as_text,
+                    # One statement per line. NULL when the table states no scale.
+                    "scale_caption": "\n".join(table.scale_captions) or None,
                 }
             )
 
@@ -534,7 +537,7 @@ class FactStore:
         parameters = [accession] if accession else []
         cursor = self._db.execute(
             "SELECT table_id, ticker, accession, form, fiscal_year, fiscal_period, section, "
-            f"table_index, title, reasons, text FROM unparsed_tables {where} "
+            f"table_index, title, reasons, text, scale_caption FROM unparsed_tables {where} "
             "ORDER BY accession, table_index",
             parameters,
         )

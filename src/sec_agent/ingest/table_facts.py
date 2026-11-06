@@ -66,6 +66,7 @@ SCALE_AT_END = re.compile(
     r"[^.]{0,40}\)?\s*:?\s*$",
     re.I,
 )
+SENTENCE_END = (".", "!", "?")
 # What a header can say around shorthand and still mean the whole table. "Shares (000s)" scales
 # one column, so it says nothing about the table's dollars.
 SCALE_FILLER = frozenset({"amount", "amounts", "dollar", "dollars", "in", "of", "omitted", "usd"})
@@ -247,6 +248,10 @@ class ParsedTable(BaseModel):
     preceding: tuple[str, ...] = ()
     # Rows with figures that yielded no fact, such as opening balances.
     skipped_rows: int = 0
+    # The filing's own words stating the table's scale, for the chunker: a figure read as text
+    # means nothing without them. Empty when none was found, because a scale is never guessed.
+    # A table stating two scales keeps every statement, since neither one governs the table.
+    scale_captions: tuple[str, ...] = ()
 
     @property
     def needs_text_chunk(self) -> bool:
@@ -524,15 +529,15 @@ def _scale_caption(texts: list[str]) -> tuple[float | None, str]:
     return None, ""
 
 
-def _stated_scales(grid: list[list[_Cell]]) -> set[float]:
-    """Every scale a table's cells state. Only the first counts in any one cell, because
-    "(In millions, except shares, which are in thousands)" is still a table in millions."""
-    found = set()
+def _stated_scale_cells(grid: list[list[_Cell]]) -> list[tuple[float, str]]:
+    """Every cell stating a scale, with that scale. Only the first counts in any one cell,
+    because "(In millions, except shares, which are in thousands)" is still a table in millions."""
+    found = []
     for row in grid:
         for cell in row:
             match = SCALE_CAPTION.search(cell.text)
             if match and not _is_value(cell.text):
-                found.add(_scale_of(match))
+                found.append((_scale_of(match), cell.text))
     return found
 
 
@@ -580,22 +585,31 @@ def parse_table(
             rows=rows,
             preceding=tuple(preceding),
             skipped_rows=len(skipped),
+            scale_captions=captions,
         )
+
+    # With no rows of figures, every row counts as header.
+    header_rows = grid[:first_data]
+    # Where a scale can be stated: a one-cell row anywhere, the header, or the text before the
+    # table (nearest first). This runs before the early returns below, because the tables they
+    # send to text are the ones whose caption the chunker needs.
+    caption_texts = [cell.text for row in grid for cell in row if len(row) == 1]
+    caption_texts += [cell.text for row in header_rows for cell in row]
+    scale, scale_text = _scale_caption(caption_texts + list(reversed(preceding)))
+    stated_cells = _stated_scale_cells(grid)
+    stated = {cell_scale for cell_scale, _ in stated_cells}
+    # Text that ends like a sentence may only mention a scale ("we sold millions of units."), and
+    # the chunker's caption is what a reader trusts for the scale, so it isn't recorded as one.
+    captions = (scale_text,) if scale_text and not scale_text.endswith(SENTENCE_END) else ()
+    if len(stated) > 1:
+        captions = tuple(dict.fromkeys((*captions, *(text for _, text in stated_cells))))
 
     if first_data is None:
         reasons.append("no rows of figures")
         return result()
-    header_rows = grid[:first_data]
     if not header_rows:
         reasons.append("no header rows")
         return result()
-
-    # Where a scale can be stated: a one-cell row anywhere, the header, or the text before the
-    # table (nearest first).
-    caption_texts = [cell.text for row in grid for cell in row if len(row) == 1]
-    caption_texts += [cell.text for row in header_rows for cell in row]
-    scale, scale_text = _scale_caption(caption_texts + list(reversed(preceding)))
-    stated = _stated_scales(grid)
     if len(stated) > 1:
         reasons.append("more than one scale in the table")
         return result()

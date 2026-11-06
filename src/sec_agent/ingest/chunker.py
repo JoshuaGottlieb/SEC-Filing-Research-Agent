@@ -4,7 +4,8 @@ A chunk joins whole paragraphs where it can. A paragraph too large to fit is spl
 boundaries, and a single sentence too large to fit is cut at the token limit. Consecutive chunks
 overlap so a passage cut at a boundary can still be found whole. Each section is chunked on its
 own, so a chunk never straddles two Items. Tables that did not parse cleanly become chunks too,
-so every figure can be reached either as a fact or as text.
+so every figure can be reached either as a fact or as text, and each part of such a table states
+the scale the filing gives for it.
 
 Every section with text is chunked, including a 10-Q's "no material changes" or cross-reference
 statement: those are real answers a search should be able to cite. Change detection does not
@@ -264,19 +265,32 @@ def _table_section(table: Mapping[str, object]) -> Section:
     return Section.MDNA if MDNA_TABLE_MARKER in str(table["text"]).lower() else Section.OTHER
 
 
-def _split_table(text: str, has_title: bool, count: TokenCounter) -> list[str]:
-    """A table's text in parts within the limit, split between rows, each with its header."""
-    if count(text) <= MAX_TOKENS:
-        return [text]
+def _split_table(
+    text: str, has_title: bool, captions: Sequence[str], count: TokenCounter
+) -> list[str]:
+    """A table's text in parts within the limit, split between rows.
+
+    Every part states the table's scale, and repeats its title and column labels when they fit.
+    A caption found outside the table's rows is added, in the filing's own words, after the title.
+    """
     lines = text.split("\n")
+    title_lines = 1 if has_title else 0
+    missing = [caption for caption in captions if caption not in text]
+    whole = "\n".join([*lines[:title_lines], *missing, *lines[title_lines:]])
+    if count(whole) <= MAX_TOKENS:
+        return [whole]
+
     # The first line is the title when there is one, and the next line the column labels.
-    header = lines[: 2 if has_title else 1]
+    header = lines[: title_lines + 1]
     if count("\n".join(header)) > TABLE_HEADER_MAX_TOKENS:
-        header = lines[:1] if has_title else []
+        header = lines[:title_lines]
     if count("\n".join(header)) > TABLE_HEADER_MAX_TOKENS:
         header = []
-    header_tokens = count("\n".join(header)) if header else 0
-    budget = MAX_TOKENS - header_tokens
+    title = header[:title_lines]
+    labels = header[title_lines:]
+    # Captions are kept apart from that header, so one is never dropped along with a long header.
+    repeated = [caption for caption in captions if caption not in "\n".join(header)]
+    budget = MAX_TOKENS - (count("\n".join([*header, *repeated])) if header or repeated else 0)
 
     # A row too long for a chunk of its own is cut at the limit, the last resort.
     rows: deque[str] = deque(lines[len(header) :])
@@ -303,7 +317,14 @@ def _split_table(text: str, has_title: bool, count: TokenCounter) -> list[str]:
         used += tokens
     if len(current) > overlap:
         parts.append(current)
-    return ["\n".join([*header, *part]) for part in parts]
+
+    def render(part: list[str]) -> str:
+        # A caption already among this part's rows needn't appear twice.
+        rows_text = "\n".join(part)
+        needed = [caption for caption in repeated if caption not in rows_text]
+        return "\n".join([*title, *needed, *labels, *part])
+
+    return [render(part) for part in parts]
 
 
 def chunk_table(
@@ -312,7 +333,9 @@ def chunk_table(
     """Chunk one unparsed table. Its table id stands in for the parent paragraph id."""
     table_id = str(table["table_id"])
     section = _table_section(table)
-    parts = _split_table(str(table["text"]), bool(table["title"]), count)
+    caption = table["scale_caption"]
+    captions = str(caption).split("\n") if caption else []
+    parts = _split_table(str(table["text"]), bool(table["title"]), captions, count)
     return [
         SourcedChunk(
             chunk=_chunk_record(filing, section, f"{table_id}:{n}", table_id, part, count(part)),
