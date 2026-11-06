@@ -91,6 +91,16 @@ class ChunkFilter(BaseModel):
             raise ValueError("a search must be limited by at least one field")
         return self
 
+    def matches(self, chunk: Chunk) -> bool:
+        """Whether a chunk passes. Keyword search uses this, so it sees what dense search sees."""
+        return (
+            self.ticker in (None, chunk.ticker)
+            and self.form in (None, chunk.form)
+            and self.period in (None, chunk.period.label)
+            and self.section in (None, chunk.section)
+            and self.accession in (None, chunk.accession)
+        )
+
     def to_where(self) -> dict:
         """The filter in Chroma's form, which needs $and only for two or more conditions."""
         conditions = [{key: value} for key, value in self.model_dump(mode="json").items() if value]
