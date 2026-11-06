@@ -20,7 +20,14 @@ from pathlib import Path
 
 from pydantic import Field, ValidationError
 
-from sec_agent.schemas import NodeStatus, NumericCheck, Record, TreeNode
+from sec_agent.schemas import (
+    Citation,
+    EvidenceSupport,
+    NodeStatus,
+    NumericCheck,
+    Record,
+    TreeNode,
+)
 
 
 class TreeStoreError(RuntimeError):
@@ -41,6 +48,8 @@ class NodeUpdate(Record):
     prune_reason: str | None = None
     retrieved_chunk_ids: tuple[str, ...] | None = None
     best_passage_score: float | None = None
+    evidence: EvidenceSupport | None = None
+    citations: tuple[Citation, ...] | None = None
     metric_ids: tuple[str, ...] | None = None
     numeric_check: NumericCheck | None = None
 

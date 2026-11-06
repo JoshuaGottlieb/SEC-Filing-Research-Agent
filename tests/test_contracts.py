@@ -11,8 +11,11 @@ from sec_agent.schemas import (
     Change,
     ChangeKind,
     Chunk,
+    Citation,
     Comparison,
     Direction,
+    EvidenceSourceRef,
+    EvidenceSupport,
     FiscalPeriod,
     FormType,
     MetricCheckResult,
@@ -204,6 +207,87 @@ def test_tree_node_carries_expected_metrics_and_best_passage_score():
     loaded = TreeNode.model_validate(saved)
     assert loaded.expected_metrics == ()
     assert loaded.best_passage_score is None
+
+
+GROSS_MARGIN_DOWN = MetricExpectation(metric=MetricName.GROSS_MARGIN, direction=Direction.DOWN)
+
+
+def evidence_node(**fields) -> TreeNode:
+    return TreeNode(
+        **{
+            "node_id": "e1",
+            "run_id": "r1",
+            "change_id": "ch1",
+            "parent_id": "n1",
+            "depth": 2,
+            "thought": "Freight costs, per MD&A",
+            **fields,
+        }
+    )
+
+
+def test_tree_node_holds_what_a_resumed_run_needs():
+    citation = Citation(
+        chunk_id="c1",
+        accession="a1",
+        ticker="HSY",
+        form=FormType.FORM_10Q,
+        period=PERIOD,
+        section=Section.MDNA,
+        quote="Freight costs rose.",
+        url="https://example.com/a1",
+    )
+    node = evidence_node(
+        source=EvidenceSourceRef(section=Section.MDNA),
+        evidence=EvidenceSupport.STATES_CAUSE,
+        citations=(citation,),
+        best_passage_score=3.7,
+    )
+    assert TreeNode.model_validate_json(node.model_dump_json()) == node
+    # A tree saved before these fields existed must still load: no source, no evaluation, no
+    # quotes. `None` is "everywhere", so a search with no section is a source, not a missing one.
+    saved = node.model_dump(mode="json")
+    del saved["source"], saved["evidence"], saved["citations"]
+    loaded = TreeNode.model_validate(saved)
+    assert (loaded.source, loaded.evidence, loaded.citations) == (None, None, ())
+    everywhere = evidence_node(source=EvidenceSourceRef())
+    assert everywhere.source is not None and everywhere.source.section is None
+
+
+def test_a_metric_source_must_agree_with_the_nodes_expected_metrics():
+    source = EvidenceSourceRef(metric=GROSS_MARGIN_DOWN)
+    assert evidence_node(source=source, expected_metrics=(GROSS_MARGIN_DOWN,)).source == source
+    # Without the check a metric source and a search under a one-metric parent would be
+    # indistinguishable, which is why `source` exists.
+    with pytest.raises(ValidationError, match="that one metric"):
+        evidence_node(source=source)
+    other = MetricExpectation(metric=MetricName.COGS_RATIO, direction=Direction.UP)
+    with pytest.raises(ValidationError, match="that one metric"):
+        evidence_node(source=source, expected_metrics=(other,))
+
+
+def test_a_source_is_for_depth_two_nodes_and_is_a_search_or_a_metric_not_both():
+    with pytest.raises(ValidationError, match="only a depth 2 node"):
+        TreeNode(
+            node_id="n1",
+            run_id="r1",
+            change_id="ch1",
+            parent_id="n0",
+            depth=1,
+            thought="Input costs rose",
+            source=EvidenceSourceRef(section=Section.MDNA),
+        )
+    with pytest.raises(ValidationError, match="names no section"):
+        EvidenceSourceRef(section=Section.MDNA, metric=GROSS_MARGIN_DOWN)
+
+
+def test_evidence_support_is_ordered_strongest_first_as_the_tie_rule_reads_it():
+    assert list(EvidenceSupport) == [
+        EvidenceSupport.STATES_CAUSE,
+        EvidenceSupport.IMPLIES,
+        EvidenceSupport.CONSISTENT,
+        EvidenceSupport.NONE,
+    ]
 
 
 # Minimal stand-ins for the real implementations. They show the shape each lane builds and
