@@ -22,7 +22,7 @@ from itertools import combinations
 from typing import NamedTuple
 
 from sec_agent.contracts import ChunkLookup, MetricLookup
-from sec_agent.ingest.table_facts import _scale_caption
+from sec_agent.ingest.table_facts import SCALE_CAPTION, SCALE_FILLER, _scale_caption
 from sec_agent.schemas import (
     Chunk,
     Citation,
@@ -418,57 +418,103 @@ def _computed_figures(metrics: Iterable[MetricValue]) -> list[_Figure]:
     return figures
 
 
-_EXCEPT = re.compile(r"\bexcept\b", re.IGNORECASE)
+_EXCEPT = re.compile(r"\bexcept\b")
 _ABOUT_SHARES = re.compile(r"\bshares?\b")
+# A cell that names shares and no dollar quantity scales share counts only: "Denominator (shares in
+# thousands):" says nothing about the table's dollars, and it is in 7 tables in the pinned filings.
+# "Share-based" and "per share" are about dollars, so neither counts.
+_NAMES_SHARES = re.compile(r"(?<!per )\bshares?\b(?!-)")
+_NAMES_DOLLARS = re.compile(r"\$|\b(?:dollars?|value|amounts?|costs?|prices?)\b")
+# The parser's caption rule also refuses text ending like a sentence: "We sold millions of units."
+# only mentions a scale. `_scale_caption` accepts one that short, so it is refused here.
+_SENTENCE_END = (".", "!", "?")
 
 
-def _table_scales(text: str) -> tuple[set[float], bool]:
-    """The scales a table chunk states, and whether a caption stating one makes an exception.
+class _TableScales(NamedTuple):
+    """The scales a table chunk states, by how much of the table each one reaches."""
 
-    Uses the parser's own rule for what states a scale, cell by cell, so a long sentence that
-    merely mentions millions does not count and both lines of a two-scale table do.
+    # A caption or a row's first cell: these govern the table's figures.
+    table: set[float]
+    # A later cell naming something else, such as "Approximate Dollar Value (In millions)". It
+    # governs its column, and the chunk does not say which column a quoted number sits in.
+    column: set[float]
+    # A cell naming only shares. It governs share counts, never dollars.
+    shares: set[float]
+    # A whole-table caption makes an exception, as in "(In thousands, except share data)".
+    has_exception: bool
+
+
+def _table_scales(text: str) -> _TableScales:
+    """Read a table chunk's scales, cell by cell, using the parser's rule for what states one.
+
+    Each part of a caption before "except" is what it scales, so "(In thousands, except share data)"
+    is a whole-table scale and not a share scale.
     """
-    scales: set[float] = set()
+    table: set[float] = set()
+    column: set[float] = set()
+    shares: set[float] = set()
     has_exception = False
     for line in text.split("\n"):
-        for cell in line.split(" | "):
+        for position, cell in enumerate(line.split(" | ")):
             scale, _ = _scale_caption([cell])
-            if scale is not None:
-                scales.add(scale)
-                has_exception = has_exception or _EXCEPT.search(cell) is not None
-    return scales, has_exception
+            if scale is None or cell.rstrip().endswith(_SENTENCE_END):
+                continue
+            covered, *exception = _EXCEPT.split(cell.casefold(), maxsplit=1)
+            if _NAMES_SHARES.search(covered) and not _NAMES_DOLLARS.search(covered):
+                shares.add(scale)
+                continue
+            match = SCALE_CAPTION.search(covered)
+            around = covered[: match.start()] + " " + covered[match.end() :] if match else covered
+            if position > 0 and set(re.findall(r"[a-z]+", around)) - SCALE_FILLER:
+                column.add(scale)
+            else:
+                table.add(scale)
+                has_exception = has_exception or bool(exception)
+    return _TableScales(table, column, shares, has_exception)
 
 
 def _quote_figures(quote: str, chunk: Chunk) -> tuple[list[_Figure], list[_Figure]]:
-    """What a verified quote supports, and any figures from a table that states no scale.
+    """What a verified quote supports, and any figures from a table with no scale for them.
 
     Scale only applies to a table's own unscaled numbers. A prose chunk says "$5 million" in full,
     and its "(in millions)" would not govern its other sentences.
 
-    A table with a known scale requires the scaled value, so a bare "$11,692.6" fails against
-    11,692.6 in millions: that reads as about eleven thousand dollars. The exception is a caption
-    such as "(In thousands, except share data)", which does not cover per-share rows. There, a
-    quote about shares also supports the value as displayed. A table with two scales supports
-    either. A table with no stated scale supports only what it displays, so its numbers come back
-    separately: they back a claim with no scale word, and a claim that adds one asserts what the
-    table does not state, so it fails with `UNKNOWN_SCALE` instead of looking invented.
+    A table-wide scale is required, so a bare "$11,692.6" fails against 11,692.6 in millions: that
+    reads as about eleven thousand dollars. The exception is a caption such as "(In thousands,
+    except share data)", which does not cover per-share rows. There, a quote about shares also
+    supports the value as displayed. Two table-wide scales support either.
+
+    A column's scale also supports the value as displayed when no table-wide scale exists, because
+    the chunk does not say which column the number sits in: a repurchase table's "$98.50" price sits
+    beside a dollar value in millions. A share scale only reads a symbol-less number as a count.
+
+    A table with no scale for its figures supports only what it displays, so those numbers come
+    back separately: they back a claim with no scale word, and a claim that adds one asserts what
+    the table does not state, so it fails with `UNKNOWN_SCALE` instead of looking invented.
     """
     # The chunker joins a table's cells with this. Prose does not contain it.
     if " | " not in chunk.text:
         return list(_parse_figures(quote)), []
-    scales, has_exception = _table_scales(chunk.text)
+    scales = _table_scales(chunk.text)
     figures: list[_Figure] = []
     unscaled: list[_Figure] = []
     for figure in _parse_figures(quote, bare=True):
         if figure.word_scale != 1.0 or figure.kind in (_FigureKind.PERCENT, _FigureKind.POINTS):
             figures.append(figure)
             continue
-        if not scales:
+        if figure.kind is _FigureKind.BARE:
+            figures += [
+                figure._replace(kind=_FigureKind.COUNT, value=figure.value * scale)
+                for scale in scales.shares
+            ]
+        if not scales.table and not scales.column:
             unscaled.append(figure)
             continue
-        if has_exception and _ABOUT_SHARES.search(quote):
+        if not scales.table or (scales.has_exception and _ABOUT_SHARES.search(quote)):
             figures.append(figure)
-        figures += [figure._replace(value=figure.value * scale) for scale in scales]
+        figures += [
+            figure._replace(value=figure.value * scale) for scale in scales.table | scales.column
+        ]
     return figures, unscaled
 
 
