@@ -579,7 +579,7 @@ def test_the_shipped_config_names_every_line_item_the_catalog_reads():
 def real():
     settings = get_settings()
     corpus = Corpus.load(REPO_ROOT / "config" / "corpus.yaml")
-    with FactStore(settings.duckdb_path) as opened:
+    with FactStore(settings.duckdb_path, read_only=True) as opened:
         yield MetricCatalog(opened, corpus, MetricsConfig.load()), corpus
 
 

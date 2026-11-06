@@ -302,7 +302,7 @@ def test_a_query_is_embedded_with_the_instruction_and_a_passage_without(real_emb
 def test_the_real_index_matches_the_store_and_filters(real_embedder):
     settings = get_settings()
     with (
-        FactStore(settings.duckdb_path) as store,
+        FactStore(settings.duckdb_path, read_only=True) as store,
         ChunkIndex(settings.chroma_dir, real_embedder) as index,
     ):
         if index.count() == 0:
