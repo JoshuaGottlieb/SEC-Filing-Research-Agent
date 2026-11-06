@@ -132,6 +132,15 @@ class HybridSearcher:
             self._scopes[where] = (by_id, _KeywordIndex(chunks))
         return self._scopes[where]
 
+    def prepare(self, where: ChunkFilter) -> None:
+        """Read the filter's chunks now, so a later `search` for it never touches the store.
+
+        A DuckDB connection can't be used by two threads at once: tested concurrently, it either
+        raises or silently returns no rows. A search that moves to a worker thread therefore calls
+        this first, on the thread that owns the store, and the worker then reads only the index.
+        """
+        self._scope(where)
+
     def search(self, query: str, where: ChunkFilter, top_k: int) -> list[FusedCandidate]:
         """The best `top_k` chunks the filter allows, best first. Fewer if fewer match."""
         by_id, keywords = self._scope(where)

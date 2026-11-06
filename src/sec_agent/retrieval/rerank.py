@@ -48,6 +48,8 @@ SCORING_BATCH_SIZE = 16
 class CandidateSearcher(Protocol):
     """What the reranker needs from a search. `HybridSearcher` provides it."""
 
+    def prepare(self, where: ChunkFilter) -> None: ...
+
     def search(self, query: str, where: ChunkFilter, top_k: int) -> list[FusedCandidate]: ...
 
 
@@ -129,18 +131,29 @@ class Reranker:
         scored.sort(key=lambda passage: -passage.score)
         return tuple(scored[: self._keep])
 
+    @staticmethod
+    def _filters(
+        comparison: Comparison, section: Section | None
+    ) -> tuple[ChunkFilter, ChunkFilter]:
+        return (
+            ChunkFilter(accession=comparison.current.accession, section=section),
+            ChunkFilter(accession=comparison.prior.accession, section=section),
+        )
+
+    def prepare(self, comparison: Comparison, section: Section | None = None) -> None:
+        """Read what `search` will need from the store. See `HybridSearcher.prepare`."""
+        for where in self._filters(comparison, section):
+            self._searcher.prepare(where)
+
     def search(
         self, query: str, comparison: Comparison, section: Section | None = None
     ) -> RetrievalResult:
         """Search both filings of the comparison. An empty side means nothing passed the cutoff."""
         if not query.strip():
             raise ValueError("a search needs a query")
+        current_filter, prior_filter = self._filters(comparison, section)
         # Each side is searched even when the other came back empty, so the caller learns
         # about both and not just the first gap.
-        current = self.rerank(
-            query, ChunkFilter(accession=comparison.current.accession, section=section)
-        )
-        prior = self.rerank(
-            query, ChunkFilter(accession=comparison.prior.accession, section=section)
-        )
+        current = self.rerank(query, current_filter)
+        prior = self.rerank(query, prior_filter)
         return RetrievalResult(query=query, current=current, prior=prior)
