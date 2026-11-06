@@ -1,7 +1,7 @@
 """Interfaces between the parts that are built in parallel.
 
 The retrieval and change-detection code (lane 1) and the Tree-of-Thought and verification
-code (lane 2) meet at these four points. Each lane tests against fakes of the other side's
+code (lane 2) meet at these five points. Each lane tests against fakes of the other side's
 interface, so the fakes must match what the real code will return. The records they pass
 are in schemas.py.
 
@@ -118,3 +118,29 @@ class MetricLookup(Protocol):
     """
 
     def get_metric(self, metric_id: str) -> MetricValue | None: ...
+
+
+@runtime_checkable
+class FactLookup(Protocol):
+    """Finds a dollar fact a filing tagged in XBRL, or None if it tagged no such value.
+
+    Built by lane 1 (the fact store); used by the citation checker (T5.1) to supply a scale that a
+    table's text does not state. "$ | 661,949" could be dollars or thousands of dollars, and if the
+    filing tagged 661,949,000 then it is thousands. On tables whose caption gives the answer, a
+    wrong scale also found a fact for 79 of 3,923 figures (2%), so one match is good evidence but
+    not proof.
+
+    It searches only XBRL facts in dollars for that one accession, segment values included. Parsed
+    table facts must not count: they come from the same tables, so a table would confirm itself.
+    Per-share amounts must not count either: they are a different unit, and the checker reads
+    those figures as displayed. Filers spell the dollar unit differently (`usd`, `USD`, `U_USD`).
+
+    `value` is compared as a magnitude, because tables show a negative as "(151,372)" and a tagged
+    fact's sign depends on its concept. A fact within `tolerance` of it matches, inclusive. Any one
+    match is enough, and which of several comes back must not change between calls, so that a
+    figure traces to the same fact id every time.
+
+    The checker calls this once per candidate scale per figure, so it needs to stay cheap.
+    """
+
+    def find_usd_fact(self, accession: str, value: float, tolerance: float) -> str | None: ...

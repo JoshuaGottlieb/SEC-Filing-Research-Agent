@@ -6,7 +6,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from sec_agent.contracts import ChunkLookup, MetricChecker, MetricLookup, Retriever
+from sec_agent.contracts import ChunkLookup, FactLookup, MetricChecker, MetricLookup, Retriever
 from sec_agent.schemas import (
     Change,
     ChangeKind,
@@ -232,11 +232,17 @@ class FakeMetrics:
         return None
 
 
+class FakeFacts:
+    def find_usd_fact(self, accession: str, value: float, tolerance: float) -> str | None:
+        return None
+
+
 def test_stand_ins_satisfy_the_interfaces_and_other_objects_do_not():
     assert isinstance(FakeRetriever(), Retriever)
     assert isinstance(FakeMetricChecker(), MetricChecker)
     assert isinstance(FakeChunks(), ChunkLookup)
     assert isinstance(FakeMetrics(), MetricLookup)
+    assert isinstance(FakeFacts(), FactLookup)
     # The check is by method name, so an object with none of them is refused.
-    for interface in (Retriever, MetricChecker, ChunkLookup, MetricLookup):
+    for interface in (Retriever, MetricChecker, ChunkLookup, MetricLookup, FactLookup):
         assert not isinstance(object(), interface)
