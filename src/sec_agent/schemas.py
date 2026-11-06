@@ -122,6 +122,16 @@ class EntailmentVerdict(StrEnum):
     UNRELATED = "unrelated"
 
 
+class EvidenceSupport(StrEnum):
+    # How far a branch's verified passages support its claim, strongest first. It lives here, not
+    # in tot/, so a saved TreeNode can hold it: the controller's tie rule prefers a statement of
+    # cause over an inference, and that has to survive a reload.
+    STATES_CAUSE = "states_cause"
+    IMPLIES = "implies"
+    CONSISTENT = "consistent"
+    NONE = "none"
+
+
 class Record(BaseModel):
     """Base for all records: immutable, and unknown fields are errors, not ignored."""
 
@@ -352,6 +362,36 @@ class RankedChanges(Record):
         return self
 
 
+class Citation(Record):
+    """A verbatim quote from a filing, with everything needed to check and link it."""
+
+    chunk_id: str
+    accession: str
+    ticker: str
+    form: FormType
+    period: FiscalPeriod
+    section: Section
+    quote: str = Field(min_length=1)
+    url: str
+
+
+class EvidenceSourceRef(Record):
+    """Where a depth 2 node looks for evidence, kept so a saved tree can re-run the search.
+
+    A `metric` makes it a metric to compute. Otherwise it is a search of `section`, where None
+    means everywhere, which is the only way to reach a table filed under no named section.
+    """
+
+    section: Section | None = None
+    metric: MetricExpectation | None = None
+
+    @model_validator(mode="after")
+    def _a_metric_is_not_also_a_search(self) -> EvidenceSourceRef:
+        if self.metric is not None and self.section is not None:
+            raise ValueError("a metric source computes a metric, so it names no section to search")
+        return self
+
+
 class TreeNode(Record):
     """One node of a ToT tree. Pruned nodes are kept for the audit trail.
 
@@ -370,13 +410,22 @@ class TreeNode(Record):
     # Depth 1: the metric movements the claim implies. Empty for a text-only claim, whose
     # numeric check is then not applicable (gap 1 in the plan).
     expected_metrics: tuple[MetricExpectation, ...] = ()
+    # Depth 2 only: where to look. Set when the node is created and never changed, like the
+    # thought. The retry after an empty search is recorded only through `retrieved_chunk_ids`.
+    source: EvidenceSourceRef | None = None
     retrieved_chunk_ids: tuple[str, ...] = ()
-    # Depth 2: the highest reranker score among the passages retrieved for this node.
-    # PROVISIONAL. Added with the contract so the controller's tie rule (prefer the branch whose
-    # best supporting passage scores higher) still works on a saved or resumed tree. Decide at
-    # T4.4 whether to keep it or store a score per retrieved passage instead, and check the
-    # choice against T5.5 resume. See the plan's T4.4 row.
+    # Depth 2: the highest reranker score among the passages behind the verified citations, so
+    # the controller's tie rule (prefer the branch whose best supporting passage scores higher)
+    # works on a saved or resumed tree. None when no quote was verified, such as a branch kept by
+    # an agreeing metric alone. One number is enough: ties are settled before the later
+    # verification, which is the only time the set of supporting passages could change. Scores
+    # come from different queries, so they are only roughly comparable; this is the last tiebreak.
     best_passage_score: float | None = None
+    # Depth 2: how far the verified quotes support the claim. None means not evaluated yet.
+    evidence: EvidenceSupport | None = None
+    # Depth 2: the quotes that passed the citation checker, so labeling a resumed run does not
+    # have to pay for the critic again to get them back. Replaced as a whole on update.
+    citations: tuple[Citation, ...] = ()
     metric_ids: tuple[str, ...] = ()
     numeric_check: NumericCheck | None = None
     score: float | None = Field(default=None, ge=0, le=1)
@@ -389,20 +438,14 @@ class TreeNode(Record):
             raise ValueError("only the depth 0 root has no parent")
         if self.status is NodeStatus.PRUNED and not self.prune_reason:
             raise ValueError("a pruned node must record why it was pruned")
+        if self.source is not None:
+            if self.depth != 2:
+                raise ValueError("only a depth 2 node has an evidence source")
+            # A metric source tests that one metric, and a search under a parent with one expected
+            # metric looks the same without `source`, so the two must agree.
+            if self.source.metric is not None and self.expected_metrics != (self.source.metric,):
+                raise ValueError("a metric source's expected_metrics must be that one metric")
         return self
-
-
-class Citation(Record):
-    """A verbatim quote from a filing, with everything needed to check and link it."""
-
-    chunk_id: str
-    accession: str
-    ticker: str
-    form: FormType
-    period: FiscalPeriod
-    section: Section
-    quote: str = Field(min_length=1)
-    url: str
 
 
 class Claim(Record):

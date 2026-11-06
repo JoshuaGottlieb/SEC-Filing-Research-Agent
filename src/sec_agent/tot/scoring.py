@@ -18,18 +18,9 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from sec_agent.config import REPO_ROOT
-from sec_agent.schemas import NumericCheck
+from sec_agent.schemas import EvidenceSupport, NumericCheck
 
 SCORING_CONFIG_PATH = REPO_ROOT / "config" / "scoring.yaml"
-
-
-class EvidenceSupport(StrEnum):
-    """How far retrieved passages support a claim. The controller's tie rule ranks by this too."""
-
-    STATES_CAUSE = "states_cause"
-    IMPLIES = "implies"
-    CONSISTENT = "consistent"
-    NONE = "none"
 
 
 class Contradiction(StrEnum):

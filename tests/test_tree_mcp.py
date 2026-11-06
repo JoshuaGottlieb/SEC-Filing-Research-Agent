@@ -21,11 +21,17 @@ from pydantic import ValidationError
 
 import sec_agent
 from sec_agent.schemas import (
+    Citation,
     Direction,
+    EvidenceSourceRef,
+    EvidenceSupport,
+    FiscalPeriod,
+    FormType,
     MetricExpectation,
     MetricName,
     NodeStatus,
     NumericCheck,
+    Section,
     TreeNode,
 )
 from sec_agent.tree_mcp.client import (
@@ -186,6 +192,38 @@ async def test_update_can_clear_a_field(connect):
         await client.update_node("root", NodeUpdate(score=0.5))
         cleared = await client.update_node("root", NodeUpdate(score=None))
         assert cleared.score is None
+
+
+async def test_a_source_is_kept_and_the_evaluation_can_be_recorded_on_it(connect):
+    # What a resumed run reads back: where the node searched, how well its quotes supported the
+    # claim, and the quotes themselves. The source is set at creation and no update can touch it.
+    quote = Citation(
+        chunk_id="c1",
+        accession="a1",
+        ticker="HSY",
+        form=FormType.FORM_10Q,
+        period=FiscalPeriod(fiscal_year=2025, fiscal_period="Q2", period_end="2025-06-29"),
+        section=Section.MDNA,
+        quote="Freight costs rose.",
+        url="https://example.com/a1",
+    )
+    source = EvidenceSourceRef(section=Section.MDNA)
+    async with connect() as client:
+        await client.create_tree(root())
+        await client.create_node(child("c1"))
+        await client.create_node(child("e1", parent_id="c1", depth=2, source=source))
+        updated = await client.update_node(
+            "e1", NodeUpdate(evidence=EvidenceSupport.STATES_CAUSE, citations=(quote,))
+        )
+        assert updated.source == source
+        assert (updated.evidence, updated.citations) == (EvidenceSupport.STATES_CAUSE, (quote,))
+        assert (await client.read_tree("root"))[-1] == updated
+        # Replacing the quotes replaces the whole tuple, and a later update leaves them alone.
+        await client.update_node("e1", NodeUpdate(score=0.6))
+        assert (await client.read_node("e1")).citations == (quote,)
+        assert (await client.update_node("e1", NodeUpdate(citations=()))).citations == ()
+    with pytest.raises(ValidationError):
+        NodeUpdate(source=EvidenceSourceRef())
 
 
 @pytest.mark.parametrize(
