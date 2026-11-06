@@ -58,6 +58,27 @@ class Weights(BaseModel):
         return self
 
 
+class Beam(BaseModel):
+    """How many branches the controller proposes and keeps at each depth (T4.4)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    candidates: int = Field(ge=1)
+    candidate_width: int = Field(ge=1)
+    sources: int = Field(ge=1)
+    evidence_width: int = Field(ge=1)
+    tie_margin: float = Field(ge=0, le=1)
+
+
+class Budget(BaseModel):
+    """Node evaluations one finding may use, per round of candidates."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    first_round_nodes: int = Field(ge=1)
+    fresh_round_nodes: int = Field(ge=1)
+
+
 class ScoringConfig(BaseModel):
     """config/scoring.yaml. A level left out is an error, so no level silently scores nothing."""
 
@@ -69,6 +90,8 @@ class ScoringConfig(BaseModel):
     evidence_support: dict[EvidenceSupport, float]
     no_contradiction: dict[Contradiction, float]
     specificity: dict[Specificity, float]
+    beam: Beam
+    budget: Budget
 
     @model_validator(mode="after")
     def _every_level_has_a_value(self) -> Self:
