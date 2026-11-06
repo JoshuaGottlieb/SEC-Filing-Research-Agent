@@ -10,7 +10,14 @@ from sec_agent.config import REPO_ROOT, get_settings
 from sec_agent.contracts import MetricChecker, MetricLookup
 from sec_agent.edgar.corpus import Corpus, CorpusCompany, CorpusFiling
 from sec_agent.finance.fact_store import FactStore
-from sec_agent.finance.metrics import MetricCatalog, MetricsConfig, NoMoveTolerance
+from sec_agent.finance.metrics import (
+    GROSS_PROFIT,
+    OPERATING_INCOME,
+    REVENUE,
+    MetricCatalog,
+    MetricsConfig,
+    NoMoveTolerance,
+)
 from sec_agent.schemas import (
     ComparisonType,
     Direction,
@@ -290,6 +297,52 @@ def test_no_other_line_item_is_computed(facts, catalog):
     # As with SWK's operating income. Nothing stands in for a line the filer does not report.
     facts.statement(Q2_26, operating=None)
     assert catalog.ratio(YOY_10Q.current, MetricName.OPERATING_MARGIN) is None
+
+
+def test_a_line_item_is_the_dollar_figure_the_metrics_use(facts, catalog):
+    facts.statement(Q2_26, revenue=1000.0, gross_profit=400.0)
+
+    revenue = catalog.line_item(YOY_10Q.current, REVENUE)
+    gross = catalog.line_item(YOY_10Q.current, GROSS_PROFIT)
+
+    assert (revenue, gross) == (1000.0, 400.0)
+    assert gross / revenue == pytest.approx(
+        catalog.ratio(YOY_10Q.current, MetricName.GROSS_MARGIN).value
+    )
+
+
+def test_a_line_item_computes_gross_profit_only_where_the_ratio_does(facts, catalog):
+    facts.statement(Q2_26, gross_profit=None, cost=650.0)
+
+    assert catalog.line_item(YOY_10Q.current, GROSS_PROFIT) == pytest.approx(350.0)
+
+
+def test_a_line_item_follows_the_filing_and_its_duration(facts, catalog):
+    # A year-to-date figure and another period's filing are not the quarter's figure.
+    facts.add(Q2_26, "us-gaap:ContractRevenue", 1000.0)
+    facts.add(Q2_26, "us-gaap:ContractRevenue", 2100.0, duration=Duration.YEAR_TO_DATE)
+    facts.add(Q2_25, "us-gaap:ContractRevenue", 900.0)
+
+    assert catalog.line_item(YOY_10Q.current, REVENUE) == 1000.0
+    assert catalog.line_item(YOY_10Q.prior, REVENUE) == 900.0
+
+
+def test_a_line_item_a_filing_does_not_report_is_none(facts, catalog):
+    facts.statement(Q2_26, operating=None)
+
+    assert catalog.line_item(YOY_10Q.current, OPERATING_INCOME) is None
+
+
+def test_a_line_item_reported_with_two_values_is_none_and_not_an_error(facts, catalog):
+    facts.statement(Q2_26)
+    facts.add(Q2_26, "us-gaap:GrossProfit", 410.0)
+
+    assert catalog.line_item(YOY_10Q.current, GROSS_PROFIT) is None
+
+
+def test_an_unknown_line_item_is_an_error(catalog):
+    with pytest.raises(ValueError, match="unknown line item 'ebitda'"):
+        catalog.line_item(YOY_10Q.current, "ebitda")
 
 
 def test_input_facts_trace_to_the_rows_used(facts, catalog):
