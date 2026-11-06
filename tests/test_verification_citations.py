@@ -674,11 +674,96 @@ def test_a_share_row_needs_the_scaled_value_without_an_exception():
 
 
 def test_a_table_stating_two_scales_supports_either():
-    table = "(Dollars in millions)\n(Units in thousands)\nCell | 5"
+    table = "(Dollars in millions)\nSegment B (in thousands)\nCell | 5"
     assert traced("It was $5 million.", table, "Cell | 5").passed
     assert traced("It was $5 thousand.", table, "Cell | 5").passed
     for text in ("It was $5 billion.", "It was $5."):
         assert not traced(text, table, "Cell | 5").passed
+
+
+# Found by lane 1: this line is in 7 tables in the pinned filings.
+SHARE_CAPTION = (
+    "Earnings per share\nNet income | $ | 1,000\nDenominator (shares in thousands):\n"
+    "Weighted average shares | 427\nBasic earnings per share | $ | 2.34"
+)
+
+
+def test_a_share_caption_does_not_scale_dollars():
+    quote = "Basic earnings per share | $ | 2.34"
+    assert traced("Earnings were $2.34 per share.", SHARE_CAPTION, quote).passed
+    assert traced("Net income was $1,000.", SHARE_CAPTION, "Net income | $ | 1,000").passed
+    # Its dollars have no stated scale, so a scale word cannot be confirmed from it.
+    result = traced("Net income was $1,000 thousand.", SHARE_CAPTION, "Net income | $ | 1,000")
+    assert kinds(result) == [CitationFailureKind.UNKNOWN_SCALE]
+
+
+def test_a_share_caption_scales_share_counts():
+    quote = "Weighted average shares | 427"
+    assert traced("There were 427 thousand shares.", SHARE_CAPTION, quote).passed
+    # A symbol-less share count at this scale is not a dollar amount.
+    assert not traced("It was $427 thousand.", SHARE_CAPTION, quote).passed
+
+
+def test_a_share_caption_leaves_the_tables_dollar_scale_in_force():
+    table = "(In millions)\nDenominator (shares in thousands):\nNet sales | $ | 5,000"
+    assert traced("Net sales were $5 billion.", table, "Net sales | $ | 5,000").passed
+    assert not traced("Net sales were $5,000.", table, "Net sales | $ | 5,000").passed
+    assert not traced("Net sales were $5 million.", table, "Net sales | $ | 5,000").passed
+
+
+@pytest.mark.parametrize(
+    "caption",
+    [
+        # Share-based compensation and per-share data are dollar amounts.
+        "Share-based compensation (in millions)",
+        "Amounts per share (in millions)",
+        # Shares valued in dollars.
+        "Value of shares repurchased (in millions)",
+    ],
+)
+def test_a_caption_mentioning_shares_can_still_scale_dollars(caption):
+    table = f"{caption}\nExpense | $ | 5,000"
+    assert traced("Expense was $5 billion.", table, "Expense | $ | 5,000").passed
+    assert not traced("Expense was $5,000.", table, "Expense | $ | 5,000").passed
+
+
+REPURCHASES = (
+    "Period | Shares Purchased | Average Price Paid | Approximate Dollar Value of Shares "
+    "that May Yet Be Purchased (In millions)\nOctober | 1,200 | $98.50 | $500"
+)
+
+
+def test_a_column_caption_does_not_rule_out_the_other_columns():
+    quote = "October | 1,200 | $98.50 | $500"
+    assert traced("The average price paid was $98.50.", REPURCHASES, quote).passed
+    assert traced("It may yet buy $500 million of stock.", REPURCHASES, quote).passed
+    assert not traced("The average price paid was $98.75.", REPURCHASES, quote).passed
+
+
+def test_a_header_cell_stating_only_the_scale_covers_the_table():
+    table = "2025 | (In millions)\nNet sales | $ | 5,000"
+    assert traced("Net sales were $5 billion.", table, "Net sales | $ | 5,000").passed
+    assert not traced("Net sales were $5,000.", table, "Net sales | $ | 5,000").passed
+
+
+def test_a_first_cell_with_other_words_covers_the_table():
+    table = "Year ended December 31 (in millions) | 2025\nNet sales | $ | 5,000"
+    assert traced("Net sales were $5 billion.", table, "Net sales | $ | 5,000").passed
+    assert not traced("Net sales were $5,000.", table, "Net sales | $ | 5,000").passed
+
+
+def test_only_the_word_except_makes_an_exception():
+    table = "Exceptional items (in millions)\nNet income per share | $ | 1.25"
+    quote = "Net income per share | $ | 1.25"
+    assert not traced("Earnings were $1.25 per share.", table, quote).passed
+
+
+def test_a_short_sentence_mentioning_a_scale_states_no_scale():
+    # Found by lane 1: the parser's rule alone accepts this sentence as a scale.
+    table = "Segment summary\nWe sold millions of units.\nNet sales | $ | 5,000"
+    assert traced("Net sales were $5,000.", table, "Net sales | $ | 5,000").passed
+    result = traced("Net sales were $5,000 million.", table, "Net sales | $ | 5,000")
+    assert kinds(result) == [CitationFailureKind.UNKNOWN_SCALE]
 
 
 def test_only_a_stated_scale_counts():
