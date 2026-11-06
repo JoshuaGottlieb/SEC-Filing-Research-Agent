@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from sec_agent.agents.verification import CitationFailureKind, check_citations
-from sec_agent.contracts import ChunkLookup, MetricLookup
+from sec_agent.contracts import ChunkLookup, FactLookup, MetricLookup
 from sec_agent.schemas import (
     Chunk,
     Citation,
@@ -113,11 +113,26 @@ class FakeMetrics:
         return self._metrics.get(metric_id)
 
 
+class FakeFacts:
+    """A `FactLookup` over the dollar values a filing tagged. Empty means nothing is tagged."""
+
+    def __init__(self, *values: float) -> None:
+        self._values = values
+
+    def find_usd_fact(self, accession: str, value: float, tolerance: float) -> str | None:
+        for tagged in self._values:
+            if abs(abs(value) - tagged) <= tolerance:
+                return f"fact-{tagged:.0f}"
+        return None
+
+
 DEFAULT_METRICS = (metric(),)
 
 
-def run(claim_: Claim, *chunks: Chunk, periods=(CURRENT,), metrics=DEFAULT_METRICS):
-    return check_citations(claim_, periods, FakeChunks(*chunks), FakeMetrics(*metrics))
+def run(claim_: Claim, *chunks: Chunk, periods=(CURRENT,), metrics=DEFAULT_METRICS, facts=()):
+    return check_citations(
+        claim_, periods, FakeChunks(*chunks), FakeMetrics(*metrics), FakeFacts(*facts)
+    )
 
 
 def kinds(result) -> list[CitationFailureKind]:
@@ -127,6 +142,7 @@ def kinds(result) -> list[CitationFailureKind]:
 def test_the_fakes_satisfy_the_interfaces():
     assert isinstance(FakeChunks(), ChunkLookup)
     assert isinstance(FakeMetrics(), MetricLookup)
+    assert isinstance(FakeFacts(), FactLookup)
 
 
 def test_a_correct_citation_passes():
@@ -579,8 +595,8 @@ def test_an_altered_quote_backs_no_figure():
 IN_MILLIONS = "(In millions)\nNet sales | $ | 11,692.6 | $ | 11,202.3"
 
 
-def traced(text: str, chunk_text: str, quote: str):
-    return run(claim(citation(quote), text=text), make_chunk(text=chunk_text))
+def traced(text: str, chunk_text: str, quote: str, facts=()):
+    return run(claim(citation(quote), text=text), make_chunk(text=chunk_text), facts=facts)
 
 
 @pytest.mark.parametrize(
@@ -817,3 +833,181 @@ def test_scale_does_not_apply_to_prose():
 def test_figures_are_compared_by_value(text, quote, passes):
     prose = f"{quote} in the year."
     assert traced(text, prose, quote).passed is passes
+
+
+# Real figures, as in 0001628280-26-008586:t186:0, whose only caption is about shares.
+SHARES_ONLY = (
+    "Basic earnings per share:\n"
+    "Allocation of distributed earnings | $ | 813,321 | $ | 271,975\n"
+    "Total earnings | $ | 661,949 | $ | 221,310\n"
+    "Denominator (shares in thousands):\n"
+    "Earnings Per Share | $ | 4.46 | $ | 11.22"
+)
+TOTAL_EARNINGS = "Total earnings | $ | 661,949 | $ | 221,310"
+TAGGED = (661_949_000.0, 221_310_000.0, 813_321_000.0, 271_975_000.0)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Earnings were $661,949 thousand.",
+        "Earnings were $661.9 million.",
+        "Earnings were $662 million.",
+    ],
+)
+def test_a_tagged_fact_supplies_a_tables_missing_scale(text):
+    result = traced(text, SHARES_ONLY, TOTAL_EARNINGS, facts=TAGGED)
+    assert result.passed
+    assert "fact-661949000" in result.scale_fact_ids
+
+
+def test_a_bare_figure_fails_once_a_fact_confirms_the_scale():
+    # It reads as about $662 thousand, and the filing's own tag says about $662 million.
+    result = traced("Earnings were $661,949.", SHARES_ONLY, TOTAL_EARNINGS, facts=TAGGED)
+    assert kinds(result) == [CitationFailureKind.UNTRACED_FIGURE]
+
+
+def test_a_tagged_fact_does_not_rescue_a_wrong_scale():
+    result = traced("Earnings were $661,949 million.", SHARES_ONLY, TOTAL_EARNINGS, facts=TAGGED)
+    assert kinds(result) == [CitationFailureKind.UNTRACED_FIGURE]
+
+
+def test_a_table_in_whole_dollars_supports_its_displayed_value():
+    # The displayed value is itself the tagged fact.
+    table = "Fees\nAudit fees | $ | 661,949"
+    assert traced(
+        "Fees were $661,949.", table, "Audit fees | $ | 661,949", facts=(661_949.0,)
+    ).passed
+
+
+def test_with_no_fact_a_table_still_supports_only_what_it_displays():
+    assert traced("Earnings were $661,949.", SHARES_ONLY, TOTAL_EARNINGS).passed
+    result = traced("Earnings were $661,949 thousand.", SHARES_ONLY, TOTAL_EARNINGS)
+    assert kinds(result) == [CitationFailureKind.UNKNOWN_SCALE]
+    assert result.scale_fact_ids == ()
+
+
+def test_the_vote_scales_a_cell_with_no_fact_of_its_own():
+    # 3 of the 4 cells over 10 confirm thousands. The fourth (271,975) is untagged here.
+    facts = (661_949_000.0, 221_310_000.0, 813_321_000.0)
+    quote = "Allocation of distributed earnings | $ | 813,321 | $ | 271,975"
+    assert traced("It was $272 million.", SHARES_ONLY, quote, facts=facts).passed
+    result = traced("It was $271,975.", SHARES_ONLY, quote, facts=facts)
+    assert kinds(result) == [CitationFailureKind.UNTRACED_FIGURE]
+
+
+def test_the_vote_beats_one_cells_coincidental_fact():
+    # Found on real chunks: a small number's own fact matched at the wrong scale. Three cells say
+    # thousands, and 271,975 also happens to match a fact at millions.
+    facts = (661_949_000.0, 221_310_000.0, 813_321_000.0, 271_975_000_000.0)
+    quote = "Allocation of distributed earnings | $ | 813,321 | $ | 271,975"
+    assert traced("It was $271,975 thousand.", SHARES_ONLY, quote, facts=facts).passed
+    result = traced("It was $271,975 million.", SHARES_ONLY, quote, facts=facts)
+    assert kinds(result) == [CitationFailureKind.UNTRACED_FIGURE]
+
+
+def test_only_a_fact_at_the_voted_scale_is_recorded():
+    facts = (661_949_000.0, 221_310_000.0, 813_321_000.0, 271_975_000_000.0)
+    quote = "Allocation of distributed earnings | $ | 813,321 | $ | 271,975"
+    result = traced("It was $813,321 thousand.", SHARES_ONLY, quote, facts=facts)
+    assert result.scale_fact_ids == ("fact-813321000",)
+
+
+def test_with_no_vote_a_numbers_own_fact_decides():
+    # One cell confirms a scale, which is too few for a vote, so it only decides its own number.
+    facts = (813_321_000.0,)
+    quote = "Allocation of distributed earnings | $ | 813,321 | $ | 271,975"
+    assert traced("It was $813,321 thousand.", SHARES_ONLY, quote, facts=facts).passed
+    assert not traced("It was $813,321.", SHARES_ONLY, quote, facts=facts).passed
+
+
+def test_one_coincidental_fact_does_not_set_a_tables_scale():
+    # Only 1 cell confirms a scale, so the vote gives no answer and other cells stay unscaled.
+    facts = (661_949_000.0,)
+    quote = "Allocation of distributed earnings | $ | 813,321 | $ | 271,975"
+    assert traced("It was $813,321.", SHARES_ONLY, quote, facts=facts).passed
+    result = traced("It was $813,321 thousand.", SHARES_ONLY, quote, facts=facts)
+    assert kinds(result) == [CitationFailureKind.UNKNOWN_SCALE]
+
+
+def test_the_vote_needs_half_of_the_cells():
+    # 2 of the 5 cells over 10 agree, which is enough cells but not enough of them.
+    table = "Totals\nA | $ | 100\nB | $ | 200\nC | $ | 300\nD | $ | 400\nE | $ | 500"
+    facts = (100_000.0, 200_000.0)
+    assert traced("It was $500.", table, "E | $ | 500", facts=facts).passed
+
+
+def test_a_tied_vote_gives_no_answer():
+    table = "Totals\nA | $ | 100\nB | $ | 200\nC | $ | 300\nD | $ | 400\nE | $ | 500"
+    facts = (100_000.0, 200_000.0, 300_000_000.0, 400_000_000.0)
+    assert traced("It was $500.", table, "E | $ | 500", facts=facts).passed
+
+
+def test_a_small_amount_is_left_as_displayed():
+    # "$4.46 per share" under a table in thousands: the vote must not scale it.
+    quote = "Earnings Per Share | $ | 4.46 | $ | 11.22"
+    assert traced("Earnings were $4.46 per share.", SHARES_ONLY, quote, facts=TAGGED).passed
+
+
+def test_a_share_row_keeps_its_displayed_value_under_a_vote():
+    # $11.22 is over the cutoff, so only the row being about shares keeps it as displayed.
+    quote = "Earnings Per Share | $ | 4.46 | $ | 11.22"
+    assert traced("Earnings were $11.22 per share.", SHARES_ONLY, quote, facts=TAGGED).passed
+
+
+def test_a_caption_is_never_overridden_by_a_fact():
+    # The caption says millions. A coincidental fact at thousands changes nothing.
+    result = traced(
+        "Net sales were $11,692.6 thousand.",
+        IN_MILLIONS,
+        "Net sales | $ | 11,692.6",
+        facts=(11_692_600.0,),
+    )
+    assert kinds(result) == [CitationFailureKind.UNTRACED_FIGURE]
+
+
+def test_facts_are_not_asked_about_a_table_with_a_caption_or_prose():
+    class NoCalls:
+        def find_usd_fact(self, accession: str, value: float, tolerance: float) -> str | None:
+            raise AssertionError("should not be called")
+
+    for chunk_text, quote in (
+        (IN_MILLIONS, "Net sales | $ | 11,692.6"),
+        (REPURCHASES, "October | 1,200 | $98.50 | $500"),
+        ("The fee was $5 per unit in the year.", "The fee was $5 per unit"),
+    ):
+        claim_ = claim(citation(quote), text="It was $5.")
+        check_citations(
+            claim_,
+            (CURRENT,),
+            FakeChunks(make_chunk(text=chunk_text)),
+            FakeMetrics(*DEFAULT_METRICS),
+            NoCalls(),
+        )
+
+
+def test_a_figure_in_another_currency_is_not_checked_against_dollar_facts():
+    table = "Totals\nA | \u20ac | 661,949"
+    result = traced(
+        "It was \u20ac661,949 thousand.", table, "A | \u20ac | 661,949", facts=(661_949_000.0,)
+    )
+    assert kinds(result) == [CitationFailureKind.UNKNOWN_SCALE]
+
+
+def test_only_a_verified_quote_reaches_the_facts():
+    result = traced(
+        "Earnings were $661.9 million.", SHARES_ONLY, "Total earnings | $ | 999,999", facts=TAGGED
+    )
+    assert kinds(result) == [
+        CitationFailureKind.ALTERED_QUOTE,
+        CitationFailureKind.UNTRACED_FIGURE,
+    ]
+    assert result.scale_fact_ids == ()
+
+
+def test_each_fact_id_is_listed_once():
+    claim_ = claim(
+        citation(TOTAL_EARNINGS), citation(TOTAL_EARNINGS), text="Earnings were $661.9 million."
+    )
+    result = run(claim_, make_chunk(text=SHARES_ONLY), facts=TAGGED)
+    assert len(result.scale_fact_ids) == len(set(result.scale_fact_ids))
