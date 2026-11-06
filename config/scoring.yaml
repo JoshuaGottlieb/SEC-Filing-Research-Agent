@@ -46,3 +46,32 @@ specificity:
   # Chosen by hand.
   partial: 0.5
   vague: 0.0
+
+# The beam and its tie rule (T4.4), read by tot/controller.py. All are the ToT design's initial
+# estimates, to be tuned on the labeled benchmark (it plans to widen the beam if too few known
+# causes survive).
+beam:
+  # Candidates proposed at depth 1. The design says 6 to 8 and keeps 4; the low end leaves node
+  # budget for the retries and the one fresh round (gap 5).
+  candidates: 6
+  # Candidates that go on to depth 2. The design's width.
+  candidate_width: 4
+  # Evidence sources proposed for each kept candidate. The design says 6 to 8; the low end again.
+  sources: 6
+  # Evidence branches kept per candidate. The design's width.
+  evidence_width: 3
+  # Two branches within this score gap at the beam cutoff are tied, and the tie rule decides. The
+  # design's value.
+  tie_margin: 0.05
+
+# Node evaluations per finding. Counted as evaluated nodes, not retrieve calls: a reformulated
+# search can make up to five of those for one evaluation.
+budget:
+  # The design says about 40. The first round's own use is at most 30 (6 candidates plus 4 kept
+  # times 6 sources), which leaves 10 for retries.
+  first_round_nodes: 40
+  # The one fresh round gets its own allowance (the user's decision, 2026-11-06), so a first round
+  # that used its 40 cannot leave the second too few to test anything. It differs from the design,
+  # which has one budget of about 40 for the finding. The worst case is 70 and an ordinary finding
+  # still costs what it did. 30 is the first round's own use. Chosen by hand.
+  fresh_round_nodes: 30
