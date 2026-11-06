@@ -1,0 +1,36 @@
+# The XBRL concepts behind each line item of the metric catalog (T1.6), read by finance/metrics.py.
+#
+# Filers tag the same line differently, so each item lists the concepts that mean it, most specific
+# first. The first concept a filing reports is used. Every alias below was seen in the 15 pinned
+# filings; add another only after reading the statement it comes from, because a concept that
+# merely sounds right can hold a different number.
+#
+#   Revenue: HSY and MAT use the contract-revenue concept, SWK uses Revenues.
+#   Gross profit: SWK tags none and its income statement has no such line, so the catalog computes
+#     revenue minus cost of goods sold for it. That matches SWK's filed non-GAAP tables.
+#   SG&A: MAT tags its "Other selling and administrative expenses", which leaves out advertising.
+#     SWK's concept leaves out its provision for credit losses. Each is steady for one company over
+#     time, which is what a comparison needs, but the ratios don't compare across companies.
+#   Operating income: SWK tags none and reports no such line, so it has no operating margin.
+line_items:
+  revenue:
+    - us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+    - us-gaap:Revenues
+  gross_profit:
+    - us-gaap:GrossProfit
+  cost_of_goods_sold:
+    - us-gaap:CostOfGoodsAndServicesSold
+  sga:
+    - us-gaap:SellingGeneralAndAdministrativeExpense
+    - us-gaap:OtherSellingGeneralAndAdministrativeExpense
+  operating_income:
+    - us-gaap:OperatingIncomeLoss
+  net_income:
+    - us-gaap:NetIncomeLoss
+
+# How small a move is too small to call, as a fraction. A smaller move is NOT_APPLICABLE.
+no_move_tolerance:
+  # About 5 basis points, chosen by hand: the smallest move a margin shown to one decimal can reveal.
+  ratio: 0.0005
+  # Zero: revenue_growth UP means the value is above 0, so only an exact tie can't be called.
+  revenue_growth: 0.0
