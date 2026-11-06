@@ -17,6 +17,7 @@ from pydantic import ValidationError
 
 from sec_agent.llm.client import LLMError
 from sec_agent.llm.ledger import BudgetExceededError, CostLedger
+from sec_agent.retrieval.hybrid import IndexOutOfSyncError
 from sec_agent.schemas import (
     Change,
     ChangeKind,
@@ -42,7 +43,6 @@ from sec_agent.schemas import (
     TreeNode,
 )
 from sec_agent.tot.controller import (
-    RETRY_SECTIONS,
     CandidateResult,
     Outcome,
     StopReason,
@@ -438,11 +438,6 @@ def test_the_beam_and_budgets_come_from_the_config(config):
     assert beam.tie_margin == 0.05
     # The user's decision, 2026-11-06: a fresh round of its own beside the design's about 40.
     assert (budget.first_round_nodes, budget.fresh_round_nodes) == (40, 30)
-
-
-def test_the_retry_names_the_five_canonical_sections_and_not_other():
-    assert set(RETRY_SECTIONS) == set(Section) - {Section.OTHER}
-    assert len(RETRY_SECTIONS) == 5
 
 
 # -- a search that works ----------------------------------------------------------------------
@@ -846,61 +841,54 @@ def sections_searched(retriever: FakeRetriever) -> list[Section | None]:
     return [section for _, section in retriever.calls]
 
 
-async def test_a_branch_with_no_evidence_is_searched_again_in_the_other_sections(tree, config):
-    retriever = FakeRetriever(
-        {
-            ("cocoa", Section.RISK_FACTORS): found(
-                "cocoa", passage("risk-1", section=Section.RISK_FACTORS)
-            )
-        }
-    )
-    critic = FakeCritic(by_chunk={"risk-1": Verdict(EvidenceSupport.STATES_CAUSE)})
+async def test_a_branch_with_no_evidence_is_searched_again_everywhere_first(tree, config):
+    retriever = FakeRetriever({("cocoa", None): found("cocoa", passage("any-1"))})
+    critic = FakeCritic(by_chunk={"any-1": Verdict(EvidenceSupport.STATES_CAUSE)})
     result = await explore(tree, config, one_search(), critic, retriever)
-    # MD&A was the branch's own search, so the retry starts with the notes, and stops at the first
-    # section that returns something.
-    assert sections_searched(retriever) == [
-        Section.MDNA,
-        Section.FINANCIAL_NOTES,
-        Section.RISK_FACTORS,
-    ]
+    # MD&A was the branch's own search and found nothing, so the retry is one search of everywhere.
+    assert sections_searched(retriever) == [Section.MDNA, None]
     node = only_evidence(result)
     assert node.status is NodeStatus.KEPT and node.evidence is EvidenceSupport.STATES_CAUSE
-    assert node.retrieved_chunk_ids == ("risk-1",)
-    # The retry's searches are free; only its evaluation counts: prescreen, first try, retry.
+    assert node.retrieved_chunk_ids == ("any-1",)
+    # The retry's search is free; only its evaluation counts: prescreen, first try, retry.
     assert result.node_evaluations == 3
 
 
-async def test_a_claim_with_evidence_only_in_an_other_table_is_found_by_the_last_step(tree, config):
+@pytest.mark.parametrize("own", [Section.MDNA, Section.FINANCIAL_NOTES, Section.MARKET_RISK])
+async def test_the_retry_is_a_single_search_of_everywhere_whatever_the_own_section(
+    tree, config, own
+):
+    # Named sections are not searched, even when one holds the evidence. It would be found only by a
+    # fallback that real filings never needed (see the note at the top of controller.py).
+    retriever = FakeRetriever({("cocoa", Section.RISK_FACTORS): found("cocoa", passage("risk-1"))})
+    result = await explore(tree, config, one_search(section=own), FakeCritic(), retriever)
+    assert sections_searched(retriever) == [own, None]
+    assert result.outcome is Outcome.UNRESOLVED
+
+
+async def test_a_claim_with_evidence_only_in_an_other_table_is_found_by_the_retry(tree, config):
     other = passage("other-1", section=Section.OTHER)
     retriever = FakeRetriever({("cocoa", None): found("cocoa", other)})
     critic = FakeCritic(by_chunk={"other-1": Verdict(EvidenceSupport.STATES_CAUSE)})
     result = await explore(tree, config, one_search(), critic, retriever)
-    assert sections_searched(retriever) == [Section.MDNA, *RETRY_SECTIONS[1:], None]
+    # A named section never returns an `other` table; only everywhere does.
+    assert sections_searched(retriever) == [Section.MDNA, None]
     assert Section.OTHER not in sections_searched(retriever)
     assert only_evidence(result).citations[0].section is Section.OTHER
 
 
-async def test_a_branch_that_searched_everywhere_does_not_search_everywhere_again(tree, config):
+async def test_a_branch_that_searched_everywhere_is_not_retried(tree, config):
     retriever = FakeRetriever()
     result = await explore(tree, config, one_search(section=None), FakeCritic(), retriever)
     assert result.outcome is Outcome.UNRESOLVED
-    # Everywhere first, then the five named sections: a repeat of everywhere would add nothing.
-    assert sections_searched(retriever) == [None, *RETRY_SECTIONS]
-
-
-async def test_a_branch_whose_own_section_is_a_later_one_skips_it_in_the_retry(tree, config):
-    retriever = FakeRetriever()
-    await explore(
-        tree, config, one_search(section=Section.FINANCIAL_NOTES), FakeCritic(), retriever
-    )
-    assert sections_searched(retriever) == [
-        Section.FINANCIAL_NOTES,
-        Section.MDNA,
-        Section.RISK_FACTORS,
-        Section.BUSINESS,
-        Section.MARKET_RISK,
-        None,
-    ]
+    # The same query over the same scope can only return the same passages.
+    assert sections_searched(retriever) == [None]
+    nodes = await nodes_by_id(tree, result)
+    branch = next(n for n in nodes.values() if n.depth == 2)
+    assert branch.status is NodeStatus.PRUNED
+    assert "already covered every section" in branch.prune_reason
+    # Prescreen and the one evaluation.
+    assert result.node_evaluations == 2
 
 
 async def test_no_evidence_anywhere_prunes_the_branch_and_then_the_candidate(tree, config):
@@ -909,53 +897,42 @@ async def test_no_evidence_anywhere_prunes_the_branch_and_then_the_candidate(tre
     nodes = await nodes_by_id(tree, result)
     branch = next(n for n in nodes.values() if n.depth == 2)
     assert branch.status is NodeStatus.PRUNED
-    assert branch.prune_reason.startswith("no evidence after one reformulated search")
+    assert branch.prune_reason == "no evidence after one reformulated search of everywhere"
     parent = next(n for n in nodes.values() if n.depth == 1)
     assert (parent.status, parent.prune_reason) == (
         NodeStatus.PRUNED,
         "no evidence branch survived",
     )
     assert result.outcome is Outcome.UNRESOLVED
-    # Prescreen, first try, and no second evaluation: nothing came back to evaluate.
+    assert sections_searched(retriever) == [Section.MDNA, None]
     # The prescreen and the first try. The retry found nothing to evaluate, and the fresh round
     # proposed nothing, so neither added an evaluation.
     assert result.node_evaluations == 2
 
 
-async def test_the_retry_stops_at_the_first_hit_even_if_the_critic_then_finds_nothing(tree, config):
-    retriever = FakeRetriever(
-        {
-            ("cocoa", Section.RISK_FACTORS): found(
-                "cocoa", passage("risk-1", section=Section.RISK_FACTORS)
-            )
-        }
-    )
-    critic = FakeCritic(by_chunk={"risk-1": Verdict(EvidenceSupport.NONE)})
+async def test_the_retry_is_one_search_even_if_the_critic_then_finds_nothing(tree, config):
+    retriever = FakeRetriever({("cocoa", None): found("cocoa", passage("any-1"))})
+    critic = FakeCritic(by_chunk={"any-1": Verdict(EvidenceSupport.NONE)})
     result = await explore(tree, config, one_search(), critic, retriever)
-    assert sections_searched(retriever)[:3] == [
-        Section.MDNA,
-        Section.FINANCIAL_NOTES,
-        Section.RISK_FACTORS,
-    ]
-    assert Section.BUSINESS not in sections_searched(retriever)
+    # Everywhere returned a passage, which the critic found useless: that ends the branch, and no
+    # named section is tried as a second chance.
+    assert sections_searched(retriever) == [Section.MDNA, None]
     nodes = await nodes_by_id(tree, result)
     branch = next(n for n in nodes.values() if n.depth == 2)
-    assert branch.prune_reason.startswith("no evidence after one reformulated search")
+    assert branch.prune_reason == "no evidence after one reformulated search of everywhere"
+    assert result.node_evaluations == 3
 
 
 async def test_a_prior_period_hit_is_not_evidence_for_a_claim_about_this_period(tree, config):
     # Only the prior period has anything. The citation is dropped as the wrong period, so the
-    # branch has no evidence, and the retry keeps looking because none of it counts.
+    # branch has no evidence; the retry returns only the prior period again, so it judges nothing.
     old = passage("old-1", period=PRIOR)
     retriever = FakeRetriever(
-        {
-            ("cocoa", section): found("cocoa", prior=[old])
-            for section in [Section.MDNA, *RETRY_SECTIONS, None]
-        }
+        {("cocoa", section): found("cocoa", prior=[old]) for section in [Section.MDNA, None]}
     )
     critic = FakeCritic(by_chunk={"old-1": Verdict(EvidenceSupport.STATES_CAUSE)})
     result = await explore(tree, config, one_search(), critic, retriever)
-    assert len(retriever.calls) == 1 + 5 + 1 - 1  # own section, four others, and everywhere
+    assert sections_searched(retriever) == [Section.MDNA, None]
     nodes = await nodes_by_id(tree, result)
     branch = next(n for n in nodes.values() if n.depth == 2)
     assert branch.status is NodeStatus.PRUNED
@@ -1042,6 +1019,39 @@ async def test_a_reassessment_counts_as_one_more_model_call(tree, config):
     assert any(call[0] == "reassess" for call in critic.calls)
     # Two generators, the prescreen, the judgment, and the reassessment.
     assert result.model_calls == 5
+
+
+class FailsOnCall(FakeRetriever):
+    """A retriever that works until its `fail_on`th call, then raises as the real one does."""
+
+    def __init__(self, fail_on: int, script=None) -> None:
+        super().__init__(script)
+        self.fail_on = fail_on
+
+    async def retrieve(self, query, comparison, section=None):
+        if len(self.calls) + 1 == self.fail_on:
+            raise IndexOutOfSyncError("the index and the fact store disagree")
+        return await super().retrieve(query, comparison, section)
+
+
+@pytest.mark.parametrize("fail_on", [1, 2], ids=["first_search", "during_the_retry"])
+async def test_a_retriever_failure_ends_the_run_and_is_not_read_as_missing_evidence(
+    tree, config, fail_on
+):
+    # `IndexOutOfSyncError` means the search is broken, not that the filings lack an answer. Reading
+    # it as "no evidence" would prune sound branches and label them unsupported, so it propagates.
+    generator = one_search()
+    ctx = context(tree, config, generator, FakeCritic(), FailsOnCall(fail_on))
+    with pytest.raises(IndexOutOfSyncError):
+        await explore_changes(ranked("chg-1", "chg-2"), COMPARISON, ctx, CostLedger(1.0), RUN)
+    stored = await tree.read_tree(f"{RUN}:chg-1:root")
+    branch = next(node for node in stored if node.depth == 2)
+    # Never judged, so it is pending with no reason and no score, and the audit trail shows that.
+    assert (branch.status, branch.prune_reason, branch.score) == (NodeStatus.PENDING, None, None)
+    # Known gap: a change that ends this way has no budget snapshot, and the later change was never
+    # started, so whoever resumes the run must treat the tree as unfinished.
+    assert await tree.read_budget(RUN) is None
+    assert len(generator.candidate_calls) == 1
 
 
 # -- the fresh round and the budgets ----------------------------------------------------------

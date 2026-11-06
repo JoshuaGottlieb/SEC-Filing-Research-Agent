@@ -59,19 +59,29 @@ from sec_agent.tot.scoring import ScoringConfig
 from sec_agent.tree_mcp.client import TreeClient
 from sec_agent.tree_mcp.store import BudgetUse, NodeUpdate
 
-# The sections the reformulated search tries, in this order. All are chosen by hand; nothing has
-# measured which finds evidence most often. MD&A is first because it is where management says why
-# results moved, so it is the likeliest place for a stated cause. The notes come next for the detail
-# behind the numbers (segments, one-time items). Risk factors name causes too, but hedged. Business
-# describes operations and market risk covers the narrowest topics, so they go last. `OTHER` is not
-# here: a search of everywhere (`None`) reaches those tables, which are rare (0 to 4 per filing).
-RETRY_SECTIONS = (
-    Section.MDNA,
-    Section.FINANCIAL_NOTES,
-    Section.RISK_FACTORS,
-    Section.BUSINESS,
-    Section.MARKET_RISK,
-)
+# The reformulated search is one search of everywhere (`section=None`), and nothing else. Measured
+# on the real retriever (HSY FY2025 against FY2024, 2026-11-06, one filing pair and a handful of
+# queries written by hand):
+#
+# - Everywhere is the only search that reaches a table filed as `other`. It ranked the one such
+#   chunk first, and no named-section search returned it.
+# - A retry that stopped at the first named section with any passage almost never got past its first
+#   section: only 8 of 30 named-section searches came back empty on six realistic queries.
+# - A fallback to the named sections after an empty everywhere never fired: everywhere returned 8 to
+#   10 passages on every realistic query, and on the one off-topic query where it was empty, every
+#   named search was empty too. So it was removed rather than kept as dead weight.
+#
+# POSSIBLY BRING BACK named-section searching if coverage needs it. Everywhere keeps only the best
+# five passages per filing across all sections, and on eight queries it missed 98 of the 176
+# passages the five named searches kept. Most scored below the weakest passage it did keep (only 8
+# above), but a weaker passage can still state a cause, and that was not measured. If real
+# findings show evidence lost to crowding, the fix is not a fallback for an empty search, which
+# never triggers. It is to search the named sections when the critic finds no evidence among
+# everywhere's passages, at the price of more critic calls and node evaluations per branch, so the
+# retry budget would need to change. A search took 2 to 8 s (two filings on CPU), and five more per
+# branch is 20 to 40 s. The order tried before, by hand and unmeasured, was MD&A (where management
+# says why results moved), financial notes (detail behind the numbers), risk factors, business,
+# then market risk. `OTHER` would not be in it: only everywhere reaches those tables.
 
 # Strongest first, the order of the enum (a test pins it). A branch with no level sorts last.
 _EVIDENCE_RANK = {level: rank for rank, level in enumerate(EvidenceSupport)}
@@ -514,39 +524,35 @@ class _Exploration:
         await self._judge(branch, await self._passages(branch, branch.node.source.section))
         evaluation = branch.evaluation
         assert evaluation is not None
-        # A metric has nothing to search again, a refusal is not missing evidence, and a
-        # contradiction prunes whatever else is found. The rest get one reformulated search.
+        # A metric has nothing to search again, a refusal is not missing evidence, a contradiction
+        # prunes whatever else is found, and a search that already covered everywhere can only
+        # return the same passages again. The rest get one reformulated search, of everywhere.
         branch.waiting_for_retry = (
             not evaluation.has_evidence
             and evaluation.failure is None
             and evaluation.numeric_check is not NumericCheck.CONTRADICT
             and branch.node.source.metric is None
+            and branch.node.source.section is not None
             and bool((branch.node.query_plan or "").strip())
         )
         if not branch.waiting_for_retry:
             await self._decide(branch)
 
     async def _retry(self, branch: _Branch) -> None:
-        """The one reformulated attempt: the named sections in order, then everywhere.
+        """The one reformulated attempt: the branch's query, searched everywhere.
 
-        It stops at the first search that returns a passage from the claim's period. The branch's
-        own section is skipped because the same query there has already been run, and a repeat can
-        only return the same thing. Searching everywhere is last, and is the only way to reach a
-        table outside the named sections. Searches are not counted against the budget, only the
-        evaluation that follows.
+        Everywhere is the only search that reaches a table outside the named sections, and on real
+        filings it returned passages for every realistic query (see the note at the top of this
+        module, which also says when to bring named sections back). It is judged only if it returns
+        a passage from the claim's period, since anything else cannot support the claim. The search
+        is not counted against the budget, only the evaluation that follows.
         """
         if not self._has_room():
             raise _NodeCap
-        own = branch.node.source.section
-        order: list[Section | None] = [section for section in RETRY_SECTIONS if section != own]
-        if own is not None:
-            order.append(None)
-        for section in order:
-            found = await self._passages(branch, section)
-            if any(passage.chunk.period in self._periods for passage in found):
-                self._take()
-                await self._judge(branch, found)
-                break
+        found = await self._passages(branch, None)
+        if any(passage.chunk.period in self._periods for passage in found):
+            self._take()
+            await self._judge(branch, found)
         # Set only now, so a stop part way through leaves it waiting and `_finalize` prunes it.
         branch.waiting_for_retry = False
         branch.retried = True
@@ -561,9 +567,7 @@ class _Exploration:
             reason = f"unresolved: {evaluation.failure}"
             self._failures.append(f"{branch.node.node_id}: {evaluation.failure}")
         elif branch.retried and not evaluation.has_evidence:
-            reason = (
-                "no evidence after one reformulated search of the other sections and everywhere"
-            )
+            reason = "no evidence after one reformulated search of everywhere"
         elif evaluation.prune_reason:
             reason = evaluation.prune_reason
         elif not evaluation.has_evidence:
@@ -576,7 +580,9 @@ class _Exploration:
     def _no_evidence_reason(self, branch: _Branch) -> str:
         if branch.node.source.metric is not None:
             return "no evidence: the metric has no data to compare in either period"
-        return "no evidence: the source has no query to search"
+        if not (branch.node.query_plan or "").strip():
+            return "no evidence: the source has no query to search"
+        return "no evidence: its search already covered every section, so a retry would repeat it"
 
     async def _record(self, branch: _Branch, reason: str | None) -> None:
         evaluation = branch.evaluation
