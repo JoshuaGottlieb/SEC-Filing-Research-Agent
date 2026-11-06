@@ -581,11 +581,12 @@ class FactStore:
         ).fetchone()
         return _chunk_from_row(row) if row else None
 
-    def chunks(self, accession: str) -> list[Chunk]:
-        """A filing's chunks in reading order."""
+    def chunks(self, accession: str | None = None) -> list[Chunk]:
+        """One filing's chunks, or every filing's, each filing in reading order."""
+        where = "WHERE accession = ?" if accession else ""
         rows = self._db.execute(
-            f"SELECT {CHUNK_COLUMNS} FROM chunks WHERE accession = ? ORDER BY position",
-            [accession],
+            f"SELECT {CHUNK_COLUMNS} FROM chunks {where} ORDER BY accession, position",
+            [accession] if accession else [],
         ).fetchall()
         return [_chunk_from_row(row) for row in rows]
 
