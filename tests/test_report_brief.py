@@ -12,6 +12,7 @@ from sec_agent.agents.verification import find_causal_language
 from sec_agent.report.brief import (
     NO_FINDINGS_SUMMARY,
     REF,
+    WRAP_WIDTH,
     BriefError,
     assign_refs,
     audit_trail,
@@ -19,6 +20,7 @@ from sec_agent.report.brief import (
     escape,
     format_summary_line,
     render_markdown,
+    wrap_markdown,
     write_run,
 )
 from sec_agent.report.names import (
@@ -221,12 +223,47 @@ def brief(findings=FINDINGS, summary: str | None = None, **fields: Any) -> Brief
     )
 
 
-def statements(markdown: str) -> list[str]:
-    """The lines that state something: summary, claim and review bullets, and finding headings.
+def contains(markdown: str, text: str) -> bool:
+    """Whether `text` appears in the brief, ignoring how it was wrapped and quoted."""
+    words = [word for word in markdown.split() if word != ">"]
+    return " ".join(text.split()) in " ".join(words)
 
-    Block quotes are filing text, and the indented lines under a claim are its evidence.
+
+def statements(markdown: str) -> list[str]:
+    """What states something: summary, claim and review bullets, and finding headings.
+
+    A statement is its first line plus the indented lines that continue it when it is wrapped.
+    Block quotes are filing text, and the indented lines after a blank line under a claim are its
+    evidence, so neither is part of a statement.
     """
-    return [line for line in markdown.splitlines() if line.startswith(("- ", "### "))]
+    found: list[str] = []
+    current: list[str] | None = None
+    for line in markdown.splitlines():
+        if line.startswith(("- ", "### ")):
+            current = [line]
+            found.append(line)
+        elif current is not None and line.startswith("  ") and not line.lstrip().startswith(">"):
+            current.append(line.strip())
+            found[-1] = " ".join(current)
+        else:
+            current = None
+    return found
+
+
+def other_prose(markdown: str) -> list[str]:
+    """Lines that are neither part of a statement, nor a block quote, nor blank."""
+    lines: list[str] = []
+    in_statement = False
+    for line in markdown.splitlines():
+        if line.startswith(("- ", "### ")):
+            in_statement = True
+        elif in_statement and line.startswith("  ") and not line.lstrip().startswith(">"):
+            pass  # a wrapped statement continues
+        else:
+            in_statement = False
+            if line.strip() and not line.lstrip().startswith(">"):
+                lines.append(line)
+    return lines
 
 
 # The plan's done-when.
@@ -276,17 +313,18 @@ def test_a_findings_claims_show_confirmed_first_with_their_labels():
 
 def test_the_disclaimer_is_on_every_brief():
     for report in (brief(), brief(findings=(), summary=NO_FINDINGS_SUMMARY)):
-        assert escape(DISCLAIMER) in render_markdown(report)
+        assert contains(render_markdown(report), escape(DISCLAIMER))
         assert "Not investment advice" in render_markdown(report)
 
 
 def test_quotes_are_block_quotes_with_their_source():
     markdown = render_markdown(brief(), METRICS)
     assert "  > Gross margin decreased due to higher input costs, primarily cocoa." in markdown
-    assert (
-        "  > Source: 10-K for FY2025, Management's Discussion and Analysis, "
-        "<https://www.sec.gov/acc-2025.htm>"
-    ) in markdown
+    assert contains(
+        markdown,
+        "Source: 10-K for FY2025, Management's Discussion and Analysis, "
+        "<https://www.sec.gov/acc-2025.htm>",
+    )
 
 
 def test_changed_text_is_quoted_under_its_period():
@@ -362,12 +400,13 @@ def test_causal_wording_in_the_output_is_only_where_it_is_allowed():
         for claim in finding.claims
         if claim.label is ExplanationLabel.CONFIRMED
     }
-    for line in markdown.splitlines():
-        if line.lstrip().startswith(">") or line.startswith("> **Not investment advice"):
-            continue
-        if find_causal_language(line):
-            cited = set(REF.findall(line))
-            assert cited and cited <= confirmed_refs, line
+    for statement in statements(markdown):
+        if find_causal_language(statement):
+            cited = set(REF.findall(statement))
+            assert cited and cited <= confirmed_refs, statement
+    # Everything else the system wrote (titles, notes, "Metrics:" lines) states no cause.
+    for line in other_prose(markdown):
+        assert find_causal_language(line) == (), line
 
 
 def test_a_plausible_claim_worded_causally_stops_the_brief(tmp_path):
@@ -531,6 +570,92 @@ def test_a_numeric_heading_falls_back_to_the_metric_id_and_signs_dollars():
         update={"unit": "USD"}
     )
     assert "Gross margin change: -$1,234 in FY2025" in render_markdown(report, FakeMetrics(loss))
+
+
+LONG_QUOTE = (  # Real: HSY FY2025 10-K, paragraph mdna:0036, 451 characters on one line.
+    "Gross margin was 33.5% in 2025 compared with 47.3% in 2024, a decrease of approximately "
+    "1,380 basis points. The decrease was driven by higher commodity and tariff costs, unfavorable "
+    "mark-to-market activity on our commodity derivative instruments and lower volume, which more "
+    "than offset the benefits from net price realization, supply chain productivity, and net "
+    "savings related to our Advancing Agility & Automation Initiative (“AAA Initiative”)."
+)
+
+
+def long_brief() -> Brief:
+    claim = confirmed(
+        "run1:chg-gm:r1:c1", "Higher commodity costs lowered gross margin.", LONG_QUOTE
+    )
+    finding = MARGIN_FINDING.model_copy(update={"claims": (claim,)})
+    summary = (
+        "Gross margin fell sharply over the year, and the filings say that higher commodity costs "
+        "lowered it. [C1]"
+    )
+    return brief(findings=(finding,), summary=summary)
+
+
+def test_no_line_is_longer_than_the_cap_except_a_heading_or_a_single_token():
+    markdown = render_markdown(long_brief(), METRICS)
+    for line in markdown.splitlines():
+        if len(line) > WRAP_WIDTH:
+            content = line.lstrip(" >-")
+            assert line.startswith("#") or " " not in content, line
+
+
+def test_wrapping_splits_no_word():
+    # The line breaks the user saw ("th" / "em") came from a fixed-width view of long lines.
+    markdown = render_markdown(long_brief(), METRICS)
+    assert contains(markdown, LONG_QUOTE)
+    for word in ("derivative", "them", "approximately", "Initiative"):
+        assert all(
+            not line.rstrip().endswith(word[:-1]) or line.rstrip().endswith(word)
+            for line in markdown.splitlines()
+            if word[:-1] in line
+        )
+
+
+def test_wrapped_lines_keep_their_markdown_structure():
+    markdown = render_markdown(long_brief(), METRICS)
+    lines = markdown.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith("  > Gross margin was"))
+    quote = []
+    for line in lines[start:]:
+        if not line.startswith("  >"):
+            break
+        quote.append(line)
+    # Every wrapped line of a quote under a claim keeps the claim's indent and the quote marker.
+    assert len(quote) > 3 and all(line.startswith("  > ") or line == "  >" for line in quote)
+    summary = next(i for i, line in enumerate(lines) if line.startswith("- Gross margin fell"))
+    assert lines[summary + 1].startswith("  ") and lines[summary + 1].strip().endswith("[C1]")
+
+
+def test_a_continuation_line_cannot_start_a_list_or_a_heading():
+    # One long word fills the first line, so the marker is what lands at the start of the second.
+    for marker, guarded in (
+        ("- next", "\\- next"),
+        ("+ next", "\\+ next"),
+        ("2025. next", "2025\\. next"),
+        ("=== next", "\\=== next"),
+    ):
+        lines = wrap_markdown(f"- {'x' * 96} {marker}").splitlines()
+        assert lines[1] == f"  {guarded}", lines
+    quoted = wrap_markdown(f"  > {'x' * 94} 1) next").splitlines()
+    assert quoted[1] == "  > 1\\) next", quoted
+
+
+def test_a_heading_and_a_long_url_are_never_broken():
+    heading = "### [F1] " + "word " * 30
+    assert wrap_markdown(heading) == heading
+    url = "<https://www.sec.gov/" + "a" * 120 + ">"
+    lines = wrap_markdown(f"  > Source: 10-K for FY2025, {url}").splitlines()
+    assert url in lines[-1]
+
+
+def test_a_quote_line_starting_with_a_dash_does_not_become_a_list():
+    risky = RISK.model_copy(update={"current_text": "- tariffs\n2025. A new year"})
+    finding = RISK_FINDING.model_copy(update={"change": risky})
+    markdown = render_markdown(brief(findings=(finding,), summary="A risk. [C1]"))
+    assert "> \\- tariffs" in markdown
+    assert "> 2025\\. A new year" in markdown
 
 
 def test_the_summary_list_ends_before_the_next_heading():

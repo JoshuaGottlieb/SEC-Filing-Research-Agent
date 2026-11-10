@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import re
+import textwrap
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -261,7 +262,64 @@ def escape(text: str) -> str:
 
 def quote_lines(text: str) -> list[str]:
     """Filing text as escaped block-quote lines, one per paragraph line, none blank."""
-    return [escape(line) for line in text.splitlines() if line.strip()]
+    return [_guard_line_start(escape(line)) for line in text.splitlines() if line.strip()]
+
+
+# The brief is hard-wrapped so the raw file reads well in a terminal or editor (the user's decision,
+# 2026-11-10): an unwrapped quote ran to 451 characters, and a fixed-width view cut words in half.
+# 100 matches the code's line length. Markdown joins wrapped lines back into one paragraph.
+WRAP_WIDTH = 100
+
+# What can start a Markdown block when it begins a line: a list item ("-", "+", "1." or "1)") or a
+# setext heading underline ("---", "==="). "*", "#" and ">" are already escaped by `escape`.
+_LINE_START_MARKER = re.compile(r"^(?:[-+=]|\d+(?=[.)]))")
+
+
+def _guard_line_start(content: str) -> str:
+    """`content` made safe to begin a line: a leading block marker is escaped."""
+    match = _LINE_START_MARKER.match(content)
+    if match is None:
+        return content
+    if match.group()[0].isdigit():
+        # "2025. Sales" would start an ordered list: escape the period or parenthesis instead.
+        end = match.end()
+        return f"{content[:end]}\\{content[end:]}"
+    return f"\\{content}"
+
+
+# A line's prefix and the prefix its continuation lines need: a block quote keeps "> " (with any
+# list indent before it), a list item's continuation is indented past "- ", and plain text keeps
+# its own indent.
+_QUOTE = re.compile(r"^( *> )")
+_LIST_ITEM = re.compile(r"^( *)- ")
+
+
+def _wrap_line(line: str) -> list[str]:
+    if len(line) <= WRAP_WIDTH or line.startswith("#"):
+        # A Markdown heading cannot continue onto a second line, so it stays whole.
+        return [line]
+    if quote := _QUOTE.match(line):
+        first = later = quote[1]
+    elif item := _LIST_ITEM.match(line):
+        first, later = f"{item[1]}- ", f"{item[1]}  "
+    else:
+        first = later = line[: len(line) - len(line.lstrip(" "))]
+    wrapped = textwrap.wrap(
+        line[len(first) :],
+        # One less, because guarding a continuation line can add a backslash.
+        width=WRAP_WIDTH - 1,
+        initial_indent=first,
+        subsequent_indent=later,
+        # A URL or other long token stays whole even past the width, so a link never breaks.
+        break_long_words=False,
+        break_on_hyphens=False,
+    )
+    return [wrapped[0]] + [later + _guard_line_start(rest[len(later) :]) for rest in wrapped[1:]]
+
+
+def wrap_markdown(markdown: str) -> str:
+    """Hard-wrap every line past `WRAP_WIDTH` at spaces, keeping its Markdown structure."""
+    return "\n".join(wrapped for line in markdown.split("\n") for wrapped in _wrap_line(line))
 
 
 def _value(metric: MetricValue) -> str:
@@ -398,7 +456,7 @@ def render_markdown(brief: Brief, metrics: MetricLookup | None = None) -> str:
         lstrip_blocks=True,
         keep_trailing_newline=True,
     )
-    return environment.get_template("brief.md.j2").render(**view)
+    return wrap_markdown(environment.get_template("brief.md.j2").render(**view))
 
 
 def audit_trail(
