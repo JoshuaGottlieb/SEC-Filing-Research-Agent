@@ -13,8 +13,9 @@ different values, gives no metric, and a check on it is NOT_APPLICABLE.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -22,7 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from sec_agent.config import REPO_ROOT
 from sec_agent.edgar.corpus import Corpus, CorpusError
-from sec_agent.finance.fact_store import FactStore
+from sec_agent.finance.fact_store import FactRow, FactStore
 from sec_agent.schemas import (
     Comparison,
     Direction,
@@ -46,6 +47,10 @@ XBRL_UNIT_USD = "usd"
 # More rows than one company reports for one period end, so that FactStore.search's limit can't
 # silently drop the row a metric needs and make it look missing.
 FACT_SEARCH_LIMIT = 100_000
+# How many days before a filing's period end the same quarter a year earlier ends. A calendar
+# quarter ends on the same date (365 or 366 days), and a 52/53-week year moves it by up to a week
+# either way (Stanley's Q2 ended June 28, 2025 and July 4, 2026: 371 days).
+YEAR_EARLIER_DAYS = range(357, 372)
 
 REVENUE = "revenue"
 GROSS_PROFIT = "gross_profit"
@@ -113,6 +118,25 @@ class _Amount:
     fact_ids: tuple[str, ...]
 
 
+# Finds one reported line item for a filing: its own period, or the period a year earlier.
+_Reader = Callable[[Filing, str], _Amount | None]
+
+
+class PastValue(BaseModel):
+    """A metric for the period a year before a filing's own, from `MetricCatalog.year_earlier`.
+
+    It has no metric id: that period need not be a pinned filing, so `get_metric` couldn't
+    rebuild it. It is evidence for the seasonal check, not a figure a claim can cite.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: MetricName
+    value: float
+    unit: str
+    input_fact_ids: tuple[str, ...] = Field(min_length=1)
+
+
 def duration_for(form: FormType) -> Duration:
     """A 10-Q's metrics use its quarter and a 10-K's its year, never a year-to-date figure."""
     return Duration.TWELVE_MONTHS if form is FormType.FORM_10K else Duration.THREE_MONTHS
@@ -140,44 +164,77 @@ class MetricCatalog:
         self._corpus = corpus
         self._config = config
 
+    def _company_rows(self, filing: Filing, concept: str, end_date: date | None) -> list[FactRow]:
+        """A concept's company-wide dollar facts over the filing's kind of period (3m or 12m)."""
+        duration = duration_for(filing.form).value
+        return [
+            row
+            for row in self._store.search(
+                filing.ticker, concept, end_date=end_date, source="xbrl", limit=FACT_SEARCH_LIMIT
+            )
+            if row.name == concept
+            and row.duration == duration
+            and row.unit == XBRL_UNIT_USD
+            # `dimensions` covers every breakdown, while `segment` only covers one axis. A
+            # revenue figure for one product line has no segment but does have a dimension.
+            and row.dimensions is None
+            and row.segment is None
+        ]
+
+    @staticmethod
+    def _one_figure(rows: Sequence[FactRow], where: str) -> _Amount:
+        # A figure repeated in a filing is fine. Two different ones can't be chosen between.
+        if len({row.value for row in rows}) > 1:
+            raise _ConflictingFigures(where)
+        first = min(rows, key=lambda row: row.fact_id)
+        return _Amount(first.value, (first.fact_id,))
+
     def _reported(self, filing: Filing, item: str) -> _Amount | None:
         """A line item as the filing itself reports it, company-wide, for its own period."""
-        duration = duration_for(filing.form).value
         for concept in self._config.line_items[item]:
             rows = [
                 row
-                for row in self._store.search(
-                    filing.ticker,
-                    concept,
-                    end_date=filing.period.period_end,
-                    source="xbrl",
-                    limit=FACT_SEARCH_LIMIT,
-                )
-                if row.name == concept
-                and row.accession == filing.accession
-                and row.duration == duration
-                and row.unit == XBRL_UNIT_USD
-                # `dimensions` covers every breakdown, while `segment` only covers one axis. A
-                # revenue figure for one product line has no segment but does have a dimension.
-                and row.dimensions is None
-                and row.segment is None
+                for row in self._company_rows(filing, concept, filing.period.period_end)
+                if row.accession == filing.accession
             ]
-            if not rows:
-                continue
-            # A figure repeated in the filing is fine. Two different ones can't be chosen between.
-            if len({row.value for row in rows}) > 1:
-                raise _ConflictingFigures(f"{filing.accession} {concept}")
-            rows.sort(key=lambda row: row.fact_id)
-            return _Amount(rows[0].value, (rows[0].fact_id,))
+            if rows:
+                return self._one_figure(rows, f"{filing.accession} {concept}")
         return None
 
-    def _amount(self, filing: Filing, item: str) -> _Amount | None:
-        """A line item, computing gross profit when the filer reports no such line."""
-        reported = self._reported(filing, item)
+    def _reported_year_earlier(self, filing: Filing, item: str) -> _Amount | None:
+        """A line item for the same quarter (or year) one year before the filing's own period.
+
+        That period's own filing is read first, as for every other figure, when the store has
+        it. Otherwise the year-earlier figure the later filing itself reports is used: every
+        10-Q and 10-K repeats the year-earlier period beside its own. With neither, it is None.
+        """
+        own = (filing.form.value, filing.period.fiscal_year - 1, filing.period.fiscal_period)
+        for concept in self._config.line_items[item]:
+            rows = [
+                row
+                for row in self._company_rows(filing, concept, None)
+                if (filing.period.period_end - row.end_date).days in YEAR_EARLIER_DAYS
+            ]
+            from_own = [
+                row for row in rows if (row.form, row.fiscal_year, row.fiscal_period) == own
+            ]
+            from_later = [row for row in rows if row.accession == filing.accession]
+            for found in (from_own, from_later):
+                if found:
+                    return self._one_figure(found, f"{filing.accession} {concept} a year earlier")
+        return None
+
+    def _amount(self, filing: Filing, item: str, read: _Reader | None = None) -> _Amount | None:
+        """A line item, computing gross profit when the filer reports no such line.
+
+        `read` finds a reported figure: the filing's own period unless told otherwise.
+        """
+        read = read or self._reported
+        reported = read(filing, item)
         if reported is not None or item != GROSS_PROFIT:
             return reported
-        revenue = self._reported(filing, REVENUE)
-        cost = self._reported(filing, COST_OF_GOODS_SOLD)
+        revenue = read(filing, REVENUE)
+        cost = read(filing, COST_OF_GOODS_SOLD)
         if revenue is None or cost is None:
             return None
         return _Amount(revenue.value - cost.value, (*revenue.fact_ids, *cost.fact_ids))
@@ -250,6 +307,36 @@ class MetricCatalog:
         if name in RATIO_NUMERATORS:
             return self.ratio(filing, name)
         raise ValueError(f"{name.value} is measured between two periods; use growth()")
+
+    def year_earlier(self, filing: Filing, name: MetricName) -> PastValue | None:
+        """A ratio or dollar metric for the period a year before the filing's own, or None.
+
+        Read as `_reported_year_earlier` describes. None means there is no year-earlier figure
+        to read, or it conflicts, so a check that needs it must be refused, not guessed.
+        """
+        read = self._reported_year_earlier
+        try:
+            if name in DOLLAR_ITEMS:
+                amount = self._amount(filing, DOLLAR_ITEMS[name], read)
+                if amount is None:
+                    return None
+                return PastValue(
+                    name=name, value=amount.value, unit=UNIT_USD, input_fact_ids=amount.fact_ids
+                )
+            if name not in RATIO_NUMERATORS:
+                raise ValueError(f"{name.value} is measured between two periods")
+            numerator = self._amount(filing, RATIO_NUMERATORS[name], read)
+            revenue = read(filing, REVENUE)
+        except _ConflictingFigures:
+            return None
+        if numerator is None or revenue is None or revenue.value == 0:
+            return None
+        return PastValue(
+            name=name,
+            value=numerator.value / revenue.value,
+            unit=UNIT_RATIO,
+            input_fact_ids=tuple(dict.fromkeys((*numerator.fact_ids, *revenue.fact_ids))),
+        )
 
     def growth(self, current: Filing, prior: Filing) -> MetricValue | None:
         """Revenue growth, dated to the current period, or None if either revenue is missing."""
