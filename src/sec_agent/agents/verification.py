@@ -85,6 +85,14 @@ CAUSAL_PHRASES: tuple[CausalPhrase, ...] = (
         "Bare 'drive' is left out because it is also a noun.",
     ),
     CausalPhrase(
+        r"\bdrivers?\b",
+        "The noun: 'commodity costs were the main driver'. Added 2026-11-10 after the claim "
+        "writer reported a filing's causes as 'drivers' on real text and nothing caught it. 188 "
+        "uses in section text; in a sample of 15, 12 were causal and 2 meant people who drive. "
+        "No exception for those: the check reads only what the system writes, where a false "
+        "alarm costs one rewrite.",
+    ),
+    CausalPhrase(
         r"\b(?:lead|leads|led|leading) to\b",
         "States that one thing produced another.",
     ),
