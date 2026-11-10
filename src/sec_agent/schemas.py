@@ -85,12 +85,21 @@ class MetricName(StrEnum):
     thought generator and the metric checker cannot spell one differently. Add a member here
     when the catalog gains a metric, such as segment mix."""
 
+    # Ratios over revenue, and revenue growth.
     GROSS_MARGIN = "gross_margin"
     OPERATING_MARGIN = "operating_margin"
     NET_MARGIN = "net_margin"
     REVENUE_GROWTH = "revenue_growth"
     COGS_RATIO = "cogs_ratio"
     SGA_RATIO = "sga_ratio"
+    # Dollar figures (unit USD), so a claim can say an expense itself rose, not only its share of
+    # revenue. Each is one line item of the catalog's config.
+    REVENUE = "revenue"
+    COST_OF_GOODS_SOLD = "cost_of_goods_sold"
+    GROSS_PROFIT = "gross_profit"
+    SGA = "sga"
+    OPERATING_INCOME = "operating_income"
+    NET_INCOME = "net_income"
 
 
 class Direction(StrEnum):
@@ -314,7 +323,12 @@ class Change(Record):
     current_chunk_ids: tuple[str, ...] = ()
     prior_chunk_ids: tuple[str, ...] = ()
     metric_id: str | None = None
-    # A sequential move that a year-earlier move of similar size would explain.
+    # Whether the seasonal check ran: it needs the same move a year earlier, and with no
+    # year-earlier figure it is refused. False is the default, so a change never claims "not
+    # seasonal" without a check behind it.
+    seasonality_checked: bool = False
+    # A sequential move that a year-earlier move of similar size would explain. Only meaningful
+    # when seasonality_checked is True: False then means checked and not seasonal.
     possibly_seasonal: bool = False
     criterion: MaterialityCriterion | None = None
     materiality_rank: int | None = Field(default=None, ge=1)
@@ -322,6 +336,9 @@ class Change(Record):
 
     @model_validator(mode="after")
     def _evidence_matches_kind(self) -> Change:
+        # A seasonal label without the check behind it would be a guess.
+        if self.possibly_seasonal and not self.seasonality_checked:
+            raise ValueError("possibly_seasonal needs seasonality_checked")
         # A numeric change points to a metric; a text change needs the text that changed.
         if self.kind is ChangeKind.NUMERIC:
             if self.metric_id is None:

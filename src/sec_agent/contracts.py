@@ -74,6 +74,12 @@ class MetricChecker(Protocol):
     means revenue fell. "Growth slowed to 2%" must not be written as `revenue_growth` DOWN:
     revenue still rose, so this returns CONTRADICT. Such a claim carries no expectation for
     `revenue_growth`.
+
+    The dollar metrics (`revenue`, `cost_of_goods_sold`, `gross_profit`, `sga`,
+    `operating_income`, `net_income`) behave like the ratios: the outcome cites both periods'
+    values, and UP means the dollar figure is higher in the current period. Figures are signed,
+    so a smaller net loss is UP. Only an exact tie is too small to call. `revenue` UP and
+    `revenue_growth` UP agree by construction; a claim needs only one of them.
     """
 
     def check(
@@ -103,8 +109,11 @@ class MetricLookup(Protocol):
 
     - `unit` is `ratio` or `USD`. A `ratio` is an unrounded, signed fraction: 0.37512 is 37.512%,
       so rounding for comparison is the caller's job. `USD` is whole dollars with any table scale
-      already applied. All six current metrics are ratios, so `USD` does not appear yet, and a
-      dollar figure cannot trace through this interface.
+      already applied, signed (a net loss is negative), as reported and unrounded. The six ratio
+      metrics and `revenue_growth` are `ratio`; the six dollar metrics (`revenue`,
+      `cost_of_goods_sold`, `gross_profit`, `sga`, `operating_income`, `net_income`) are `USD`.
+      A dollar metric's `input_fact_ids` is its one fact, or for a gross profit the filer doesn't
+      report, the revenue and cost of goods sold it is computed from.
     - `name` is a `MetricName` value.
     - `metric_id` is opaque: do not parse it. Pair two values by `name`, `period` and `duration`.
     - `duration` is 3m for a 10-Q and 12m for a 10-K. Compare only values of the same duration.

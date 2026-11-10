@@ -1,4 +1,4 @@
-"""The metric catalog: six figures computed from company-wide XBRL facts, and the check on them.
+"""The metric catalog: ratios and dollar figures from company-wide XBRL facts, and their check.
 
 `MetricCatalog` is the `MetricChecker` and `MetricLookup` of contracts.py, whose docstrings define
 what a value means. Every value is computed when asked for rather than stored, so it can't drift
@@ -38,8 +38,9 @@ from sec_agent.schemas import (
 )
 
 METRICS_CONFIG_PATH = REPO_ROOT / "config" / "metrics.yaml"
-# The unit names the contract fixes. Every current metric is a ratio.
+# The unit names the contract fixes (see contracts.MetricLookup).
 UNIT_RATIO = "ratio"
+UNIT_USD = "USD"
 # How xbrl_facts writes US dollars. A per-share figure has a different unit and is never used.
 XBRL_UNIT_USD = "usd"
 # More rows than one company reports for one period end, so that FactStore.search's limit can't
@@ -60,6 +61,15 @@ RATIO_NUMERATORS = {
     MetricName.COGS_RATIO: COST_OF_GOODS_SOLD,
     MetricName.SGA_RATIO: SGA,
 }
+# The line item each dollar metric reports as it is. Its name and the config key are the same.
+DOLLAR_ITEMS = {
+    MetricName.REVENUE: REVENUE,
+    MetricName.COST_OF_GOODS_SOLD: COST_OF_GOODS_SOLD,
+    MetricName.GROSS_PROFIT: GROSS_PROFIT,
+    MetricName.SGA: SGA,
+    MetricName.OPERATING_INCOME: OPERATING_INCOME,
+    MetricName.NET_INCOME: NET_INCOME,
+}
 
 
 class NoMoveTolerance(BaseModel):
@@ -69,6 +79,8 @@ class NoMoveTolerance(BaseModel):
 
     ratio: float = Field(ge=0)
     revenue_growth: float = Field(ge=0)
+    # In dollars, for the dollar metrics.
+    usd: float = Field(ge=0)
 
 
 class MetricsConfig(BaseModel):
@@ -208,6 +220,37 @@ class MetricCatalog:
             input_fact_ids=tuple(dict.fromkeys((*numerator.fact_ids, *revenue.fact_ids))),
         )
 
+    def dollars(self, filing: Filing, name: MetricName) -> MetricValue | None:
+        """One of the dollar metrics, for one filing's period, or None if it can't be given.
+
+        The same figure `line_item` gives, as a traceable metric: gross profit is computed where
+        the filer reports none, and a figure reported twice with different values gives nothing.
+        """
+        try:
+            amount = self._amount(filing, DOLLAR_ITEMS[name])
+        except _ConflictingFigures:
+            return None
+        if amount is None:
+            return None
+        return MetricValue(
+            metric_id=metric_id_for(filing, name),
+            ticker=filing.ticker,
+            name=name.value,
+            period=filing.period,
+            duration=duration_for(filing.form),
+            value=amount.value,
+            unit=UNIT_USD,
+            input_fact_ids=amount.fact_ids,
+        )
+
+    def level(self, filing: Filing, name: MetricName) -> MetricValue | None:
+        """A ratio or dollar metric for one period. Revenue growth spans two, so it isn't one."""
+        if name in DOLLAR_ITEMS:
+            return self.dollars(filing, name)
+        if name in RATIO_NUMERATORS:
+            return self.ratio(filing, name)
+        raise ValueError(f"{name.value} is measured between two periods; use growth()")
+
     def growth(self, current: Filing, prior: Filing) -> MetricValue | None:
         """Revenue growth, dated to the current period, or None if either revenue is missing."""
         try:
@@ -238,12 +281,13 @@ class MetricCatalog:
             cited = (value.metric_id,)
             move, limit = value.value, tolerance.revenue_growth
         else:
-            current = self.ratio(comparison.current, expected.metric)
-            prior = self.ratio(comparison.prior, expected.metric)
+            current = self.level(comparison.current, expected.metric)
+            prior = self.level(comparison.prior, expected.metric)
             if current is None or prior is None:
                 return _not_applicable(expected)
             cited = (current.metric_id, prior.metric_id)
-            move, limit = current.value - prior.value, tolerance.ratio
+            limit = tolerance.usd if current.unit == UNIT_USD else tolerance.ratio
+            move = current.value - prior.value
         # An exact tie has no direction, whatever the tolerance, and a smaller move can't be called.
         if move == 0 or abs(move) < limit:
             return _not_applicable(expected)
@@ -287,7 +331,7 @@ class MetricCatalog:
         if (name is MetricName.REVENUE_GROWTH) != bool(compared):
             return None
         if name is not MetricName.REVENUE_GROWTH:
-            return self.ratio(filing, name)
+            return self.level(filing, name)
         prior = None
         if compared[0].startswith("vs-"):
             prior = self._filing_for(ticker, compared[0].removeprefix("vs-"))
