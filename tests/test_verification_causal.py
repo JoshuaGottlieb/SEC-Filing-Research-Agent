@@ -57,6 +57,8 @@ def plausible(text: str) -> Claim:
         ("Margin fell, driven by input costs.", "driven by"),
         ("It was a cost-driven decline.", "-driven"),
         ("Input costs drove the decline.", "drove"),
+        ("Commodity costs were the main driver of the decline.", "driver"),
+        ("The filings cite higher commodity costs as drivers.", "drivers"),
         ("Higher costs led to lower margins.", "led to"),
         ("The decline was attributable to input costs.", "attributable to"),
         ("Higher sales attributable to pricing were reported.", "attributable to"),

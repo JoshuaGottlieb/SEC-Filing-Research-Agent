@@ -252,8 +252,11 @@ def _describe(change: Change) -> str:
     return f"{change.kind.value} change{where}: {what}".strip(" :")[:500]
 
 
-def _claim_periods(change: Change, comparison: Comparison) -> frozenset[FiscalPeriod]:
-    """The period the claim is about: the earlier one only for something that was removed."""
+def claim_periods(change: Change, comparison: Comparison) -> frozenset[FiscalPeriod]:
+    """The period a claim about `change` is about: the earlier one only for something removed.
+
+    Public because labeling (T4.5) must pass `check_citations` the same periods the search used.
+    """
     period = (
         comparison.prior.period if change.kind is ChangeKind.REMOVED else comparison.current.period
     )
@@ -310,7 +313,7 @@ class _Exploration:
         self._prefix = f"{run_id}:{change.change_id}"
         self._root_id = f"{self._prefix}:root"
         self._run_id = run_id
-        self._periods = _claim_periods(change, comparison)
+        self._periods = claim_periods(change, comparison)
         # Every claim proposed so far, so the fresh round does not repeat them.
         self._claims: list[str] = []
         self._failures: list[str] = []
