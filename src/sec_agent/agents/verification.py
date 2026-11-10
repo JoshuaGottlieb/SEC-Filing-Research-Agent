@@ -409,33 +409,52 @@ MIN_PRIOR_FOR_RELATIVE_CHANGE = 0.01
 
 
 def _computed_figures(metrics: Iterable[MetricValue]) -> list[_Figure]:
-    """What a claim may state from these metrics: levels, point changes and relative changes.
+    """What a claim may state from these metrics.
 
-    The conventions are in `contracts.MetricLookup`. Only ratios are read: no `USD` metric exists
-    yet, so one that appeared would match nothing and fail loudly rather than pass unread.
+    The conventions are in `contracts.MetricLookup`. A ratio supports its level as a percent, and
+    a pair of the same name and duration supports the point change and the relative change. A
+    `USD` metric (whole dollars, signed) supports its level in dollars, and a pair supports the
+    dollar change and the relative change; there are no points in dollars. Levels and changes are
+    magnitudes, like every figure here: the direction is the metric checker's to judge. A metric in
+    any other unit supports nothing, so a figure resting on it fails loudly rather than pass unread.
     """
 
     def figure(kind: _FigureKind, value: float, label: str) -> _Figure:
         return _Figure(kind, value, 0.0, label)
 
+    def dollars(value: float, label: str) -> _Figure:
+        return _Figure(_FigureKind.MONEY, value, 0.0, label, currency="$")
+
     figures: list[_Figure] = []
-    pairable: defaultdict[tuple[str, str], list[MetricValue]] = defaultdict(list)
+    pairable: defaultdict[tuple[str, str, str], list[MetricValue]] = defaultdict(list)
     for metric in metrics:
-        if metric.unit != "ratio":
+        if metric.unit == "ratio":
+            level = abs(metric.value) * 100
+            figures.append(figure(_FigureKind.PERCENT, level, f"{level:.2f}%"))
+        elif metric.unit == "USD":
+            level = abs(metric.value)
+            figures.append(dollars(level, f"${level:,.0f}"))
+        else:
             continue
-        level = abs(metric.value) * 100
-        figures.append(figure(_FigureKind.PERCENT, level, f"{level:.2f}%"))
         # Revenue growth already describes a change, so it supports only its own value.
         if metric.name != MetricName.REVENUE_GROWTH.value:
-            pairable[(metric.name, metric.duration)].append(metric)
-    for values in pairable.values():
+            pairable[(metric.name, metric.duration, metric.unit)].append(metric)
+    for (_, _, unit), values in pairable.items():
         for first, second in combinations(values, 2):
             if first.period == second.period:
                 continue
             prior, current = sorted((first, second), key=lambda value: value.period.period_end)
             move = abs(current.value - prior.value)
-            figures.append(figure(_FigureKind.POINTS, move * 100, f"{move * 100:.2f} points"))
-            if prior.value >= MIN_PRIOR_FOR_RELATIVE_CHANGE:
+            if unit == "ratio":
+                figures.append(figure(_FigureKind.POINTS, move * 100, f"{move * 100:.2f} points"))
+                has_relative = prior.value >= MIN_PRIOR_FOR_RELATIVE_CHANGE
+            else:
+                figures.append(dollars(move, f"${move:,.0f} change"))
+                # Only from a positive prior (the contract's rule): a change "from" a loss has no
+                # meaningful percent. No near-zero cutoff in dollars, chosen by hand: there is no
+                # natural scale, and a claim must still state the exact percent to pass.
+                has_relative = prior.value > 0
+            if has_relative:
                 relative = move / prior.value * 100
                 figures.append(figure(_FigureKind.PERCENT, relative, f"{relative:.2f}% change"))
     return figures
@@ -683,7 +702,7 @@ def _check_figures(
             detail = f"the cited table states no scale, so {figure.text!r} cannot be confirmed"
         elif metrics:
             kind = CitationFailureKind.FIGURE_MISMATCH
-            values = ", ".join(candidate.text for candidate in computed) or "no ratio values"
+            values = ", ".join(candidate.text for candidate in computed) or "no values"
             detail = (
                 f"{figure.text!r} matches no cited quote and none of the values computed from "
                 f"the cited metrics: {values}"
@@ -716,8 +735,8 @@ def check_citations(
     Each metric id must resolve. Each figure in the claim's text must match, by value, something
     computed from a cited metric or a figure in a verified cited quote (see `_check_figures`). The
     plan's rule names only metrics, but a figure can be reported in text and have no computed
-    metric, such as a table in `Section.OTHER`, and all current metrics are ratios, so a dollar
-    figure can only trace to a quote. A metric's period is not checked because metric ids come
+    metric, such as a table in `Section.OTHER`. A dollar figure traces to a `USD` metric (one of
+    the six dollar metrics) or to a quote. A metric's period is not checked because metric ids come
     from the metric checker, which is limited to the comparison, and not from the model.
     """
     failures = [
