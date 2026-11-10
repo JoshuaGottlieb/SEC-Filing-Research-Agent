@@ -11,6 +11,7 @@ from sec_agent.contracts import MetricChecker, MetricLookup
 from sec_agent.edgar.corpus import Corpus, CorpusCompany, CorpusFiling
 from sec_agent.finance.fact_store import FactStore
 from sec_agent.finance.metrics import (
+    DOLLAR_ITEMS,
     GROSS_PROFIT,
     OPERATING_INCOME,
     REVENUE,
@@ -37,7 +38,7 @@ CONFIG = MetricsConfig(
         "operating_income": ("us-gaap:OperatingIncomeLoss",),
         "net_income": ("us-gaap:NetIncomeLoss",),
     },
-    no_move_tolerance=NoMoveTolerance(ratio=0.0005, revenue_growth=0.0),
+    no_move_tolerance=NoMoveTolerance(ratio=0.0005, revenue_growth=0.0, usd=0.0),
 )
 
 
@@ -611,6 +612,118 @@ def test_a_well_formed_id_with_no_data_returns_none(catalog):
     assert catalog.get_metric("AAA:gross_margin:Q2 2026:3m") is None
 
 
+# --- Dollar metrics ---
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        (MetricName.REVENUE, 1000.0),
+        (MetricName.COST_OF_GOODS_SOLD, 600.0),
+        (MetricName.GROSS_PROFIT, 400.0),
+        (MetricName.SGA, 200.0),
+        (MetricName.OPERATING_INCOME, 150.0),
+        (MetricName.NET_INCOME, 100.0),
+    ],
+)
+def test_each_dollar_metric_is_the_reported_figure(facts, catalog, name, expected):
+    facts.statement(Q2_26)
+    value = catalog.dollars(YOY_10Q.current, name)
+    assert value.value == expected
+    assert value.unit == "USD"
+    assert value.name == name.value
+    assert value.duration is Duration.THREE_MONTHS
+    assert value.period == YOY_10Q.current.period
+    assert value.metric_id == f"AAA:{name.value}:Q2 2026:3m"
+    assert len(value.input_fact_ids) == 1
+
+
+def test_each_dollar_metric_names_its_line_item():
+    assert {name.value for name in DOLLAR_ITEMS} == set(DOLLAR_ITEMS.values())
+    assert set(DOLLAR_ITEMS.values()) == set(MetricsConfig.load().line_items)
+
+
+def test_a_dollar_gross_profit_is_computed_when_not_reported(facts, catalog):
+    facts.statement(Q2_26, gross_profit=None, revenue=1000.0, cost=640.0)
+    value = catalog.dollars(YOY_10Q.current, MetricName.GROSS_PROFIT)
+    assert value.value == 360.0
+    assert len(value.input_fact_ids) == 2  # revenue and cost of goods sold
+
+
+def test_a_net_loss_is_a_negative_dollar_figure(facts, catalog):
+    facts.statement(Q2_26, net=-18.0)
+    assert catalog.dollars(YOY_10Q.current, MetricName.NET_INCOME).value == -18.0
+
+
+def test_a_missing_or_conflicting_dollar_figure_gives_nothing(facts, catalog):
+    facts.statement(Q2_26, operating=None)
+    facts.add(Q2_26, "us-gaap:Sga", 999.0)  # a second, different SG&A figure
+    assert catalog.dollars(YOY_10Q.current, MetricName.OPERATING_INCOME) is None
+    assert catalog.dollars(YOY_10Q.current, MetricName.SGA) is None
+
+
+@pytest.mark.parametrize(
+    ("direction", "expected"),
+    [(Direction.UP, NumericCheck.AGREE), (Direction.DOWN, NumericCheck.CONTRADICT)],
+)
+def test_a_dollar_move_is_checked_and_cites_both_periods(facts, catalog, direction, expected):
+    facts.statement(Q2_26, sga=230.0)
+    facts.statement(Q2_25, sga=200.0)
+    outcome = catalog.check(YOY_10Q, [expect(MetricName.SGA, direction)]).outcomes[0]
+    assert outcome.check is expected
+    assert outcome.metric_ids == ("AAA:sga:Q2 2026:3m", "AAA:sga:Q2 2025:3m")
+    now, before = (catalog.get_metric(metric_id) for metric_id in outcome.metric_ids)
+    assert now.value / before.value - 1 == pytest.approx(0.15)
+
+
+def test_any_dollar_difference_can_be_called_but_a_tie_cannot(facts, catalog):
+    # One cent more SG&A: far under the 5 bps a ratio needs, yet a real dollar move.
+    facts.statement(Q2_26, sga=200.01)
+    facts.statement(Q2_25, sga=200.0)
+    sga, ratio, tie = catalog.check(
+        YOY_10Q,
+        [expect(MetricName.SGA), expect(MetricName.SGA_RATIO), expect(MetricName.NET_INCOME)],
+    ).outcomes
+    assert sga.check is NumericCheck.AGREE
+    assert ratio.check is NumericCheck.NOT_APPLICABLE
+    assert tie.check is NumericCheck.NOT_APPLICABLE
+
+
+def test_a_dollar_move_uses_the_dollar_tolerance(facts, store):
+    config = CONFIG.model_copy(
+        update={"no_move_tolerance": NoMoveTolerance(ratio=0.0, revenue_growth=0.0, usd=50.0)}
+    )
+    catalog = MetricCatalog(store, CORPUS, config)
+    facts.statement(Q2_26, sga=230.0)
+    facts.statement(Q2_25, sga=200.0)
+    outcome = catalog.check(YOY_10Q, [expect(MetricName.SGA)]).outcomes[0]
+    assert outcome.check is NumericCheck.NOT_APPLICABLE  # 30 dollars is under the 50 allowed
+
+
+def test_a_smaller_loss_is_up(facts, catalog):
+    facts.statement(Q2_26, net=-50.0)
+    facts.statement(Q2_25, net=-100.0)
+    outcome = catalog.check(YOY_10Q, [expect(MetricName.NET_INCOME, Direction.UP)]).outcomes[0]
+    assert outcome.check is NumericCheck.AGREE
+
+
+def test_a_dollar_id_rebuilds_the_same_metric(facts, catalog):
+    facts.statement(Q2_26)
+    value = catalog.dollars(YOY_10Q.current, MetricName.SGA)
+    assert catalog.get_metric(value.metric_id) == value
+    # Only growth is measured against another period.
+    assert catalog.get_metric("AAA:sga:Q2 2026:3m:vs-Q2 2025") is None
+
+
+def test_level_gives_ratios_and_dollars_but_not_growth(facts, catalog):
+    facts.statement(Q2_26)
+    filing = YOY_10Q.current
+    assert catalog.level(filing, MetricName.SGA).unit == "USD"
+    assert catalog.level(filing, MetricName.SGA_RATIO).unit == "ratio"
+    with pytest.raises(ValueError, match="revenue_growth"):
+        catalog.level(filing, MetricName.REVENUE_GROWTH)
+
+
 # --- The shipped configuration and the real filings ---
 
 
@@ -626,6 +739,7 @@ def test_the_shipped_config_names_every_line_item_the_catalog_reads():
     }
     assert config.no_move_tolerance.ratio == pytest.approx(0.0005)
     assert config.no_move_tolerance.revenue_growth == 0.0
+    assert config.no_move_tolerance.usd == 0.0
 
 
 @pytest.fixture(scope="module")
@@ -653,6 +767,26 @@ FILED_VALUES = [
 ]
 
 
+# Whole dollars, as the filed income statements show them (T1.4 matched revenue and gross profit to
+# the statements for all 15 filings). SWK's gross profit is computed: revenue minus cost of sales.
+FILED_DOLLARS = [
+    ("HSY", "Q2 2026", MetricName.REVENUE, 2_787_306_000.0),
+    ("HSY", "Q2 2026", MetricName.GROSS_PROFIT, 1_263_308_000.0),
+    ("MAT", "Q2 2026", MetricName.NET_INCOME, -18_215_000.0),
+    ("MAT", "Q2 2026", MetricName.SGA, 406_932_000.0),
+    ("SWK", "Q2 2026", MetricName.GROSS_PROFIT, 1_305_800_000.0),
+]
+
+
+@pytest.mark.corpus
+@pytest.mark.parametrize(("ticker", "label", "name", "expected"), FILED_DOLLARS)
+def test_real_dollar_metrics_are_the_filed_figures(real, ticker, label, name, expected):
+    catalog, _ = real
+    value = catalog.get_metric(f"{ticker}:{name.value}:{label}:3m")
+    assert value is not None and value.unit == "USD"
+    assert value.value == pytest.approx(expected, abs=0.5)
+
+
 @pytest.mark.corpus
 @pytest.mark.parametrize(("ticker", "label", "name", "expected"), FILED_VALUES)
 def test_real_values_match_hand_arithmetic(real, ticker, label, name, expected):
@@ -673,7 +807,8 @@ def test_every_real_comparison_can_be_checked(real):
             assert len(result.outcomes) == len(MetricName)
             for outcome in result.outcomes:
                 # SWK reports no operating income. Every other metric has data for all nine.
-                if outcome.metric is MetricName.OPERATING_MARGIN and company.ticker == "SWK":
+                no_operating = (MetricName.OPERATING_MARGIN, MetricName.OPERATING_INCOME)
+                if outcome.metric in no_operating and company.ticker == "SWK":
                     assert outcome.check is NumericCheck.NOT_APPLICABLE
                     continue
                 assert outcome.metric_ids, (comparison.comparison_id, outcome.metric)

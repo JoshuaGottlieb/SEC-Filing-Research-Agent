@@ -34,3 +34,6 @@ no_move_tolerance:
   ratio: 0.0005
   # Zero: revenue_growth UP means the value is above 0, so only an exact tie can't be called.
   revenue_growth: 0.0
+  # Zero, in dollars: XBRL figures are exact as filed, so any difference is a real move. Only an
+  # exact tie can't be called. Approved by the user on 2026-11-10 with the dollar metrics.
+  usd: 0.0
