@@ -724,6 +724,81 @@ def test_level_gives_ratios_and_dollars_but_not_growth(facts, catalog):
         catalog.level(filing, MetricName.REVENUE_GROWTH)
 
 
+# --- A year earlier (the seasonal check's figures) ---
+
+
+def test_a_year_earlier_figure_comes_from_the_later_filing_when_its_own_is_absent(facts, catalog):
+    # Q1 2025 has no filing here; the Q1 2026 10-Q reports it beside its own quarter.
+    fact = facts.add(Q1_26, "us-gaap:ContractRevenue", 900.0, end=date(2025, 3, 31))
+    value = catalog.year_earlier(SEQ_10Q.prior, MetricName.REVENUE)
+    assert (value.value, value.unit, value.input_fact_ids) == (900.0, "USD", (fact,))
+
+
+def test_a_year_earlier_figure_prefers_that_periods_own_filing(facts, catalog):
+    facts.statement(Q2_25, revenue=1000.0)
+    facts.add(Q2_26, "us-gaap:ContractRevenue", 1010.0, end=Q2_25.period_end)  # restated later
+    assert catalog.year_earlier(YOY_10Q.current, MetricName.REVENUE).value == 1000.0
+
+
+def test_no_year_earlier_figure_gives_none(facts, catalog):
+    facts.statement(Q1_26)
+    assert catalog.year_earlier(SEQ_10Q.prior, MetricName.REVENUE) is None
+    assert catalog.year_earlier(SEQ_10Q.prior, MetricName.GROSS_MARGIN) is None
+
+
+@pytest.mark.parametrize(
+    ("end", "read"),
+    [
+        (date(2025, 3, 31), True),  # the same date, 365 days
+        (date(2025, 3, 25), True),  # a 53-week year, 371 days
+        (date(2025, 4, 7), True),  # a 52-week year the other way, 358 days
+        (date(2025, 3, 10), False),  # 386 days: another period
+        (date(2025, 12, 31), False),  # the quarter before, not a year earlier
+    ],
+)
+def test_a_year_earlier_figure_must_end_about_a_year_before(facts, catalog, end, read):
+    facts.add(Q1_26, "us-gaap:ContractRevenue", 900.0, end=end)
+    found = catalog.year_earlier(SEQ_10Q.prior, MetricName.REVENUE)
+    assert (found is not None) is read
+
+
+def test_a_year_earlier_ratio_uses_year_earlier_revenue(facts, catalog):
+    facts.add(Q1_26, "us-gaap:ContractRevenue", 800.0, end=date(2025, 3, 31))
+    facts.add(Q1_26, "us-gaap:Cost", 500.0, end=date(2025, 3, 31))
+    margin = catalog.year_earlier(SEQ_10Q.prior, MetricName.GROSS_MARGIN)
+    # No gross profit reported, so it is computed: (800 - 500) / 800.
+    assert margin.value == pytest.approx(0.375)
+    assert margin.unit == "ratio"
+    assert len(margin.input_fact_ids) == 2
+
+
+def test_year_earlier_reads_only_the_filings_own_duration(facts, catalog):
+    facts.add(
+        Q2_26,
+        "us-gaap:ContractRevenue",
+        2000.0,
+        end=Q2_25.period_end,
+        duration=Duration.YEAR_TO_DATE,
+    )
+    assert catalog.year_earlier(YOY_10Q.current, MetricName.REVENUE) is None
+
+
+def test_conflicting_year_earlier_figures_give_none(facts, catalog):
+    facts.add(Q1_26, "us-gaap:ContractRevenue", 900.0, end=date(2025, 3, 31))
+    facts.add(Q1_26, "us-gaap:ContractRevenue", 950.0, end=date(2025, 3, 31))
+    assert catalog.year_earlier(SEQ_10Q.prior, MetricName.REVENUE) is None
+
+
+def test_a_10k_year_earlier_is_the_prior_year(facts, catalog):
+    facts.add(FY_25, "us-gaap:ContractRevenue", 4000.0, end=date(2024, 12, 31))
+    assert catalog.year_earlier(YOY_10K.current, MetricName.REVENUE).value == 4000.0
+
+
+def test_revenue_growth_has_no_year_earlier_level(catalog):
+    with pytest.raises(ValueError, match="revenue_growth"):
+        catalog.year_earlier(YOY_10Q.current, MetricName.REVENUE_GROWTH)
+
+
 # --- The shipped configuration and the real filings ---
 
 
