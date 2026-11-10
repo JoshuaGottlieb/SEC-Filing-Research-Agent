@@ -1,0 +1,69 @@
+{#- The brief's layout. Every value arrives escaped from report/brief.py, so nothing here escapes.
+    Statements are the summary bullets, finding headings, claim bullets and review bullets, and each
+    carries a reference ([C1] or [F1]) that audit.json resolves to the full id. -#}
+# Research brief: {{ title }}
+
+Comparison: {{ comparison }}. Run {{ run_id }}, generated {{ generated_at }}, model cost {{ cost }}.
+
+> **Not investment advice.** {{ disclaimer }}
+
+References such as [C1] (a claim) and [F1] (a change) point to `audit.json`, which holds the full
+record behind every statement: the claim, its quotes, its metrics and its Tree-of-Thought tree.
+
+## Summary
+
+{% for line in summary %}
+- {{ line.text }}{% for ref in line.refs %} [{{ ref }}]{% endfor %}
+
+{% endfor %}
+
+{% for group in groups %}
+## {{ group.title }}
+
+{% for finding in group.findings %}
+### [{{ finding.ref }}] {{ finding.heading }}
+
+{% if finding.rationale %}
+Why it was flagged: {{ finding.rationale }}
+
+{% endif %}
+{% for text in finding.texts %}
+{{ text.title }}:
+
+{% for line in text.lines %}
+> {{ line }}
+{% endfor %}
+
+{% endfor %}
+{% if finding.claims %}
+{% for claim in finding.claims %}
+- **{{ claim.label }}** [{{ claim.ref }}]: {{ claim.text }}
+{% for citation in claim.citations %}
+
+{% for line in citation.quote %}
+  > {{ line }}
+{% endfor %}
+  >
+  > Source: {{ citation.source }}
+{% endfor %}
+{% if claim.metrics %}
+
+  Metrics: {{ claim.metrics | join("; ") }}
+{% endif %}
+
+{% endfor %}
+{% else %}
+No explanation of this change met the evidence standard. See the review section.
+
+{% endif %}
+{% endfor %}
+{% endfor %}
+## Needs review
+
+{% if review %}
+{% for item in review %}
+- [{{ item.ref }}] {{ item.heading }}: {{ item.reason }}
+{% endfor %}
+{% else %}
+Nothing in this brief needs review.
+{% endif %}
