@@ -567,11 +567,80 @@ def test_revenue_growth_is_never_paired():
     assert not with_metrics("Revenue growth rose 83.3%.", *growth).passed
 
 
-def test_a_metric_in_another_unit_supports_nothing():
-    # No USD metric exists yet. One that appeared should fail loudly, not pass unread.
-    dollars = metric("usd", 5_000_000.0, unit="USD")
-    assert not with_metrics("The charge was $5 million.", dollars).passed
-    assert not with_metrics("The charge was 500000000%.", dollars).passed
+def test_a_metric_in_an_unknown_unit_supports_nothing():
+    # A unit the checker does not know should fail loudly, not pass unread.
+    shares = metric("sh", 5_000_000.0, unit="shares")
+    assert not with_metrics("The company had $5 million.", shares).passed
+    assert not with_metrics("The count was 500000000%.", shares).passed
+
+
+def usd(metric_id: str, value: float, name: str = "revenue", period=CURRENT) -> MetricValue:
+    # Lane 1's dollar metrics (PR #32): whole dollars, signed, unrounded.
+    return metric(metric_id, value, name=name, unit="USD", period=period)
+
+
+REVENUE_NOW = usd("rev", 11_692_600_000.0)
+REVENUE_BEFORE = usd("rev0", 11_202_300_000.0, period=PRIOR)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Revenue was $11.7 billion.",
+        "Revenue was $11,692.6 million.",
+        "Revenue was $11,692,600,000.",
+        "Revenue rose $490.3 million.",
+        "Revenue rose $0.5 billion.",
+        "Revenue rose 4.4%.",
+    ],
+)
+def test_a_dollar_metric_supports_its_level_its_change_and_its_relative_change(text):
+    assert with_metrics(text, REVENUE_NOW, REVENUE_BEFORE).passed
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Revenue was $11.6 billion.",
+        "Revenue rose $500 million.",
+        "Revenue rose 5%.",
+        # A dollar metric has no points, and its level is not a percent.
+        "Revenue rose 490 basis points.",
+        "Revenue was 11692600000%.",
+        # Not dollars: the claim must say "$" to match a dollar value.
+        "Revenue was 11.7 billion.",
+    ],
+)
+def test_a_wrong_dollar_figure_fails(text):
+    result = with_metrics(text, REVENUE_NOW, REVENUE_BEFORE)
+    assert kinds(result) == [CitationFailureKind.FIGURE_MISMATCH]
+
+
+def test_a_loss_is_compared_as_a_magnitude():
+    loss = usd("ni", -151_372_000.0, name="net_income")
+    assert with_metrics("Net loss was $151.4 million.", loss).passed
+
+
+def test_a_dollar_change_from_a_loss_has_no_relative_change():
+    # A change "from" a loss has no meaningful percent (the contract's rule), but the dollar
+    # change itself is still a fact.
+    before = usd("ni0", -100_000_000.0, name="net_income", period=PRIOR)
+    after = usd("ni", 50_000_000.0, name="net_income")
+    assert with_metrics("Net income rose $150 million.", before, after).passed
+    assert not with_metrics("Net income rose 150%.", before, after).passed
+
+
+def test_dollar_metrics_pair_only_by_name():
+    # Revenue now against cost of sales before is not a change in anything.
+    cost = usd("cogs0", 7_000_000_000.0, name="cost_of_goods_sold", period=PRIOR)
+    assert not with_metrics("Revenue rose $4,692.6 million.", REVENUE_NOW, cost).passed
+
+
+def test_a_ratio_and_a_dollar_metric_of_one_period_both_support_their_levels():
+    margin = metric("gm", 0.375)
+    assert with_metrics(
+        "Revenue was $11.7 billion and gross margin was 37.5%.", REVENUE_NOW, margin
+    ).passed
 
 
 def test_a_dollar_figure_with_metrics_attached_can_trace_to_a_quote():

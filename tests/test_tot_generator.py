@@ -33,6 +33,7 @@ from sec_agent.tot.generator import (
     CANDIDATE_SYSTEM,
     DEFAULT_CANDIDATES,
     DEFAULT_SOURCES,
+    DOLLAR_METRICS,
     SOURCE_SYSTEM,
     CandidateExplanation,
     CandidateSet,
@@ -393,6 +394,21 @@ async def test_a_numeric_change_reaches_the_model_with_its_value(settings):
     assert sent["why_material"] == NUMERIC.rationale
 
 
+@pytest.mark.parametrize(
+    ("value", "shown"), [(11_692_600_000.0, "$11,692,600,000"), (-151_372_000.0, "-$151,372,000")]
+)
+async def test_a_dollar_metric_reaches_the_model_as_signed_dollars(settings, value, shown):
+    revenue = MARGIN.model_copy(update={"name": "net_income", "unit": "USD", "value": value})
+
+    class DollarMetrics:
+        def get_metric(self, metric_id: str) -> MetricValue | None:
+            return revenue if metric_id == NUMERIC.metric_id else None
+
+    generator, fake = make_generator(settings, response(CandidateSet(candidates=())))
+    await generator.propose_candidates(NUMERIC, COMPARISON, DollarMetrics())
+    assert json.loads(fake.requests[0]["messages"][0]["content"])["metric_value"] == shown
+
+
 async def test_a_metric_that_does_not_resolve_is_left_out(settings):
     generator, fake = make_generator(settings, response(CandidateSet(candidates=())))
     change = NUMERIC.model_copy(update={"metric_id": "unknown"})
@@ -410,12 +426,51 @@ async def test_a_text_change_reaches_the_model_with_its_text(settings):
     assert "earlier_text" not in sent
 
 
-async def test_a_possibly_seasonal_change_says_so(settings):
+@pytest.mark.parametrize(
+    ("checked", "seasonal", "expected"),
+    [
+        (True, True, "possibly_seasonal"),
+        (True, False, "not_seasonal"),
+        # Lane 1's PR #32: unchecked means no year-earlier figure, not "not seasonal".
+        (False, False, "not_checked"),
+    ],
+)
+async def test_the_seasonal_check_reaches_the_model_in_three_states(
+    settings, checked, seasonal, expected
+):
     generator, fake = make_generator(settings, response(CandidateSet(candidates=())))
-    change = NUMERIC.model_copy(update={"possibly_seasonal": True})
+    # Built through validation, not `model_copy`, which skips it: since PR #32 a change is
+    # possibly seasonal only if the seasonal check ran.
+    change = Change.model_validate(
+        {**NUMERIC.model_dump(), "possibly_seasonal": seasonal, "seasonality_checked": checked}
+    )
     await generator.propose_candidates(change, COMPARISON, FakeMetrics())
-    assert json.loads(fake.requests[0]["messages"][0]["content"])["possibly_seasonal"] is True
-    assert "possibly_seasonal" in CANDIDATE_SYSTEM
+    sent = json.loads(fake.requests[0]["messages"][0]["content"])
+    assert sent["seasonality"] == expected
+    assert f'"{expected}"' in CANDIDATE_SYSTEM
+
+
+async def test_a_text_change_says_nothing_about_seasonality(settings):
+    generator, fake = make_generator(settings, response(CandidateSet(candidates=())))
+    await generator.propose_candidates(ADDED_RISK, COMPARISON, FakeMetrics())
+    assert "seasonality" not in json.loads(fake.requests[0]["messages"][0]["content"])
+
+
+def test_the_dollar_metric_list_matches_the_catalog():
+    # MetricName carries no unit, so the generator keeps its own list; it must not drift.
+    from sec_agent.finance.metrics import DOLLAR_ITEMS
+
+    assert set(DOLLAR_METRICS) == set(DOLLAR_ITEMS)
+
+
+@pytest.mark.parametrize("system", [CANDIDATE_SYSTEM, SOURCE_SYSTEM])
+def test_the_prompts_explain_dollar_metrics(system):
+    prompt = " ".join(system.split())
+    for metric in DOLLAR_METRICS:
+        assert f'"{metric.value}"' in prompt
+    assert 'a smaller loss is "up"' in prompt
+    assert "give at most one of them" in prompt
+    assert "use the ratio" in prompt
 
 
 async def test_filing_text_reaches_the_model_only_as_json_data(settings):
