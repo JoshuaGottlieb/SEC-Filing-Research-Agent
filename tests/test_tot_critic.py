@@ -47,6 +47,8 @@ from sec_agent.tot.critic import (
     SpecificityCritique,
     evaluate_candidate,
     evaluate_evidence,
+    linked_metrics,
+    without_free_agreement,
 )
 from sec_agent.tot.scoring import Contradiction, EvidenceSupport, ScoringConfig, Specificity
 
@@ -601,6 +603,105 @@ async def test_truncated_output_ends_the_branch_instead_of_the_run(settings, con
     result = await judge(settings, config, response(None, stop_reason="max_tokens"))
     assert result.score is None
     assert "max_tokens" in result.failure
+
+
+def outcome(metric: MetricName, check: NumericCheck) -> MetricOutcome:
+    cited = () if check is NumericCheck.NOT_APPLICABLE else ("m-now", "m-before")
+    return MetricOutcome(metric=metric, check=check, metric_ids=cited)
+
+
+def test_agreeing_with_the_changed_metric_or_a_linked_one_earns_nothing():
+    check = MetricCheckResult(
+        outcomes=(
+            outcome(MetricName.GROSS_MARGIN, NumericCheck.AGREE),
+            # Linked by arithmetic: gross margin plus the cost of sales ratio is 1.
+            outcome(MetricName.COGS_RATIO, NumericCheck.AGREE),
+            outcome(MetricName.SGA_RATIO, NumericCheck.AGREE),
+        )
+    )
+    adjusted = without_free_agreement(check, MetricName.GROSS_MARGIN)
+    assert [o.check for o in adjusted.outcomes] == [
+        NumericCheck.NOT_APPLICABLE,
+        NumericCheck.NOT_APPLICABLE,
+        NumericCheck.AGREE,
+    ]
+    # The set-aside outcomes cite nothing, so the branch does not carry their metrics either.
+    assert adjusted.metric_ids == ("m-now", "m-before")
+    assert adjusted.check is NumericCheck.AGREE
+
+
+@pytest.mark.parametrize(
+    ("changed", "linked"),
+    [
+        (MetricName.GROSS_MARGIN, MetricName.COGS_RATIO),
+        (MetricName.COGS_RATIO, MetricName.GROSS_MARGIN),
+        (MetricName.REVENUE, MetricName.REVENUE_GROWTH),
+        (MetricName.REVENUE_GROWTH, MetricName.REVENUE),
+    ],
+)
+def test_linked_metrics_work_both_ways(changed, linked):
+    check = MetricCheckResult(outcomes=(outcome(linked, NumericCheck.AGREE),))
+    assert without_free_agreement(check, changed).check is NumericCheck.NOT_APPLICABLE
+
+
+def test_metrics_that_only_tend_to_move_together_are_not_linked():
+    # Net income can rise while net margin falls, so agreeing with one says something.
+    assert linked_metrics(MetricName.NET_INCOME) == frozenset({MetricName.NET_INCOME})
+    assert linked_metrics(MetricName.GROSS_PROFIT) == frozenset({MetricName.GROSS_PROFIT})
+
+
+def test_contradicting_the_changed_metric_is_kept():
+    check = MetricCheckResult(outcomes=(outcome(MetricName.GROSS_MARGIN, NumericCheck.CONTRADICT),))
+    assert without_free_agreement(check, MetricName.GROSS_MARGIN) == check
+
+
+def test_with_no_changed_metric_nothing_is_set_aside():
+    check = MetricCheckResult(outcomes=(outcome(MetricName.GROSS_MARGIN, NumericCheck.AGREE),))
+    assert without_free_agreement(check, None) == check
+
+
+async def test_a_branch_backed_only_by_the_changed_metric_has_no_evidence(settings, config):
+    critic, _ = make_critic(
+        settings, response(SpecificityCritique(specificity=Specificity.SPECIFIC))
+    )
+    result = await evaluate_evidence(
+        CANDIDATE,
+        [],
+        COMPARISON,
+        (CURRENT,),
+        critic,
+        FakeChecker(NumericCheck.AGREE),
+        config,
+        changed_metric=MetricName.GROSS_MARGIN,
+    )
+    assert result.numeric_check is NumericCheck.NOT_APPLICABLE
+    assert result.metric_ids == ()
+    assert not result.has_evidence
+
+
+async def test_the_prescreen_gives_no_credit_for_the_changed_metric(settings, config):
+    critic, _ = make_critic(
+        settings, response(SpecificityCritique(specificity=Specificity.PARTIAL))
+    )
+    credited = await evaluate_candidate(
+        CANDIDATE, COMPARISON, critic, FakeChecker(NumericCheck.AGREE), config
+    )
+    critic, _ = make_critic(
+        settings, response(SpecificityCritique(specificity=Specificity.PARTIAL))
+    )
+    uncredited = await evaluate_candidate(
+        CANDIDATE,
+        COMPARISON,
+        critic,
+        FakeChecker(NumericCheck.AGREE),
+        config,
+        changed_metric=MetricName.GROSS_MARGIN,
+    )
+    assert credited.numeric_check is NumericCheck.AGREE
+    assert uncredited.numeric_check is NumericCheck.NOT_APPLICABLE
+    # The metric drops out and the rest is rescaled (gap 1), so a fully specific claim scores
+    # the same either way; the free agreement only lifted claims that are less specific.
+    assert uncredited.score < credited.score
 
 
 async def test_a_budget_stop_is_not_swallowed(settings, config):

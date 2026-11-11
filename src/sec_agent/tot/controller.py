@@ -39,6 +39,7 @@ from sec_agent.schemas import (
     EvidenceSourceRef,
     EvidenceSupport,
     FiscalPeriod,
+    MetricName,
     NodeStatus,
     NumericCheck,
     RankedChanges,
@@ -53,6 +54,7 @@ from sec_agent.tot.critic import (
     EvidenceEvaluation,
     evaluate_candidate,
     evaluate_evidence,
+    linked_metrics,
 )
 from sec_agent.tot.generator import ThoughtGenerator
 from sec_agent.tot.scoring import ScoringConfig
@@ -263,6 +265,23 @@ def claim_periods(change: Change, comparison: Comparison) -> frozenset[FiscalPer
     return frozenset({period})
 
 
+def changed_metric(change: Change, metrics: MetricLookup) -> MetricName | None:
+    """The metric a numeric change is about, or None for a text change or an unknown metric.
+
+    `metric_id` is opaque (the contract says not to parse it), so the name comes from the lookup.
+    Agreeing with this metric earns a candidate nothing: see `critic.without_free_agreement`.
+    """
+    if change.metric_id is None:
+        return None
+    metric = metrics.get_metric(change.metric_id)
+    if metric is None:
+        return None
+    try:
+        return MetricName(metric.name)
+    except ValueError:
+        return None
+
+
 def claim_node(candidate: TreeNode, evidence: TreeNode) -> TreeNode:
     """The node the critic reads for an evidence branch: the claim, with the branch's metrics.
 
@@ -314,6 +333,7 @@ class _Exploration:
         self._root_id = f"{self._prefix}:root"
         self._run_id = run_id
         self._periods = claim_periods(change, comparison)
+        self._changed_metric = changed_metric(change, context.metrics)
         # Every claim proposed so far, so the fresh round does not repeat them.
         self._claims: list[str] = []
         self._failures: list[str] = []
@@ -423,6 +443,7 @@ class _Exploration:
                 self._context.critic,
                 self._context.checker,
                 self._config,
+                changed_metric=self._changed_metric,
             )
             candidate.evaluation = result
             # A contradicted candidate is pruned before the critic is paid.
@@ -516,6 +537,7 @@ class _Exploration:
             self._context.critic,
             self._context.checker,
             self._config,
+            changed_metric=self._changed_metric,
         )
         # Set together and only after the call returns, so a stop in the middle of a retry leaves
         # the first evaluation and the passages it was made from, not a mixture.
@@ -581,7 +603,19 @@ class _Exploration:
         await self._record(branch, reason)
 
     def _no_evidence_reason(self, branch: _Branch) -> str:
-        if branch.node.source.metric is not None:
+        metric = branch.node.source.metric
+        if (
+            metric is not None
+            and self._changed_metric is not None
+            and metric.metric in linked_metrics(self._changed_metric)
+        ):
+            # Agreement with it is set aside as free (`critic.without_free_agreement`), so whether
+            # or not it had data, this source could never support the claim.
+            return (
+                "no evidence: the metric is the change being explained, or moves with it by "
+                "arithmetic, so it cannot support the claim"
+            )
+        if metric is not None:
             return "no evidence: the metric has no data to compare in either period"
         if not (branch.node.query_plan or "").strip():
             return "no evidence: the source has no query to search"
