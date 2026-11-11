@@ -58,7 +58,10 @@ class RoleConfig:
 ROLE_CONFIG: dict[Role, RoleConfig] = {
     Role.MATERIALITY: RoleConfig("strong", "medium", 4_000),
     Role.ENTAILMENT: RoleConfig("strong", "high", 4_000),
-    Role.BRIEF: RoleConfig("strong", "high", 16_000),
+    # Was 16,000, which reserved a $0.33 worst case per summary call against the run cap. The one
+    # live summary (2026-11-10, two findings) used 516 output tokens, thinking included, so 4,000
+    # leaves room for a longer brief; a cut-off answer falls back to the template summary.
+    Role.BRIEF: RoleConfig("strong", "high", 4_000),
     Role.GENERATOR: RoleConfig("worker", "low", 4_000),
     Role.CRITIC: RoleConfig("worker", "low", 2_000),
     Role.RETRIEVAL: RoleConfig("worker", "low", 2_000),
