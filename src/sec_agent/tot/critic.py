@@ -32,6 +32,9 @@ from sec_agent.schemas import (
     Citation,
     Comparison,
     FiscalPeriod,
+    MetricCheckResult,
+    MetricName,
+    MetricOutcome,
     NumericCheck,
     Record,
     RetrievedPassage,
@@ -256,15 +259,63 @@ class EvidenceEvaluation(Record):
         return self.evidence is not EvidenceSupport.NONE or self.numeric_check is NumericCheck.AGREE
 
 
+# Metrics that move together by arithmetic, so agreeing with one is agreeing with the other. Checked
+# on the real catalog (2026-11-10, all 9 comparisons): gross margin plus the cost of sales ratio was
+# within 0.001 of 1 in all 18 period values and they moved opposite ways in 9 of 9; revenue growth
+# had revenue's direction in 9 of 9. Pairs that only tend to move together, such as net income and
+# net margin, are left out: either can move without the other, so agreeing with one says something.
+_LINKED_GROUPS = (
+    frozenset({MetricName.GROSS_MARGIN, MetricName.COGS_RATIO}),
+    frozenset({MetricName.REVENUE, MetricName.REVENUE_GROWTH}),
+)
+
+
+def linked_metrics(metric: MetricName) -> frozenset[MetricName]:
+    """`metric` and every metric that moves with it by arithmetic."""
+    return next((group for group in _LINKED_GROUPS if metric in group), frozenset({metric}))
+
+
+def without_free_agreement(
+    check: MetricCheckResult, changed_metric: MetricName | None
+) -> MetricCheckResult:
+    """`check` with no credit for agreeing with the change being explained.
+
+    The changed metric moved by definition, so a candidate that expects it to move the way it did
+    agrees for free, and an agreeing metric counts as evidence: almost every candidate listed it
+    on a real run (2026-11-10), so a branch could survive on the change alone. The same goes for a
+    metric linked to it by arithmetic (`linked_metrics`): when gross margin fell, "cost of sales
+    ratio up" says the same thing. Such an outcome becomes not applicable (the user's decision,
+    option A, extended to linked metrics). A contradiction is kept: a candidate that says the
+    metric moved the other way contradicts the change itself and must be pruned.
+    """
+    if changed_metric is None:
+        return check
+    free = linked_metrics(changed_metric)
+    return MetricCheckResult(
+        outcomes=tuple(
+            MetricOutcome(metric=outcome.metric, check=NumericCheck.NOT_APPLICABLE)
+            if outcome.metric in free and outcome.check is NumericCheck.AGREE
+            else outcome
+            for outcome in check.outcomes
+        )
+    )
+
+
 async def evaluate_candidate(
     node: TreeNode,
     comparison: Comparison,
     critic: Critic,
     checker: MetricChecker,
     config: ScoringConfig,
+    *,
+    changed_metric: MetricName | None = None,
 ) -> CandidateEvaluation:
-    """Pre-screen a depth 1 candidate on numerical consistency and specificity."""
-    check = checker.check(comparison, node.expected_metrics)
+    """Pre-screen a depth 1 candidate on numerical consistency and specificity.
+
+    `changed_metric` is the metric of the change being explained, if it is a numeric change: see
+    `without_free_agreement`.
+    """
+    check = without_free_agreement(checker.check(comparison, node.expected_metrics), changed_metric)
     if check.check is NumericCheck.CONTRADICT:
         # The hard gate prunes it whatever the critic says, so that call would be wasted money.
         # The lowest specificity is recorded in the score because it was never rated.
@@ -375,6 +426,8 @@ async def evaluate_evidence(
     critic: Critic,
     checker: MetricChecker,
     config: ScoringConfig,
+    *,
+    changed_metric: MetricName | None = None,
 ) -> EvidenceEvaluation:
     """Score a depth 2 evidence branch on the full rubric.
 
@@ -384,8 +437,11 @@ async def evaluate_evidence(
 
     Only the critic's quotes are checked here, not any figures in the claim: the claim is still a
     hypothesis, and its final wording goes through `check_citations` at verification.
+
+    `changed_metric` is the metric of the change being explained, if it is a numeric change: an
+    agreeing outcome on it is not evidence (see `without_free_agreement`).
     """
-    check = checker.check(comparison, node.expected_metrics)
+    check = without_free_agreement(checker.check(comparison, node.expected_metrics), changed_metric)
     try:
         if passages:
             critique = await critic.judge_evidence(node, passages, claim_periods)

@@ -25,6 +25,7 @@ from sec_agent.schemas import (
     Comparison,
     ComparisonType,
     Direction,
+    Duration,
     EvidenceSourceRef,
     EvidenceSupport,
     Filing,
@@ -34,6 +35,7 @@ from sec_agent.schemas import (
     MetricExpectation,
     MetricName,
     MetricOutcome,
+    MetricValue,
     NodeStatus,
     NumericCheck,
     RankedChanges,
@@ -48,6 +50,7 @@ from sec_agent.tot.controller import (
     StopReason,
     ToTContext,
     ToTResult,
+    changed_metric,
     claim_node,
     claim_of,
     explore_change,
@@ -693,6 +696,130 @@ async def test_a_contradicting_metric_source_is_pruned_and_never_retried(tree, c
     assert "contradict" in metric_node.prune_reason
     assert retriever.calls == []
     assert result.outcome is Outcome.UNRESOLVED
+
+
+LINKED_REASON = (
+    "no evidence: the metric is the change being explained, or moves with it by arithmetic, so "
+    "it cannot support the claim"
+)
+
+
+class ChangeMetrics:
+    """A `MetricLookup` that knows the numeric change's own metric: gross margin."""
+
+    def get_metric(self, metric_id: str):
+        if metric_id != "HSY:gross_margin:FY2025:12m":
+            return None
+        return MetricValue(
+            metric_id=metric_id,
+            ticker="HSY",
+            name="gross_margin",
+            period=CURRENT,
+            duration=Duration.TWELVE_MONTHS,
+            value=0.335,
+            unit="ratio",
+            input_fact_ids=("f1",),
+        )
+
+
+MARGIN_CHANGE = Change(
+    change_id="chg-1",
+    comparison_id="HSY-yoy",
+    kind=ChangeKind.NUMERIC,
+    metric_id="HSY:gross_margin:FY2025:12m",
+)
+
+
+async def explore_margin_change(tree, config, generator, checker, critic=None):
+    ctx = ToTContext(
+        retriever=FakeRetriever(),
+        checker=checker,
+        metrics=ChangeMetrics(),
+        generator=generator,
+        critic=critic or FakeCritic(),
+        tree=tree,
+        config=config,
+    )
+    return await explore_change(MARGIN_CHANGE, COMPARISON, ctx, RUN)
+
+
+def test_the_changed_metric_comes_from_the_lookup_not_the_id():
+    assert changed_metric(MARGIN_CHANGE, ChangeMetrics()) is MetricName.GROSS_MARGIN
+    # A text change has no metric, and an id the lookup does not know gives none either.
+    assert changed_metric(CHANGE, ChangeMetrics()) is None
+    unknown = MARGIN_CHANGE.model_copy(update={"metric_id": "HSY:gross_margin:FY1999:12m"})
+    assert changed_metric(unknown, ChangeMetrics()) is None
+
+
+async def test_agreeing_with_the_changed_metric_is_not_evidence(tree, config):
+    # The user's decision (option A): gross margin fell by definition, so a branch whose only
+    # support is "gross margin down" has nothing behind it.
+    generator = FakeGenerator(
+        [candidates("Cocoa costs rose")], {"Cocoa costs rose": sources(compute())}
+    )
+    checker = FakeChecker({MetricName.GROSS_MARGIN: NumericCheck.AGREE})
+    result = await explore_margin_change(tree, config, generator, checker)
+    nodes = await nodes_by_id(tree, result)
+    metric_node = next(n for n in nodes.values() if n.depth == 2)
+    assert metric_node.status is NodeStatus.PRUNED
+    assert metric_node.prune_reason == LINKED_REASON
+    assert metric_node.numeric_check is NumericCheck.NOT_APPLICABLE
+    assert result.outcome is Outcome.UNRESOLVED
+
+
+async def test_an_unlinked_metric_still_counts_as_evidence_for_a_numeric_change(tree, config):
+    # Cost of sales in dollars can rise while gross margin holds, so agreeing with it says
+    # something about a fall in gross margin.
+    cogs_dollars = MetricExpectation(metric=MetricName.COST_OF_GOODS_SOLD, direction=Direction.UP)
+    generator = FakeGenerator(
+        [candidates("Cocoa costs rose")], {"Cocoa costs rose": sources(compute(cogs_dollars))}
+    )
+    checker = FakeChecker({MetricName.COST_OF_GOODS_SOLD: NumericCheck.AGREE})
+    result = await explore_margin_change(tree, config, generator, checker)
+    assert only_evidence(result).numeric_check is NumericCheck.AGREE
+    assert result.outcome is Outcome.RESOLVED
+
+
+async def test_a_metric_linked_to_the_change_by_arithmetic_is_not_evidence(tree, config):
+    # Gross margin plus the cost of sales ratio is 1, so "cost of sales ratio up" is the same
+    # fact as "gross margin down", the change itself.
+    generator = FakeGenerator(
+        [candidates("Cocoa costs rose")], {"Cocoa costs rose": sources(compute(COGS_UP))}
+    )
+    checker = FakeChecker({MetricName.COGS_RATIO: NumericCheck.AGREE})
+    result = await explore_margin_change(tree, config, generator, checker)
+    nodes = await nodes_by_id(tree, result)
+    metric_node = next(n for n in nodes.values() if n.depth == 2)
+    assert metric_node.prune_reason == LINKED_REASON
+    assert result.outcome is Outcome.UNRESOLVED
+
+
+async def test_contradicting_the_changed_metric_still_prunes(tree, config):
+    # A candidate that says gross margin rose contradicts the change itself.
+    generator = FakeGenerator(
+        [
+            CandidateGeneration(
+                candidates=(candidate("Pricing lifted margin", (GROSS_MARGIN_DOWN,)),)
+            )
+        ],
+        {},
+    )
+    checker = FakeChecker({MetricName.GROSS_MARGIN: NumericCheck.CONTRADICT})
+    result = await explore_margin_change(tree, config, generator, checker)
+    nodes = await nodes_by_id(tree, result)
+    first = next(n for n in nodes.values() if n.depth == 1)
+    assert first.status is NodeStatus.PRUNED
+    assert "contradict" in first.prune_reason
+
+
+async def test_a_text_change_keeps_metric_agreement_as_evidence(tree, config):
+    # Nothing is set aside when the change has no metric: the existing rule stands.
+    generator = FakeGenerator(
+        [candidates("Cocoa costs rose")], {"Cocoa costs rose": sources(compute())}
+    )
+    checker = FakeChecker({MetricName.GROSS_MARGIN: NumericCheck.AGREE})
+    result = await explore(tree, config, generator, FakeCritic(), checker=checker)
+    assert only_evidence(result).numeric_check is NumericCheck.AGREE
 
 
 async def test_a_search_inherits_the_candidates_expected_metrics(tree, config):
