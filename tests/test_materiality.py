@@ -17,6 +17,7 @@ from sec_agent.compare.materiality import (
     BATCH_SIZE,
     MAX_IN_FLIGHT,
     MAX_TOKENS,
+    MIN_MATERIAL_IMPORTANCE,
     SYSTEM,
     BatchDecisions,
     ChangeDecision,
@@ -181,12 +182,12 @@ def client_for(settings, answer: Answer, *, max_usd: float = 5.0, cache=None):
 
 async def test_material_changes_are_ranked_by_importance(settings, comparison):
     changes = [
-        text(1, "a minor tweak"),
+        text(1, "a notable tweak"),
         text(2, "a new lawsuit"),
         text(3, "pure rewording"),
         text(4, "cocoa costs rose"),
     ]
-    rules = {"minor": (1, QUANTITY), "lawsuit": (5, RISK), "cocoa": (4, QUANTITY)}
+    rules = {"notable": (3, QUANTITY), "lawsuit": (5, RISK), "cocoa": (4, QUANTITY)}
     client, _ = client_for(settings, by_text(rules))
     result = await rank_changes(comparison, changes, scan(), client)
     ranked = result.ranked.changes
@@ -203,6 +204,36 @@ async def test_material_changes_are_ranked_by_importance(settings, comparison):
     assert (rewording.material, rewording.importance, rewording.criterion) == (False, 0, None)
     assert len(result.decisions) == 4
     assert result.unresolved == ()
+
+
+async def test_a_text_change_is_material_only_from_the_cutoff(settings, comparison):
+    # Hershey's sampled false positives all scored 1 or 2 (MIN_MATERIAL_IMPORTANCE).
+    assert MIN_MATERIAL_IMPORTANCE == 3
+    changes = [text(1, "barely"), text(2, "minor"), text(3, "notable")]
+    rules = {"barely": (1, QUANTITY), "minor": (2, RISK), "notable": (3, QUANTITY)}
+    client, _ = client_for(settings, by_text(rules))
+    result = await rank_changes(comparison, changes, scan(), client)
+    assert [c.change_id for c in result.ranked.changes] == [changes[2].change_id]
+    decided = {d.change_id: d for d in result.decisions}
+    # Below the cutoff the score and the criterion stay on the record, marked not material.
+    assert [
+        (d.material, d.importance, d.criterion) for d in (decided[c.change_id] for c in changes)
+    ] == [(False, 1, QUANTITY), (False, 2, RISK), (True, 3, QUANTITY)]
+
+
+async def test_a_low_scored_numeric_change_is_still_material(settings, comparison):
+    def answer(payload):
+        (entry,) = payload["changes"]
+        return BatchDecisions(
+            decisions=(
+                ChangeDecision(ref=entry["ref"], importance=2, criterion=LINKED, rationale="r"),
+            )
+        )
+
+    client, _ = client_for(settings, answer)
+    result = await rank_changes(comparison, [], scan(NUMERIC), client)
+    assert [c.change_id for c in result.ranked.changes] == [NUMERIC.change_id]
+    assert (result.decisions[0].material, result.decisions[0].importance) == (True, 2)
 
 
 async def test_ties_go_to_numeric_changes_then_arrival_order(settings, comparison):
@@ -339,7 +370,7 @@ def refusing(poison: str, answer: Answer) -> Answer:
 
 async def test_a_refused_batch_is_split_until_the_refused_change_is_alone(settings, comparison):
     changes = [text(n, f"ordinary {n}") for n in range(7)] + [text(7, "poison here")]
-    client, fake = client_for(settings, refusing("poison", by_text({"ordinary": (2, QUANTITY)})))
+    client, fake = client_for(settings, refusing("poison", by_text({"ordinary": (3, QUANTITY)})))
     result = await rank_changes(comparison, changes, scan(), client, batch_size=8)
     assert [u.change_id for u in result.unresolved] == [changes[7].change_id]
     assert "declined" in result.unresolved[0].reason
@@ -352,7 +383,7 @@ async def test_a_refused_batch_is_split_until_the_refused_change_is_alone(settin
 
 @pytest.mark.parametrize("fault", ["missing", "duplicate", "unknown", "criterion"])
 async def test_a_malformed_answer_is_split_like_a_refusal(settings, comparison, fault):
-    good = by_text({"fine": (2, QUANTITY), "odd": (2, QUANTITY)})
+    good = by_text({"fine": (3, QUANTITY), "odd": (3, QUANTITY)})
 
     def answer(payload):
         decisions = list(good(payload).decisions)
@@ -380,7 +411,7 @@ async def test_a_cut_off_answer_is_split(settings, comparison):
     def answer(payload):
         if len(payload["changes"]) > 1:
             return response(None, stop_reason="max_tokens")
-        return by_text({"x": (2, QUANTITY)})(payload)
+        return by_text({"x": (3, QUANTITY)})(payload)
 
     client, _ = client_for(settings, answer)
     result = await rank_changes(comparison, [text(1, "x one"), text(2, "x two")], scan(), client)
