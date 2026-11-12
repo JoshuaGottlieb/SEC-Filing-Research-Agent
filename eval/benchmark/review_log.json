@@ -1,11 +1,11 @@
 {
   "reviewer": "project author",
-  "method": "Each draft item shown on a review page with its quotes highlighted in their chunks; accept or reject (sampled changes: material or not material), with an optional note. No item was edited. Exported from the page on 2026-11-12.",
+  "method": "Each draft item shown on a review page with its quotes highlighted in their chunks; accept or reject (sampled changes: material or not material), with an optional note. No item was edited. Exported from the page on 2026-11-12. HSY-F14 and MAT-F07 were reviewed again on 2026-11-12 after the sample was redrawn (see superseded).",
   "drafts_sha256": {
     "HSY.json": "5e8506e8d27af8872cd48a359d8056625305f5a06d28ed1820bd84e50b28cf92",
     "MAT.json": "00528c132f81e0661a9251f15a5d0c5189fbabe625ddc2b802d7ff1b9cb9b2cb",
     "SWK.json": "70ec3964c1658d3736e51f76b8ae22b8a13221980fdd79cbb1d25b76ed49e5a5",
-    "sampled.json": "435cf52a0a585b92477af6eec56404b79c3e2300d3554856c4de40bb58d7ce73"
+    "sampled.json": "d61ef17f03ee2d6629155a0a15d3074a9156e00a875d8307aaa78831a466fcea"
   },
   "decisions": [
     {
@@ -163,8 +163,8 @@
       "kind": "sampled",
       "decision": "not_material",
       "material": false,
-      "note": "Missing passage from 10-Q Q1 2026. Manual inspection shows that the passage exists on both sides and would otherwise comprise a Material change (decrease in net sales for the North America Confectionery segment quarter-over-quarter); however, since the paragraph is missing from the prior in this sample, the change should not be labeled as material.",
-      "reviewed_at": "2026-11-12T04:54:21+00:00"
+      "note": "Missing passage from 10-Q Q1 2026. Q1 2026 only lists year-over-year with Q1 2025. Q2 2026 only lists year-over-year for both six month and single quarter with 2025. No quarter-over-quarter information exists in this part of the filing.",
+      "reviewed_at": "2026-11-12T22:22:44+00:00"
     },
     {
       "item_id": "HSY-J01",
@@ -405,7 +405,7 @@
       "decision": "not_material",
       "material": false,
       "note": "10-Q Q2 2026 is discussing half-year 2026 metrics vs. half-year 2025 metrics, while 10-Q Q1 2026 is discussing first quarter 2026 metrics vs. first quarter 2025 metrics. These are not comparable time frames as they are both year-over-year metrics when the comparison is quarter-over-quarter. They would be material if the comparison period was year-over-year.",
-      "reviewed_at": "2026-11-12T05:08:12+00:00"
+      "reviewed_at": "2026-11-12T22:23:48+00:00"
     },
     {
       "item_id": "MAT-F08",
@@ -866,6 +866,30 @@
       "kind": "cause",
       "decision": "accept",
       "reviewed_at": "2026-11-12T20:51:34+00:00"
+    }
+  ],
+  "superseded": [
+    {
+      "item_id": "HSY-F14",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Missing passage from 10-Q Q1 2026. Manual inspection shows that the passage exists on both sides and would otherwise comprise a Material change (decrease in net sales for the North America Confectionery segment quarter-over-quarter); however, since the paragraph is missing from the prior in this sample, the change should not be labeled as material.",
+      "reviewed_at": "2026-11-12T04:54:21+00:00",
+      "change_id": "HSY:seq-10q:added:0001628280-26-050900:mdna:0045",
+      "superseded_by": "HSY:seq-10q:added:0001628280-26-050900:mdna:0047",
+      "reason": "Sample redrawn on 2026-11-12 after PR #45 corrected seq-10q pairing; this slot now draws a different change."
+    },
+    {
+      "item_id": "MAT-F07",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "10-Q Q2 2026 is discussing half-year 2026 metrics vs. half-year 2025 metrics, while 10-Q Q1 2026 is discussing first quarter 2026 metrics vs. first quarter 2025 metrics. These are not comparable time frames as they are both year-over-year metrics when the comparison is quarter-over-quarter. They would be material if the comparison period was year-over-year.",
+      "reviewed_at": "2026-11-12T05:08:12+00:00",
+      "change_id": "MAT:seq-10q:modified:0001628280-26-054347:mdna:0085",
+      "superseded_by": "MAT:seq-10q:modified:0001628280-26-054347:mdna:0073",
+      "reason": "Sample redrawn on 2026-11-12 after PR #45 corrected seq-10q pairing; this slot now draws a different change."
     }
   ]
 }

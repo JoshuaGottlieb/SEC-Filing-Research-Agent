@@ -102,12 +102,21 @@ In five Hershey retrieval questions (`R01`, `R02`, `R04`, `R05`, `R08`), the hig
 did not answer the question, or answered only part of it, but its chunk did. The reviewer's
 answering sentence replaced the quote, and each replacement locates the same single chunk.
 
-`HSY-F14` was labeled not material for the pair as sampled, although the reviewer notes it would
-be material against its true counterpart. Alignment paired the Q1 2026 North America
-Confectionery net sales paragraph with Q2's six-month paragraph instead of the quarterly one. This
-left the quarterly paragraph as "added". A Q1 10-Q has one paragraph per segment where a Q2 10-Q
-has two (quarter and year to date), and the assignment is one-to-one. The label keeps the sample
-as drawn; the pairing is a matter for alignment.
+PR #42 (exact ties in alignment broken by position) changed none of the 40 sampled changes.
 
-PR #42 (exact ties in alignment broken by position) changed none of the 40 sampled changes. All
-1,904 changes and the seeded redraw are identical.
+#### Redraw after the seq-10q pairing fix
+
+The first review of `HSY-F14` showed that alignment paired the Q1 2026 North America
+Confectionery net sales paragraph with Q2's six-month paragraph rather than the quarterly one. A Q1
+10-Q has one paragraph per segment where a Q2 10-Q has two (quarter and year to date). PR #45
+fixed this pairing for comparisons against a Q1 10-Q. The sample was then redrawn with the same seed
+and counts. It still covers 1,904 changes; 38 of 40 picks were unchanged, and `HSY-F14` and `MAT-F07`
+were replaced and reviewed again. Both new changes are not material. `review_log.json` keeps the
+earlier decisions under `superseded`, with the change each one referred to.
+
+The reviewer's reason applies to `seq-10q` generally. These MD&A paragraphs compare each period with
+the same period a year earlier, so a Q2 paragraph set against a Q1 paragraph compares two
+year-over-year statements about different periods. The filings hold no quarter-over-quarter
+figure for these items. Treating such a pair as a sequential change is a gap in the evidence,
+which falls to retrieval and change analysis, not to alignment. This matches the finding that
+10-Qs state no causes for sequential moves.
