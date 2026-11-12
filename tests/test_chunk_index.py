@@ -98,6 +98,17 @@ def test_a_build_adds_every_chunk(index):
     assert index.count() == 2
 
 
+def test_stored_vectors_come_back_by_chunk_id_without_embedding(index, embedder):
+    index.sync([chunk(1, "freight costs rose"), chunk(2, "cocoa prices fell")])
+    embedder.passages.clear()
+    vectors = index.vectors([chunk(2).chunk_id, chunk(1).chunk_id, "not-indexed"])
+    assert embedder.passages == []
+    assert set(vectors) == {chunk(1).chunk_id, chunk(2).chunk_id}  # unknown ids are left out
+    assert vectors[chunk(2).chunk_id] == pytest.approx(embedder._embed("cocoa prices fell"))
+    assert vectors[chunk(1).chunk_id] == pytest.approx(embedder._embed("freight costs rose"))
+    assert index.vectors([]) == {}
+
+
 def test_a_second_build_embeds_nothing(index, embedder):
     chunks = [chunk(1), chunk(2)]
     index.sync(chunks)
