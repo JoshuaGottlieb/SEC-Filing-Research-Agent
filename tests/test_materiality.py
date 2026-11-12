@@ -23,6 +23,7 @@ from sec_agent.compare.materiality import (
     ChangeDecision,
     describe_move,
     rank_changes,
+    shown_metric_values,
 )
 from sec_agent.config import REPO_ROOT, get_settings
 from sec_agent.edgar.corpus import Corpus
@@ -45,8 +46,10 @@ from sec_agent.schemas import (
     ChangeKind,
     Comparison,
     ComparisonType,
+    Duration,
     MaterialityCriterion,
     MetricName,
+    MetricValue,
     Section,
 )
 
@@ -108,6 +111,36 @@ NUMERIC = Change(
 
 def scan(*changes: Change) -> MetricScan:
     return MetricScan(comparison_id=COMPARISON_ID, moves=(GROSS_MOVE, SGA_MOVE), changes=changes)
+
+
+class FakeLevels:
+    """Metric values by (period label, metric name); records what was asked."""
+
+    def __init__(self, values: dict[tuple[str, MetricName], MetricValue] | None = None) -> None:
+        self.values = values or {}
+        self.asked: list[tuple[str, MetricName]] = []
+
+    def level(self, filing, name):
+        self.asked.append((filing.period.label, name))
+        return self.values.get((filing.period.label, name))
+
+    def growth(self, current, prior):
+        self.asked.append((current.period.label, MetricName.REVENUE_GROWTH))
+        return self.values.get((current.period.label, MetricName.REVENUE_GROWTH))
+
+
+class NoStore:
+    """No chunks and no facts: a change's text is read as prose."""
+
+    def get_chunk(self, chunk_id):
+        return None
+
+    def find_usd_fact(self, accession, value, tolerance):
+        return None
+
+
+# For tests whose rationales carry no figures, so the check has nothing to trace.
+NO_EVIDENCE = {"levels": FakeLevels(), "chunks": NoStore(), "facts": NoStore()}
 
 
 def response(output: Any, stop_reason: str = "end_turn", output_tokens: int = 500):
@@ -189,7 +222,7 @@ async def test_material_changes_are_ranked_by_importance(settings, comparison):
     ]
     rules = {"notable": (3, QUANTITY), "lawsuit": (5, RISK), "cocoa": (4, QUANTITY)}
     client, _ = client_for(settings, by_text(rules))
-    result = await rank_changes(comparison, changes, scan(), client)
+    result = await rank_changes(comparison, changes, scan(), client, **NO_EVIDENCE)
     ranked = result.ranked.changes
     assert [c.change_id for c in ranked] == [
         changes[1].change_id,
@@ -212,13 +245,135 @@ async def test_a_text_change_is_material_only_from_the_cutoff(settings, comparis
     changes = [text(1, "barely"), text(2, "minor"), text(3, "notable")]
     rules = {"barely": (1, QUANTITY), "minor": (2, RISK), "notable": (3, QUANTITY)}
     client, _ = client_for(settings, by_text(rules))
-    result = await rank_changes(comparison, changes, scan(), client)
+    result = await rank_changes(comparison, changes, scan(), client, **NO_EVIDENCE)
     assert [c.change_id for c in result.ranked.changes] == [changes[2].change_id]
     decided = {d.change_id: d for d in result.decisions}
     # Below the cutoff the score and the criterion stay on the record, marked not material.
     assert [
         (d.material, d.importance, d.criterion) for d in (decided[c.change_id] for c in changes)
     ] == [(False, 1, QUANTITY), (False, 2, RISK), (True, 3, QUANTITY)]
+
+
+# The rationale's figures
+
+
+def margin(filing, value: float) -> MetricValue:
+    return MetricValue(
+        metric_id=f"HSY:gross_margin:{filing.period.label}:12m",
+        ticker="HSY",
+        name=MetricName.GROSS_MARGIN.value,
+        period=filing.period,
+        duration=Duration.TWELVE_MONTHS,
+        value=value,
+        unit="ratio",
+        input_fact_ids=("f1",),
+    )
+
+
+def margins(comparison, *, prior: bool = True) -> FakeLevels:
+    # The flagged move is -0.1377: 43.77% to 30.00%, "-1,377 bps".
+    values = {
+        (comparison.current.period.label, MetricName.GROSS_MARGIN): margin(comparison.current, 0.30)
+    }
+    if prior:
+        values[(comparison.prior.period.label, MetricName.GROSS_MARGIN)] = margin(
+            comparison.prior, 0.4377
+        )
+    return FakeLevels(values)
+
+
+def rationales(by_word: dict[str, tuple[int, str]]) -> Answer:
+    """Decide each change by a word in its later text (numeric: "numeric"), with a set rationale."""
+
+    def answer(payload: dict) -> BatchDecisions:
+        decisions = []
+        for entry in payload["changes"]:
+            key = "numeric" if entry["kind"] == "numeric" else entry["later_text"]
+            importance, why = next(r for word, r in by_word.items() if word in key)
+            criterion = (LINKED if entry["kind"] == "numeric" else QUANTITY) if importance else None
+            decisions.append(
+                ChangeDecision(
+                    ref=entry["ref"], importance=importance, criterion=criterion, rationale=why
+                )
+            )
+        return BatchDecisions(decisions=tuple(decisions))
+
+    return answer
+
+
+async def test_a_rationale_with_an_untraced_figure_is_dropped_from_the_ranked_change(
+    settings, comparison
+):
+    changes = [text(1, "Sales rose to $11.7 billion."), text(2, "Costs rose to $5.1 billion.")]
+    answer = rationales(
+        {"Sales": (4, "Sales reached $11.7 billion."), "Costs": (4, "Costs reached $5.4 billion.")}
+    )
+    client, _ = client_for(settings, answer)
+    result = await rank_changes(comparison, changes, scan(), client, **NO_EVIDENCE)
+    ranked = {c.change_id: c for c in result.ranked.changes}
+    # Both stay material and ranked; only the unbacked rationale is dropped.
+    assert ranked[changes[0].change_id].rationale == "Sales reached $11.7 billion."
+    assert ranked[changes[1].change_id].rationale is None
+    decided = {d.change_id: d for d in result.decisions}
+    assert decided[changes[0].change_id].untraced_figures == ()
+    # The decision keeps what the model wrote and the figure nothing backs, for the audit.
+    assert decided[changes[1].change_id].rationale == "Costs reached $5.4 billion."
+    assert decided[changes[1].change_id].untraced_figures == ("$5.4 billion",)
+
+
+async def test_a_numeric_move_is_backed_by_both_periods_values(settings, comparison):
+    why = "Gross margin fell 1,377 bps to 30.0%."
+    client, _ = client_for(settings, rationales({"numeric": (4, why)}))
+    levels = margins(comparison)
+    evidence = {**NO_EVIDENCE, "levels": levels}
+    result = await rank_changes(comparison, [], scan(NUMERIC), client, **evidence)
+    assert result.ranked.changes[0].rationale == why
+    # Only the flagged metric is looked up, in both periods; the unflagged SG&A move is not.
+    assert sorted(levels.asked) == sorted(
+        [
+            (comparison.current.period.label, MetricName.GROSS_MARGIN),
+            (comparison.prior.period.label, MetricName.GROSS_MARGIN),
+        ]
+    )
+    # With one period missing only the level is backed, not the move.
+    client, _ = client_for(settings, rationales({"numeric": (4, why)}))
+    evidence = {**NO_EVIDENCE, "levels": margins(comparison, prior=False)}
+    result = await rank_changes(comparison, [], scan(NUMERIC), client, **evidence)
+    assert result.ranked.changes[0].rationale is None
+    assert result.decisions[0].untraced_figures == ("1,377 bps",)
+
+
+async def test_a_text_rationale_may_quote_a_flagged_move(settings, comparison):
+    # Every batch is shown the flagged moves, so a text change's rationale may cite one.
+    why = "Pricing changed alongside the 1,377 bps fall in gross margin."
+    client, _ = client_for(settings, rationales({"Pricing": (3, why)}))
+    evidence = {**NO_EVIDENCE, "levels": margins(comparison)}
+    result = await rank_changes(
+        comparison, [text(1, "Pricing was revised.")], scan(), client, **evidence
+    )
+    assert result.ranked.changes[0].rationale == why
+
+
+def test_revenue_growth_is_looked_up_as_one_value(comparison):
+    growth = GROSS_MOVE.model_copy(
+        update={"metric": MetricName.REVENUE_GROWTH, "kind": MoveKind.POINTS}
+    )
+    value = margin(comparison.current, 0.044).model_copy(
+        update={"name": MetricName.REVENUE_GROWTH.value}
+    )
+    levels = FakeLevels({(comparison.current.period.label, MetricName.REVENUE_GROWTH): value})
+    moves = MetricScan(comparison_id=COMPARISON_ID, moves=(growth, SGA_MOVE), changes=())
+    assert shown_metric_values(levels, comparison, moves) == (value,)
+    assert levels.asked == [(comparison.current.period.label, MetricName.REVENUE_GROWTH)]
+
+
+async def test_only_material_changes_are_checked(settings, comparison):
+    client, _ = client_for(settings, rationales({"Minor": (2, "Minor change of $9.9 billion.")}))
+    result = await rank_changes(
+        comparison, [text(1, "Minor wording.")], scan(), client, **NO_EVIDENCE
+    )
+    assert result.ranked.changes == ()
+    assert result.decisions[0].untraced_figures == ()
 
 
 async def test_a_low_scored_numeric_change_is_still_material(settings, comparison):
@@ -231,7 +386,7 @@ async def test_a_low_scored_numeric_change_is_still_material(settings, compariso
         )
 
     client, _ = client_for(settings, answer)
-    result = await rank_changes(comparison, [], scan(NUMERIC), client)
+    result = await rank_changes(comparison, [], scan(NUMERIC), client, **NO_EVIDENCE)
     assert [c.change_id for c in result.ranked.changes] == [NUMERIC.change_id]
     assert (result.decisions[0].material, result.decisions[0].importance) == (True, 2)
 
@@ -239,7 +394,7 @@ async def test_a_low_scored_numeric_change_is_still_material(settings, compariso
 async def test_ties_go_to_numeric_changes_then_arrival_order(settings, comparison):
     changes = [text(1, "first notable"), text(2, "second notable")]
     client, _ = client_for(settings, by_text({"notable": (3, QUANTITY)}))
-    result = await rank_changes(comparison, changes, scan(NUMERIC), client)
+    result = await rank_changes(comparison, changes, scan(NUMERIC), client, **NO_EVIDENCE)
     assert [c.change_id for c in result.ranked.changes] == [
         NUMERIC.change_id,
         changes[0].change_id,
@@ -257,7 +412,7 @@ async def test_a_numeric_change_is_always_material_and_metric_linked(settings, c
         )
 
     client, _ = client_for(settings, answer)
-    result = await rank_changes(comparison, [], scan(NUMERIC), client)
+    result = await rank_changes(comparison, [], scan(NUMERIC), client, **NO_EVIDENCE)
     (ranked,) = result.ranked.changes
     assert (ranked.change_id, ranked.criterion, ranked.metric_id) == (
         NUMERIC.change_id,
@@ -269,7 +424,7 @@ async def test_a_numeric_change_is_always_material_and_metric_linked(settings, c
 
 async def test_nothing_to_decide_makes_no_call(settings, comparison):
     client, fake = client_for(settings, by_text({}))
-    result = await rank_changes(comparison, [], scan(), client)
+    result = await rank_changes(comparison, [], scan(), client, **NO_EVIDENCE)
     assert (result.ranked.changes, result.decisions, result.calls) == ((), (), 0)
     assert fake.requests == []
 
@@ -280,7 +435,7 @@ async def test_nothing_to_decide_makes_no_call(settings, comparison):
 async def test_changes_go_in_batches_with_numeric_changes_first(settings, comparison):
     changes = [text(n, f"change {n}") for n in range(45)]
     client, fake = client_for(settings, by_text({}))
-    result = await rank_changes(comparison, changes, scan(NUMERIC), client)
+    result = await rank_changes(comparison, changes, scan(NUMERIC), client, **NO_EVIDENCE)
     sizes = sorted(len(payload["changes"]) for payload in fake.payloads())
     assert sizes == [6, BATCH_SIZE, BATCH_SIZE] and BATCH_SIZE == 20
     first = next(p for p in fake.payloads() if p["changes"][0]["kind"] == "numeric")
@@ -292,7 +447,7 @@ async def test_changes_go_in_batches_with_numeric_changes_first(settings, compar
 async def test_the_message_describes_each_change_and_the_flagged_moves(settings, comparison):
     change = text(1, "Tariffs may rise.", earlier="Tariffs are low.")
     client, fake = client_for(settings, by_text({}))
-    await rank_changes(comparison, [change], scan(NUMERIC), client)
+    await rank_changes(comparison, [change], scan(NUMERIC), client, **NO_EVIDENCE)
     (payload,) = fake.payloads()
     assert payload["company"] == "The Hershey Company (HSY)"
     assert payload["comparison"] == "yoy-10k: the 10-K for FY2025 against the 10-K for FY2024"
@@ -316,7 +471,7 @@ async def test_the_message_describes_each_change_and_the_flagged_moves(settings,
 
 async def test_the_request_uses_the_materiality_role(settings, comparison):
     client, fake = client_for(settings, by_text({}))
-    await rank_changes(comparison, [text(1, "x")], scan(), client)
+    await rank_changes(comparison, [text(1, "x")], scan(), client, **NO_EVIDENCE)
     (request,) = fake.requests
     assert request["model"] == settings.model_strong
     assert request["max_tokens"] == MAX_TOKENS
@@ -328,6 +483,10 @@ async def test_the_request_uses_the_materiality_role(settings, comparison):
     assert "never refer\nto another change by its ref" in SYSTEM
     assert "Never report what\ncaused a change, or what the filing links, attributes or" in SYSTEM
     assert "leave every explanation to later steps" in SYSTEM
+    # Figures as the rationale check reads them (untraced_rationale_figures).
+    assert 'write "million" or "billion", never "M" or "B"' in SYSTEM
+    assert '("+1,487 bps", not "about 1,490 bps")' in SYSTEM
+    assert "compute no differences, sums or\npercentages of your own" in SYSTEM
 
 
 @pytest.mark.parametrize(
@@ -347,7 +506,7 @@ async def test_the_seasonal_label_reaches_the_message(settings, comparison):
     seasonal = GROSS_MOVE.model_copy(update={"seasonal": SeasonalStatus.NO_YEAR_EARLIER_DATA})
     client, fake = client_for(settings, by_text({}))
     refused = MetricScan(comparison_id=COMPARISON_ID, moves=(seasonal,), changes=(NUMERIC,))
-    await rank_changes(comparison, [], refused, client)
+    await rank_changes(comparison, [], refused, client, **NO_EVIDENCE)
     (payload,) = fake.payloads()
     assert (
         payload["changes"][0]["seasonality"] == "seasonality not checked: no year-earlier figures"
@@ -371,7 +530,7 @@ def refusing(poison: str, answer: Answer) -> Answer:
 async def test_a_refused_batch_is_split_until_the_refused_change_is_alone(settings, comparison):
     changes = [text(n, f"ordinary {n}") for n in range(7)] + [text(7, "poison here")]
     client, fake = client_for(settings, refusing("poison", by_text({"ordinary": (3, QUANTITY)})))
-    result = await rank_changes(comparison, changes, scan(), client, batch_size=8)
+    result = await rank_changes(comparison, changes, scan(), client, **NO_EVIDENCE, batch_size=8)
     assert [u.change_id for u in result.unresolved] == [changes[7].change_id]
     assert "declined" in result.unresolved[0].reason
     assert len(result.ranked.changes) == 7
@@ -402,7 +561,7 @@ async def test_a_malformed_answer_is_split_like_a_refusal(settings, comparison, 
 
     changes = [text(1, "fine one"), text(2, "odd one")]
     client, _ = client_for(settings, answer)
-    result = await rank_changes(comparison, changes, scan(), client)
+    result = await rank_changes(comparison, changes, scan(), client, **NO_EVIDENCE)
     assert [u.change_id for u in result.unresolved] == [changes[1].change_id]
     assert [c.change_id for c in result.ranked.changes] == [changes[0].change_id]
 
@@ -414,14 +573,16 @@ async def test_a_cut_off_answer_is_split(settings, comparison):
         return by_text({"x": (3, QUANTITY)})(payload)
 
     client, _ = client_for(settings, answer)
-    result = await rank_changes(comparison, [text(1, "x one"), text(2, "x two")], scan(), client)
+    result = await rank_changes(
+        comparison, [text(1, "x one"), text(2, "x two")], scan(), client, **NO_EVIDENCE
+    )
     assert len(result.ranked.changes) == 2 and result.unresolved == ()
 
 
 async def test_a_budget_stop_is_not_a_failed_batch(settings, comparison):
     client, fake = client_for(settings, by_text({}), max_usd=0.01)
     with pytest.raises(BudgetExceededError):
-        await rank_changes(comparison, [text(1, "x")], scan(), client)
+        await rank_changes(comparison, [text(1, "x")], scan(), client, **NO_EVIDENCE)
     assert fake.requests == []
 
 
@@ -429,11 +590,11 @@ async def test_changes_from_another_comparison_are_refused(settings, comparison)
     client, _ = client_for(settings, by_text({}))
     stranger = text(1, "x").model_copy(update={"comparison_id": "MAT:yoy-10k"})
     with pytest.raises(ValueError, match=COMPARISON_ID):
-        await rank_changes(comparison, [stranger], scan(), client)
+        await rank_changes(comparison, [stranger], scan(), client, **NO_EVIDENCE)
     with pytest.raises(ValueError, match="batch_size"):
-        await rank_changes(comparison, [], scan(), client, batch_size=0)
+        await rank_changes(comparison, [], scan(), client, **NO_EVIDENCE, batch_size=0)
     with pytest.raises(ValueError, match="max_in_flight"):
-        await rank_changes(comparison, [], scan(), client, max_in_flight=0)
+        await rank_changes(comparison, [], scan(), client, **NO_EVIDENCE, max_in_flight=0)
 
 
 # Calls in flight
@@ -461,7 +622,9 @@ async def test_calls_in_flight_are_capped_below_the_clients_own_limit(settings, 
     fake = CountingAnthropic(by_text({}))
     client = LLMClient(settings, CostLedger(5.0), client=fake, max_concurrency=50)
     changes = [text(n, f"change {n}") for n in range(12)]
-    result = await rank_changes(comparison, changes, scan(), client, batch_size=1, max_in_flight=3)
+    result = await rank_changes(
+        comparison, changes, scan(), client, **NO_EVIDENCE, batch_size=1, max_in_flight=3
+    )
     assert fake.peak == 3 and result.calls == 12
 
 
@@ -473,7 +636,7 @@ async def test_a_large_comparison_runs_under_a_cap_its_whole_worst_case_exceeds(
     fake = CountingAnthropic(by_text({}))
     client = LLMClient(settings, CostLedger(2.0), client=fake)
     changes = [text(n, f"change {n}") for n in range(30)]
-    result = await rank_changes(comparison, changes, scan(), client, batch_size=1)
+    result = await rank_changes(comparison, changes, scan(), client, **NO_EVIDENCE, batch_size=1)
     assert result.calls == 30
     assert fake.peak == MAX_IN_FLIGHT == 5
 
@@ -485,9 +648,9 @@ async def test_cost_is_tallied_and_a_rerun_replays_free(settings, comparison, tm
     cache = ReplayCache(tmp_path / "replay.sqlite")
     changes = [text(n, f"lawsuit {n}") for n in range(3)]
     client, fake = client_for(settings, by_text({"lawsuit": (4, RISK)}), cache=cache)
-    first = await rank_changes(comparison, changes, scan(), client)
+    first = await rank_changes(comparison, changes, scan(), client, **NO_EVIDENCE)
     assert first.calls == 1 and first.cost_usd > 0
-    again = await rank_changes(comparison, changes, scan(), client)
+    again = await rank_changes(comparison, changes, scan(), client, **NO_EVIDENCE)
     assert again.cost_usd == 0.0
     assert again.ranked == first.ranked
     assert len(fake.requests) == 1  # the second run sent nothing
@@ -519,7 +682,15 @@ async def test_real_hershey_quarter_is_batched_and_ranked():
         metric_scan = scan_comparison(catalog, comparison)
         # Text changes are not material to this fake; numeric changes always are.
         client, fake = client_for(settings, by_text({}))
-        result = await rank_changes(comparison, alignment.changes, metric_scan, client)
+        result = await rank_changes(
+            comparison,
+            alignment.changes,
+            metric_scan,
+            client,
+            levels=catalog,
+            chunks=store,
+            facts=store,
+        )
         numeric = metric_scan.changes
         total = len(numeric) + len(alignment.changes)
         assert numeric and total > BATCH_SIZE

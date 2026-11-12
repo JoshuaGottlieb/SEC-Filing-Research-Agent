@@ -39,17 +39,22 @@ import asyncio
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol
 
 from pydantic import Field
 
+from sec_agent.agents.verification import untraced_rationale_figures
+from sec_agent.contracts import ChunkLookup, FactLookup
 from sec_agent.finance.scan import MetricMove, MetricScan, MoveKind, SeasonalStatus
 from sec_agent.llm.client import LLMClient, LLMError, Role
 from sec_agent.schemas import (
     Change,
     ChangeKind,
     Comparison,
+    Filing,
     MaterialityCriterion,
+    MetricName,
+    MetricValue,
     RankedChanges,
     Record,
 )
@@ -127,7 +132,11 @@ Every "numeric" change is already material: give it an importance from 1 to 5 an
 "metric_linked_shift". For every other change with importance 1 to 5, give a criterion.
 
 Answer every change exactly once, by its "ref". Keep each rationale to one or two sentences that
-say what changed and why it matters or does not. A rationale must stand on its own: never refer
+say what changed and why it matters or does not. Use only figures the change's text or a flagged
+move states, copied as written: write "million" or "billion", never "M" or "B"; give a move
+exactly as listed ("+1,487 bps", not "about 1,490 bps"); and compute no differences, sums or
+percentages of your own. A figure that cannot be traced to what you were shown removes the
+rationale. A rationale must stand on its own: never refer
 to another change by its ref, because refs mean nothing outside this message. Never report what
 caused a change, or what the filing links, attributes or associates it with, in any wording, even
 when the filing states it: no "due to", "driven by", "driver", "because of", "as a result of",
@@ -163,7 +172,11 @@ class MaterialityDecision(Record):
     material: bool
     importance: int = Field(ge=0, le=5)
     criterion: MaterialityCriterion | None
+    # As the model wrote it, kept for the audit even when the ranked change drops it.
     rationale: str
+    # Figures in the rationale that nothing the model was shown backs (see `rank_changes`). Only
+    # material changes are checked, since only they reach later steps.
+    untraced_figures: tuple[str, ...] = ()
 
 
 class Unresolved(Record):
@@ -357,12 +370,46 @@ def rank(
                 {
                     **item.change.model_dump(),
                     "criterion": decision.criterion,
-                    "rationale": decision.rationale,
+                    # A rationale with a figure nothing backs is dropped here, so the brief, the
+                    # generator and the tree's root never read it (see `rank_changes`).
+                    "rationale": None if decision.untraced_figures else decision.rationale,
                     "materiality_rank": number,
                 }
             )
         )
     return RankedChanges(comparison_id=comparison.comparison_id, changes=tuple(ranked))
+
+
+class MetricLevels(Protocol):
+    """The metric values behind a scanned move (`MetricCatalog` provides them)."""
+
+    def level(self, filing: Filing, name: MetricName) -> MetricValue | None: ...
+
+    def growth(self, current: Filing, prior: Filing) -> MetricValue | None: ...
+
+
+def shown_metric_values(
+    levels: MetricLevels, comparison: Comparison, scan: MetricScan
+) -> tuple[MetricValue, ...]:
+    """The values behind every flagged move, in both periods.
+
+    The prompt shows each flagged move ("+593 bps") to every batch but not the values it comes
+    from; the rationale check needs both periods to back the move, so both are looked up here.
+    Revenue growth is one value that already describes the change.
+    """
+    values: list[MetricValue] = []
+    for move in scan.moves:
+        if not move.flagged:
+            continue
+        if move.metric is MetricName.REVENUE_GROWTH:
+            found = [levels.growth(comparison.current, comparison.prior)]
+        else:
+            found = [
+                levels.level(comparison.current, move.metric),
+                levels.level(comparison.prior, move.metric),
+            ]
+        values += [value for value in found if value is not None]
+    return tuple(values)
 
 
 async def rank_changes(
@@ -371,6 +418,9 @@ async def rank_changes(
     scan: MetricScan,
     client: LLMClient,
     *,
+    levels: MetricLevels,
+    chunks: ChunkLookup,
+    facts: FactLookup,
     batch_size: int = BATCH_SIZE,
     max_in_flight: int = MAX_IN_FLIGHT,
 ) -> MaterialityResult:
@@ -380,6 +430,14 @@ async def rank_changes(
     changes are sent first, then text changes in the order given, `batch_size` at a time, with
     at most `max_in_flight` calls under way at once. A budget stop is not a failed batch:
     `BudgetExceededError` propagates.
+
+    Each material change's rationale is then checked with `untraced_rationale_figures` against
+    what the model was shown: the change's own text, read through `chunks` and `facts` so a
+    table's scale counts, and the values behind every flagged move, from `levels`. The brief
+    prints the rationale as why the change was flagged and the generator and the tree's root
+    read it, while nothing else checks it, so a rationale with a figure nothing backs is dropped
+    from the ranked change; the decision keeps it and the figures for the audit. Asked by the
+    user on 2026-11-12.
     """
     if batch_size < 1:
         raise ValueError("batch_size must be at least 1")
@@ -389,6 +447,8 @@ async def rank_changes(
     if any(change.comparison_id != comparison.comparison_id for change in changes):
         raise ValueError(f"every change must belong to {comparison.comparison_id}")
     moves = {move.metric_id: move for move in scan.moves if move.flagged}
+    # Looked up before any call, so a lookup that fails costs nothing.
+    shown = shown_metric_values(levels, comparison, scan)
     items = [
         _Item(position, change, moves.get(change.metric_id) if change.metric_id else None)
         for position, change in enumerate(changes)
@@ -406,6 +466,17 @@ async def rank_changes(
     for decided, failed in results:
         decisions.update(decided)
         unresolved.extend(failed)
+    by_position = {item.position: item.change for item in items}
+    for position, decision in decisions.items():
+        if decision.material:
+            untraced = untraced_rationale_figures(
+                decision.rationale,
+                by_position[position],
+                metrics=shown,
+                chunks=chunks,
+                facts=facts,
+            )
+            decisions[position] = decision.model_copy(update={"untraced_figures": untraced})
     return MaterialityResult(
         comparison_id=comparison.comparison_id,
         ranked=rank(comparison, items, decisions),
