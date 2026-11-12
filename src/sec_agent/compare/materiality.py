@@ -2,9 +2,10 @@
 
 Text changes from alignment (T3.1) and numeric changes from the metric scan (T3.2) go to Opus
 (`Role.MATERIALITY`) in batches. For each change it returns an importance from 0 to 5 against a
-written rubric (0 is not material), the criterion that makes it material, and a rationale. The
-material changes are then ranked into a `RankedChanges` record, the order in which later steps
-analyse them, so a budget stop drops the least material.
+written rubric (0 is not material), the criterion that makes it material, and a rationale. A text
+change is material only from `MIN_MATERIAL_IMPORTANCE` up. The material changes are then ranked
+into a `RankedChanges` record, the order in which later steps analyse them, so a budget stop drops
+the least material.
 
 Decisions the user made on 2026-11-10:
 
@@ -21,6 +22,15 @@ Decisions the user made on 2026-11-10:
   That change is left out of the ranking and listed for human review.
 - No cap on the list: every material change is ranked, and the run budget (T5.5) decides how far
   down it later analysis goes.
+
+The rubric was revised on 2026-11-12 (user-approved re-scoring of Hershey), after the saved
+full-run decisions were scored against the Hershey benchmark labels: 6 of 10 sampled changes
+labeled not material had been called material (all at importance 1 or 2), and a removed
+Russia-Ukraine risk labeled material scored 1. The additions say that totals which only
+accumulate are routine, that consecutive quarterly reports set two year-over-year statements side
+by side rather than a sequential move, and that a removed risk counts like an added one. The
+re-score (one run, $1.50) found every labeled material change at importance 2 or more but left the
+false positives at 1 and 2, so the user set the material cutoff at 3 (`MIN_MATERIAL_IMPORTANCE`).
 """
 
 from __future__ import annotations
@@ -56,6 +66,15 @@ MAX_TOKENS = 8_000
 # starting every batch at once would hold a large comparison's whole worst case against the
 # run's cap (Stanley's 10-K: 22 batches, about $4.90) and could refuse a run that can afford it.
 MAX_IN_FLIGHT = 5
+# The lowest importance at which a text change is material. Set by the user on 2026-11-12 from the
+# Hershey benchmark labels, scored with the revised rubric: at 3, 0 of 11 sampled changes labeled
+# not material were called material and 6 of 7 labeled material changes were found; at 2 the
+# figures were 3 of 11 and 7 of 7; at 1 (any importance), 6 of 11 and 7 of 7. Nothing after this
+# step checks that a flagged change matters (the critic and the judge check explanations, not the
+# change), and a flagged change implies something happened, so a false one costs more than a
+# miss. The one miss at 3 is a removed Russia-Ukraine risk scored 2. Numeric changes are always
+# material; their score only places them.
+MIN_MATERIAL_IMPORTANCE = 3
 
 SYSTEM = """\
 You judge which changes between two of a company's SEC filings are material to a fundamental
@@ -77,7 +96,22 @@ A change is material only when it meets one of these criteria. Name the one that
   directly tied to one. The flagged metric moves for this comparison are listed in the message.
 
 Not material: rewording that keeps the meaning, formatting, reordering, boilerplate, and updates
-that a reader would expect every period.
+that a reader would expect every period. A total that only accumulates is such an update: a
+year-to-date figure that is larger because the later period covers more months, or a cumulative
+cost or count that grew as a program went on, unless it departs from what the company planned or
+disclosed.
+
+When the two filings are consecutive quarterly reports, each states its own period's results
+against the same period a year earlier, and their year-to-date figures cover different numbers of
+months. A pair of such paragraphs sets two year-over-year statements side by side: the difference
+between their figures is not a move from one quarter to the next. It is material only when the
+year-over-year picture itself changed, such as a trend that reversed, a new factor, or a change
+in guidance. An amount measured at each quarter's end, such as a balance, a remaining
+authorization or a notional value, is compared directly.
+
+A specific risk the earlier filing named and the later one no longer mentions, such as a
+conflict, a lawsuit, a regulatory matter or an exposure, is as material as one newly added: score
+its removal as you would its addition.
 
 Importance, from 0 to 5:
 - 5: on its own it would change an analyst's view of the company's results or risks (for example
@@ -250,9 +284,11 @@ def _record(item: _Item, decision: ChangeDecision) -> MaterialityDecision:
             criterion=MaterialityCriterion.METRIC_LINKED_SHIFT,
             rationale=decision.rationale,
         )
+    # Below the cutoff the change is recorded as not material, keeping the score and the criterion
+    # the model gave, so the record shows how near it came.
     return MaterialityDecision(
         change_id=item.change.change_id,
-        material=decision.importance > 0,
+        material=decision.importance >= MIN_MATERIAL_IMPORTANCE,
         importance=decision.importance,
         criterion=decision.criterion if decision.importance > 0 else None,
         rationale=decision.rationale,
