@@ -1,0 +1,588 @@
+{
+  "retrieval": [
+    {
+      "item_id": "MAT-R01",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "business",
+      "question": "upcoming film releases the company is tying new toy lines to",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Die-cast pioneer Matchbox expects to continue to bring exciting new products to market, including new die-cast offerings and toys tied to Apple Original Films Matchbox The Movie premiering in Fall 2026.",
+          "chunk_id": "0001628280-26-010716:business:0016:0"
+        },
+        {
+          "side": "current",
+          "text": "In 2026, the Action Figures portfolio will be supported by theatrical releases such as Disney Pixar's Toy Story 5 and Mattel's own worldwide theatrical release of Masters of the Universe with Amazon MGM Studios scheduled for Summer 2026, which are expected to drive new and refreshed product lines.",
+          "chunk_id": "0001628280-26-010716:business:0021:0"
+        },
+        {
+          "side": "current",
+          "text": "Mattel's Masters of the Universe theatrical release will be supported by a new product line intended to reinvigorate and modernize the franchise.",
+          "chunk_id": "0001628280-26-010716:business:0021:0"
+        },
+        {
+          "side": "prior",
+          "text": "Die-cast pioneer Matchbox expects to continue to bring exciting new products to market, including new sustainable die-cast products and toys tied to the theatrical release of NBCUniversal's Jurassic World: Rebirth.",
+          "chunk_id": "0001628280-25-007887:business:0015:0"
+        },
+        {
+          "side": "prior",
+          "text": "Mattel's 2025 Action Figures product lines will include toys tied to theatrical releases for NBCUniversal's Jurassic World: Rebirth and Microsoft's Minecraft (Minecraft the Movie)",
+          "chunk_id": "0001628280-25-007887:business:0015:0"
+        }
+      ],
+      "note": "Gold is each brand-outlook paragraph naming a film release that will drive toy lines in the next year: Matchbox and Action Figures in both filings, plus the separate Masters of the Universe paragraph in FY2025. The FY2024 Action Figures sentence also repeats at the start of the next chunk (business:0020); it is one passage. Hot Wheels' Netflix series and the license list (Disney, NBCUniversal, ...) are left out as not film tie-ins for the coming year. Borderline: the FY2025 doll outlook says Mattel 'expects to launch its KPop Demon Hunters dolls line for Netflix in Spring of 2026'; the text does not call KPop Demon Hunters a film, so it is left out."
+    },
+    {
+      "item_id": "MAT-R02",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "market_risk",
+      "question": "effect on pretax earnings if currency hedges had not been in place",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "If Mattel had not entered into hedges to limit the effect of currency exchange rate fluctuations on its results of operations and cash flows, its earnings before income taxes would have increased by approximately $10 million in 2025 and decreased by approximately $30 million in 2024.",
+          "chunk_id": "0001628280-26-010716:market_risk:0002:0"
+        },
+        {
+          "side": "prior",
+          "text": "Had Mattel not entered into hedges to limit the effect of currency exchange rate fluctuations on its results of operations and cash flows, its earnings before income taxes would have decreased by approximately $30 million in each of 2024 and 2023.",
+          "chunk_id": "0001628280-25-007887:market_risk:0007:0"
+        }
+      ],
+      "note": "One sentence in each filing. The sign flips: in 2025 hedging cost about $10 million of pretax earnings, while in 2024 it added about $30 million."
+    },
+    {
+      "item_id": "MAT-R03",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "market_risk",
+      "question": "Turkey highly inflationary economy accounting and functional currency",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Effective April 1, 2022, Mattel has accounted for Turkey as a highly inflationary economy, as the projected three-year cumulative inflation rate exceeded 100%.",
+          "chunk_id": "0001628280-25-007887:market_risk:0007:0"
+        }
+      ],
+      "note": "Absent-topic question: the Turkey highly-inflationary paragraph (about 1% of 2024 net sales) is in the FY2024 market risk section only. The FY2025 10-K does not mention Turkey or highly inflationary accounting anywhere in the indexed text, so the current-side search should come back empty."
+    },
+    {
+      "item_id": "MAT-R04",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "risk_factors",
+      "question": "status of the material weakness in internal control over financial reporting",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Mattel previously determined that there was a material weakness in its internal control over financial reporting, which has been remediated as of December 31, 2025.",
+          "chunk_id": "0001628280-26-010716:risk_factors:0077:0"
+        },
+        {
+          "side": "prior",
+          "text": "Mattel determined that there is a material weakness in its internal control over financial reporting and as a result, its disclosure controls and procedures and internal control over financial reporting are not effective as of December 31, 2024.",
+          "chunk_id": "0001628280-25-007887:risk_factors:0069:0"
+        }
+      ],
+      "note": "One risk factor in each filing. The FY2024 heading ('Mattel identified a material weakness ... which, if not remediated ...') sits directly above the quoted paragraph and is treated as the same passage. The FY2025 heading ('Any material weakness ...') is generic and does not state the status. Item 9A/management's report text is outside the risk_factors filter."
+    },
+    {
+      "item_id": "MAT-R05",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "financial_notes",
+      "question": "how many Rock 'n Play Sleeper product liability lawsuits remain pending",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "One products liability lawsuit filed in April 2023 remains pending against Fisher-Price, Inc. and Mattel, Inc.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0098:0"
+        },
+        {
+          "side": "prior",
+          "text": "Fourteen products liability lawsuits filed between April 2019 and September 2024 are pending against Fisher-Price, Inc. and Mattel, Inc.",
+          "chunk_id": "0001628280-25-036429:financial_notes:0080:0"
+        }
+      ],
+      "note": "One passage per filing in the Contingencies note. The Sleeper insurance-coverage suit, the settled Sleeper class actions and the derivative actions are related but do not answer the count of pending product liability suits, so they are left out."
+    },
+    {
+      "item_id": "MAT-R06",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "mdna",
+      "question": "drivers of the consolidated gross margin change in the second quarter versus a year earlier",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Gross margin declined to 48.2% in the second quarter of 2026 compared to 50.9% in the second quarter of 2025, due to the gross incremental cost of tariffs, inflation, higher royalties, and the unfavorable impact of foreign exchange.",
+          "chunk_id": "0001628280-26-054347:mdna:0016:0"
+        },
+        {
+          "side": "current",
+          "text": "The decrease in gross margin was primarily due to gross incremental tariff costs of 170 basis points, cost inflation of 120 basis points, higher royalty expense of 110 basis points, and an unfavorable impact from foreign currency exchange of 60 basis points.",
+          "chunk_id": "0001628280-26-054347:mdna:0030:0"
+        },
+        {
+          "side": "prior",
+          "text": "Gross margin expanded to 50.9% in the second quarter of 2025, as compared to 49.2% in the second quarter of 2024, with savings from the OPG program, lower inventory management costs, favorable mix and other favorability due to supply chain efficiencies, partially offset by cost inflation.",
+          "chunk_id": "0001628280-25-036429:mdna:0014:0"
+        },
+        {
+          "side": "prior",
+          "text": "The increase in gross margin was primarily due to incremental realized savings from the OPG program of 120 basis points, lower inventory management costs of 60 basis points, primarily driven by lower close-out sales, favorable mix of 60 basis points and other factors, including supply chain efficiencies of 40 basis points, partially offset by cost inflation of 110 basis points.",
+          "chunk_id": "0001628280-25-036429:mdna:0029:0"
+        }
+      ],
+      "note": "Gold is the overview sentence and the consolidated results paragraph for the second quarter in each filing. Left out: first-half (six-month) gross margin paragraphs, and in the Q2 2025 filing the North America and International segment gross margin paragraphs (the Q2 2026 filing has no segment gross margin paragraphs)."
+    },
+    {
+      "item_id": "MAT-R07",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "mdna",
+      "question": "cash held in Russia and limits on moving it out",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Of Mattel's $523.9 million in cash and equivalents at June 30, 2026, $393.0 million was held by foreign subsidiaries, including $75.5 million held in Russia.",
+          "chunk_id": "0001628280-26-054347:mdna:0101:0"
+        },
+        {
+          "side": "prior",
+          "text": "Of Mattel's $870.5 million in cash and equivalents at June 30, 2025, $635.3 million was held by foreign subsidiaries, including $73.6 million held in Russia.",
+          "chunk_id": "0001628280-25-036429:mdna:0102:0"
+        }
+      ],
+      "note": "One passage per filing (the liquidity paragraph). Its next sentence ('Mattel's cash held in Russia can be used within the country; however, its movement out of Russia is currently limited.') repeats at the start of the following chunk; it is the same passage."
+    },
+    {
+      "item_id": "MAT-R08",
+      "comparison_id": "MAT:seq-10q",
+      "section": "mdna",
+      "question": "gain from remeasuring the previously held Mattel163 equity stake",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Upon obtaining control, Mattel remeasured its previously held 50% equity interest to its estimated fair value as of the Acquisition Date, resulting in a gain of $147.9 million recognized in the first half of 2026.",
+          "chunk_id": "0001628280-26-054347:mdna:0070:0"
+        },
+        {
+          "side": "prior",
+          "text": "Mattel remeasured its prior equity interest to the estimated fair value of $178.6 million as of the Acquisition Date and recognized a gain of $147.9 million in other non-operating income, net in the consolidated statement of operations during the three months ended March 31, 2026.",
+          "chunk_id": "0001628280-26-029316:mdna:0017:0"
+        },
+        {
+          "side": "prior",
+          "text": "Upon obtaining control, Mattel remeasured its previously held 50% equity interest to its estimated fair value as of the Acquisition Date, resulting in a gain of $147.9 million recognized in the first quarter of 2026.",
+          "chunk_id": "0001628280-26-029316:mdna:0034:0"
+        }
+      ],
+      "note": "Q2 2026 discusses the gain once (first-half other non-operating income paragraph; the quoted sentence also repeats in the next chunk, mdna:0074). Q1 2026 has it twice: the overview paragraph and the other non-operating income paragraph. Income tax paragraphs that only mention 'excluding the impact of the gain' are left out."
+    },
+    {
+      "item_id": "MAT-R09",
+      "comparison_id": "MAT:seq-10q",
+      "section": "financial_notes",
+      "question": "whether IEEPA tariff refunds have been received or recorded as a receivable",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "During the three months ended June 30, 2026, Mattel received certain refunds under the IEEPA tariff refund process, which were not material.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0103:0"
+        },
+        {
+          "side": "prior",
+          "text": "As of March 31, 2026, Mattel has not recognized any receivable or loss recovery related to potential refunds of IEEPA tariffs",
+          "chunk_id": "0001628280-26-029316:financial_notes:0102:0"
+        }
+      ],
+      "note": "One passage per filing in the Contingencies note (in Q2 2026 the paragraph runs across chunks 0103 and 0104; the quoted sentence is in both). The July 2026 consumer class actions over tariff refunds (Q2 2026 only) concern whether Mattel may keep refunds, not whether it has received them, so they are left out."
+    },
+    {
+      "item_id": "MAT-R10",
+      "comparison_id": "MAT:seq-10q",
+      "section": "financial_notes",
+      "question": "termination of the U.S. Cash Balance pension plan",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "During the second quarter of 2026, Mattel approved the termination of the Cash Balance Plan, a U.S. qualified defined benefit pension plan.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0074:0"
+        }
+      ],
+      "note": "Absent-topic question: the plan termination is approved in Q2 2026 and appears only in that filing's employee benefit note. The Q1 2026 10-Q does not mention the Cash Balance Plan, so the prior-side search should come back empty."
+    }
+  ],
+  "changes": [
+    {
+      "item_id": "MAT-C01",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "risk_factors",
+      "kind": "modified",
+      "criterion": "new_or_removed_risk",
+      "summary": "The material weakness in internal control over financial reporting (IT general controls), which made controls ineffective at December 31, 2024, is reported as remediated as of December 31, 2025; the risk factor is reworded from an identified weakness to a generic one.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "While Mattel is in the process of implementing its remediation plan to address the material weakness, there can be no assurance that the efforts will fully remediate the material weakness in a timely manner.",
+          "chunk_id": "0001628280-25-007887:risk_factors:0069:0"
+        },
+        {
+          "side": "current",
+          "text": "Mattel previously determined that there was a material weakness in its internal control over financial reporting, which has been remediated as of December 31, 2025.",
+          "chunk_id": "0001628280-26-010716:risk_factors:0077:0"
+        }
+      ],
+      "note": "Material because an unremediated material weakness (and ineffective ICFR) is a specific, disclosed risk in FY2024 that is removed in FY2025."
+    },
+    {
+      "item_id": "MAT-C02",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "risk_factors",
+      "kind": "added",
+      "criterion": "new_or_removed_risk",
+      "summary": "New risk factor on developing, publishing and commercializing digital games, reflecting the strategy to scale digital play (self-publishing, Mattel163): revenue may not recover development and marketing costs, and reliance on third-party platforms and developers.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Failure to successfully develop, publish, and commercialize digital games could adversely affect Mattel's business, financial condition, and results of operations.",
+          "chunk_id": "0001628280-26-010716:risk_factors:0023:0"
+        },
+        {
+          "side": "current",
+          "text": "The digital games industry is highly competitive, and Mattel's revenue from its digital games may not be sufficient to recover the costs of developing and marketing such games.",
+          "chunk_id": "0001628280-26-010716:risk_factors:0023:0"
+        }
+      ],
+      "note": "The FY2024 risk factors mention digital games only as competition for play time. A separate new AI risk factor was also added in FY2025; it is not labeled here but would also qualify."
+    },
+    {
+      "item_id": "MAT-C03",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "OPG program targeted annual gross savings raised from $200 million to $225 million, the expected split shifted from about 70% cost of sales / 30% other S&A to 55% / 45%, and expected cash expenditures cut from $130-$165 million to $115-$140 million.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Of the $200 million in targeted annual gross costs savings, approximately 70% is expected to benefit cost of sales and 30% is expected to benefit other selling and administrative expenses.",
+          "chunk_id": "0001628280-25-007887:mdna:0057:0"
+        },
+        {
+          "side": "current",
+          "text": "Of the $225 million in targeted annual gross costs savings, approximately 55% is expected to benefit cost of sales and 45% is expected to benefit other selling and administrative expenses.",
+          "chunk_id": "0001628280-26-010716:mdna:0055:0"
+        },
+        {
+          "side": "current",
+          "text": "Total cash expenditures under the OPG program are expected to be between $115 and $140 million and total non-cash charges are expected to be up to $5 million.",
+          "chunk_id": "0001628280-26-010716:mdna:0055:0"
+        }
+      ],
+      "note": "The FY2025 overview also states the increase ('in the fourth quarter of 2025 Mattel increased its targeted annual gross cost savings from $200 million to $225 million'). The split change matters for margin: less of the savings now lands in cost of sales."
+    },
+    {
+      "item_id": "MAT-C04",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "financial_notes",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "Pending Rock 'n Play Sleeper products liability lawsuits fell from fourteen (June 30, 2025) to one (June 30, 2026); settled or dismissed suits rose from more than forty to more than sixty.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Fourteen products liability lawsuits filed between April 2019 and September 2024 are pending against Fisher-Price, Inc. and Mattel, Inc. alleging that a product defect in the Sleeper caused the fatalities of or injuries to fourteen children.",
+          "chunk_id": "0001628280-25-036429:financial_notes:0080:0"
+        },
+        {
+          "side": "current",
+          "text": "One products liability lawsuit filed in April 2023 remains pending against Fisher-Price, Inc. and Mattel, Inc. alleging that a product defect in the Fisher-Price Rock 'n Play Sleeper (the \"Sleeper\") caused the fatality of a child.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0098:0"
+        },
+        {
+          "side": "current",
+          "text": "More than sixty other lawsuits have been settled and/or dismissed.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0098:0"
+        }
+      ],
+      "note": "Linked to SG&A: the FY2025 10-K cites $30.8 million higher inclined sleeper recall and litigation expenses, and the Q2 2026 MD&A cites $17.7 million lower such expenses in the first half of 2026."
+    },
+    {
+      "item_id": "MAT-C05",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "mdna",
+      "kind": "added",
+      "criterion": "metric_linked_shift",
+      "summary": "Mattel acquired the remaining 50% of Mattel163 on March 2, 2026 and now consolidates it; remeasuring the prior stake produced a $147.9 million gain that swung first-half other non-operating results to $144.0 million income, and Mattel163 is cited as a driver of Games billings, gross margin, advertising and S&A.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "On March 2, 2026, Mattel acquired the remaining 50% equity interest in Mattel163.",
+          "chunk_id": "0001628280-26-054347:mdna:0070:0"
+        },
+        {
+          "side": "current",
+          "text": "Other non-operating income increased by $155.6 million to $144.0 million in the first half of 2026 from an expense of $11.6 million in the first half of 2025, primarily due to the gain recognized on Mattel's previously held equity interest in Mattel163.",
+          "chunk_id": "0001628280-26-054347:mdna:0070:0"
+        }
+      ],
+      "note": "Mattel163 is not mentioned anywhere in the Q2 2025 10-Q."
+    },
+    {
+      "item_id": "MAT-C06",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "new_or_removed_risk",
+      "summary": "The $600 million 2021 Senior Notes due April 2026, which Q2 2025 said Mattel intended to repay or refinance, were refinanced in 2025 with $600 million of new notes due November 2030, removing the near-term maturity.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Mattel's $600.0 million of 2021 Senior Notes are scheduled to mature in April 2026, which Mattel intends to repay or refinance prior to the scheduled maturity date.",
+          "chunk_id": "0001628280-25-036429:mdna:0118:0"
+        },
+        {
+          "side": "current",
+          "text": "During 2025, Mattel issued $600.0 million of 2025 Senior Notes due November 2030 and used the net proceeds plus cash on hand to repay $600.0 million of 2021 Senior Notes due April 2026.",
+          "chunk_id": "0001628280-26-054347:mdna:0118:0"
+        }
+      ],
+      "note": "Criterion could also be read as changed_quantity (maturity profile). Total debt is unchanged at about $2.33 billion, so the change is in refinancing risk, not leverage. The Q1 2026 10-Q has the same refinancing sentence ('used the proceeds plus cash on hand'), so this is not a seq-10q change."
+    },
+    {
+      "item_id": "MAT-C07",
+      "comparison_id": "MAT:seq-10q",
+      "section": "financial_notes",
+      "kind": "added",
+      "criterion": "new_or_removed_risk",
+      "summary": "New litigation: in July 2026 two putative consumer class actions were filed against Mattel and American Girl claiming they should not keep IEEPA tariff refunds where tariff costs were passed on to consumers; no estimate of possible loss can be made.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "In July 2026, two putative class actions were filed in the United States District Court for the Central District of California against Mattel, Inc., American Girl, LLC, and American Girl Brands, LLC asserting claims for unjust enrichment, money had and received, unfair competition under section 17200 of the California Business & Professions Code, and declaratory judgment in connection with IEEPA tariff refunds.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0104:0"
+        },
+        {
+          "side": "current",
+          "text": "A reasonable estimate of the amount of any possible loss or range of loss cannot be made at this time.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0104:0"
+        }
+      ],
+      "note": "Material because it puts at risk tariff refunds the filing says could be material."
+    },
+    {
+      "item_id": "MAT-C08",
+      "comparison_id": "MAT:seq-10q",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "new_or_removed_risk",
+      "summary": "Tariff picture changed between quarters: Q1 said the Administration announced its intention to use other laws and new tariffs after the IEEPA ruling; Q2 says Section 122 global tariffs were imposed and expired on July 24, 2026 (and were ruled unauthorized by the CIT, stayed on appeal), new Section 301 tariffs were imposed in July 2026, and Mattel received some (not material) IEEPA refunds.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Following the Supreme Court’s decision, the U.S. presidential administration announced its intention to invoke other laws to collect tariffs and announced new tariffs on imports from all countries, in addition to any existing non-IEEPA tariffs.",
+          "chunk_id": "0001628280-26-029316:mdna:0019:0"
+        },
+        {
+          "side": "current",
+          "text": "In July 2026, the Administration imposed additional tariffs under Section 301 of the Trade Act of 1974.",
+          "chunk_id": "0001628280-26-054347:mdna:0019:0"
+        },
+        {
+          "side": "current",
+          "text": "During the three months ended June 30, 2026, Mattel received certain refunds under the IEEPA tariff refund process, which were not material.",
+          "chunk_id": "0001628280-26-054347:mdna:0019:0"
+        }
+      ],
+      "note": "Tariffs are the largest named gross margin driver in both 2026 quarters (240 bp in Q1, 170 bp in Q2), so the new Section 301 tariffs matter. The same refund facts also appear in the Contingencies note (see MAT-R09)."
+    }
+  ],
+  "causes": [
+    {
+      "item_id": "MAT-S01",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "mdna",
+      "change": "Gross margin fell to 48.7% in 2025 from 50.8% in 2024, a decline of about 210 basis points.",
+      "metric": "gross_margin",
+      "direction": "down",
+      "causes": [
+        "cost inflation",
+        "unfavorable foreign currency exchange",
+        "higher discounts and other factors"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The decrease in gross margin was primarily due to the impact of cost inflation of 100 basis points, unfavorable foreign currency exchange of 60 basis points, and higher discounts and other factors of 160 basis points",
+        "chunk_id": "0001628280-26-010716:mdna:0025:0"
+      },
+      "distractors": [
+        "higher tariff costs",
+        "higher royalty expense",
+        "unfavorable product mix"
+      ],
+      "note": "The same sentence goes on to name the offsets: OPG savings of 90 bp and 'the net impact of tariff costs, which were more than offset by the timing of mitigating actions of 30 basis points'. So 'higher tariff costs' is contradicted: on a net basis tariffs helped 2025 gross margin. Royalty expense did rise ($20.5 million, 8%) but is not named as a margin driver; product mix is not mentioned."
+    },
+    {
+      "item_id": "MAT-S02",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "mdna",
+      "change": "Gross margin fell to 48.2% in Q2 2026 from 50.9% in Q2 2025, a decline of about 270 basis points.",
+      "metric": "gross_margin",
+      "direction": "down",
+      "causes": [
+        "gross incremental tariff costs",
+        "cost inflation",
+        "higher royalty expense",
+        "unfavorable foreign currency exchange"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The decrease in gross margin was primarily due to gross incremental tariff costs of 170 basis points, cost inflation of 120 basis points, higher royalty expense of 110 basis points, and an unfavorable impact from foreign currency exchange of 60 basis points.",
+        "chunk_id": "0001628280-26-054347:mdna:0030:0"
+      },
+      "distractors": [
+        "higher freight and logistics costs",
+        "higher promotional discounts (sales adjustments)",
+        "unfavorable product mix"
+      ],
+      "note": "Offsets named in the next sentence: Mattel163's contribution (120 bp) and mitigating actions plus OPG savings (70 bp). Freight and logistics rose 10%, in line with net sales, and is not named. 'Higher promotional discounts' is effectively contradicted: sales adjustments as a percentage of net sales were 'relatively consistent at 12.6%' versus 12.9%. Mix is not mentioned (Mattel163 is a favorable contribution)."
+    },
+    {
+      "item_id": "MAT-S03",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "mdna",
+      "change": "Other selling and administrative expenses rose to $406.9 million (36.2% of net sales) in Q2 2026 from $361.3 million (35.5%) in Q2 2025, an increase of $45.6 million or about 13%.",
+      "metric": "sga",
+      "direction": "up",
+      "causes": [
+        "higher investments",
+        "higher employee compensation expenses",
+        "higher expenses associated with Mattel163 and other expenses"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The increase in other selling and administrative expenses was primarily due to higher investments of $20.0 million, higher employee compensation expenses of $8.1 million, and higher expenses associated with Mattel163 and other expenses of $23.9 million, partially offset by realized savings from the OPG program of $8.9 million.",
+        "chunk_id": "0001628280-26-054347:mdna:0032:0"
+      },
+      "distractors": [
+        "unfavorable foreign currency exchange",
+        "higher inclined sleeper recall and litigation expenses",
+        "higher severance and restructuring charges"
+      ],
+      "note": "Mattel reports advertising and promotion separately from other selling and administrative expenses; A&P also rose (to 11.0% of net sales from 7.8%), so a catalog SG&A figure that combines the two moves for both reasons. The first-half paragraph names an unfavorable FX impact of $9.0 million and lower inclined sleeper expenses of $17.7 million, but the Q2 paragraph names neither; the sleeper distractor is contradicted for the half year, and FX is stated only for the half year, not the quarter. Severance is not named."
+    }
+  ],
+  "judge": [
+    {
+      "item_id": "MAT-J01",
+      "comparison_id": "MAT:yoy-10k",
+      "cause_id": "MAT-S01",
+      "claim": "Unfavorable foreign currency exchange contributed to the decline in Mattel's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The decrease in gross margin was primarily due to the impact of cost inflation of 100 basis points, unfavorable foreign currency exchange of 60 basis points, and higher discounts and other factors of 160 basis points",
+        "chunk_id": "0001628280-26-010716:mdna:0025:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "MAT-J02",
+      "comparison_id": "MAT:yoy-10k",
+      "cause_id": "MAT-S01",
+      "claim": "Higher royalty expense contributed to the decline in Mattel's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "Royalty expense increased by $20.5 million, or 8%, to $264.6 million in 2025 from $244.1 million in 2024.",
+        "chunk_id": "0001628280-26-010716:mdna:0025:0"
+      },
+      "verdict": "implies",
+      "note": "The quote shows a cost of sales line rising, which is consistent with lower margin, but names no cause of the margin change; the gross margin paragraph does not list royalties among the drivers."
+    },
+    {
+      "item_id": "MAT-J03",
+      "comparison_id": "MAT:yoy-10k",
+      "cause_id": "MAT-S01",
+      "claim": "Cost inflation lowered Mattel's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "Interest expense was $118.7 million in 2025, relatively flat as compared to $118.8 million in 2024.",
+        "chunk_id": "0001628280-26-010716:mdna:0028:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "MAT-J04",
+      "comparison_id": "MAT:yoy-10q",
+      "cause_id": "MAT-S02",
+      "claim": "Incremental tariff costs were a driver of the decline in Mattel's gross margin in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "The decrease in gross margin was primarily due to gross incremental tariff costs of 170 basis points, cost inflation of 120 basis points, higher royalty expense of 110 basis points, and an unfavorable impact from foreign currency exchange of 60 basis points.",
+        "chunk_id": "0001628280-26-054347:mdna:0030:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "MAT-J05",
+      "comparison_id": "MAT:yoy-10q",
+      "cause_id": "MAT-S02",
+      "claim": "Section 122 tariffs lowered Mattel's gross margin in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "Gross margin declined to 48.2% in the second quarter of 2026 compared to 50.9% in the second quarter of 2025, due to the gross incremental cost of tariffs, inflation, higher royalties, and the unfavorable impact of foreign exchange.",
+        "chunk_id": "0001628280-26-054347:mdna:0016:0"
+      },
+      "verdict": "implies",
+      "note": "The quote names tariffs in general, a broader cause than the Section 122 tariffs the claim singles out; the filing never attributes margin to a specific tariff program."
+    },
+    {
+      "item_id": "MAT-J06",
+      "comparison_id": "MAT:yoy-10q",
+      "cause_id": "MAT-S02",
+      "claim": "Higher royalty expense lowered Mattel's gross margin in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "During the second quarter of 2026, Mattel's share repurchases totaled approximately $100 million.",
+        "chunk_id": "0001628280-26-054347:mdna:0016:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "MAT-J07",
+      "comparison_id": "MAT:yoy-10q",
+      "cause_id": "MAT-S03",
+      "claim": "Higher employee compensation expenses contributed to the increase in Mattel's other selling and administrative expenses in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "The increase in other selling and administrative expenses was primarily due to higher investments of $20.0 million, higher employee compensation expenses of $8.1 million, and higher expenses associated with Mattel163 and other expenses of $23.9 million, partially offset by realized savings from the OPG program of $8.9 million.",
+        "chunk_id": "0001628280-26-054347:mdna:0032:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "MAT-J08",
+      "comparison_id": "MAT:yoy-10q",
+      "cause_id": "MAT-S03",
+      "claim": "Acquisition-related professional fees for Mattel163 increased Mattel's other selling and administrative expenses in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "During the three months ended June 30, 2026, Mattel recognized approximately $4 million and $1 million of acquisition-related expenses, including professional fees and integration expenses, within other selling and administrative expenses and cost of sales, respectively.",
+        "chunk_id": "0001628280-26-054347:financial_notes:0016:0"
+      },
+      "verdict": "implies",
+      "note": "The note shows such fees were booked in other S&A during the quarter, consistent with the claim, but does not say they caused the year-over-year increase. The MD&A's named cause ('higher expenses associated with Mattel163 and other expenses') is also broader than professional fees."
+    },
+    {
+      "item_id": "MAT-J09",
+      "comparison_id": "MAT:yoy-10q",
+      "cause_id": "MAT-S03",
+      "claim": "Higher investments increased Mattel's other selling and administrative expenses in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "Inventories decreased by $38.1 million to $829.8 million at June 30, 2026 from $867.9 million at June 30, 2025, primarily due to higher net sales in the second quarter of 2026 and the impact of foreign currency translation.",
+        "chunk_id": "0001628280-26-054347:mdna:0115:0"
+      },
+      "verdict": "unrelated",
+      "note": "The quote states a cause, but for an inventory change, not S&A expenses."
+    }
+  ]
+}

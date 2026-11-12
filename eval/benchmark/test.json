@@ -1,0 +1,1444 @@
+{
+  "retrieval": [
+    {
+      "item_id": "MAT-R01",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "Gold is each brand-outlook paragraph naming a film release that will drive toy lines in the next year: Matchbox and Action Figures in both filings, plus the separate Masters of the Universe paragraph in FY2025. The FY2024 Action Figures sentence also repeats at the start of the next chunk (business:0020); it is one passage. Hot Wheels' Netflix series and the license list (Disney, NBCUniversal, ...) are left out as not film tie-ins for the coming year. Borderline: the FY2025 doll outlook says Mattel 'expects to launch its KPop Demon Hunters dolls line for Netflix in Spring of 2026'; the text does not call KPop Demon Hunters a film, so it is left out.\nReviewer: Accept based on the strict interpretation of film tie-ins, although a rephrasing of the question to \"upcoming films, series, and shows\" or even a broader \"upcoming collaborations\" would have wider hits and would bring more sources of evidence for retrieval",
+      "section": "business",
+      "question": "upcoming film releases the company is tying new toy lines to",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Die-cast pioneer Matchbox expects to continue to bring exciting new products to market, including new die-cast offerings and toys tied to Apple Original Films Matchbox The Movie premiering in Fall 2026.",
+          "chunk_id": "0001628280-26-010716:business:0016:0"
+        },
+        {
+          "side": "current",
+          "text": "In 2026, the Action Figures portfolio will be supported by theatrical releases such as Disney Pixar's Toy Story 5 and Mattel's own worldwide theatrical release of Masters of the Universe with Amazon MGM Studios scheduled for Summer 2026, which are expected to drive new and refreshed product lines.",
+          "chunk_id": "0001628280-26-010716:business:0021:0"
+        },
+        {
+          "side": "current",
+          "text": "Mattel's Masters of the Universe theatrical release will be supported by a new product line intended to reinvigorate and modernize the franchise.",
+          "chunk_id": "0001628280-26-010716:business:0021:0"
+        },
+        {
+          "side": "prior",
+          "text": "Die-cast pioneer Matchbox expects to continue to bring exciting new products to market, including new sustainable die-cast products and toys tied to the theatrical release of NBCUniversal's Jurassic World: Rebirth.",
+          "chunk_id": "0001628280-25-007887:business:0015:0"
+        },
+        {
+          "side": "prior",
+          "text": "Mattel's 2025 Action Figures product lines will include toys tied to theatrical releases for NBCUniversal's Jurassic World: Rebirth and Microsoft's Minecraft (Minecraft the Movie)",
+          "chunk_id": "0001628280-25-007887:business:0015:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R02",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "One sentence in each filing. The sign flips: in 2025 hedging cost about $10 million of pretax earnings, while in 2024 it added about $30 million.",
+      "section": "market_risk",
+      "question": "effect on pretax earnings if currency hedges had not been in place",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "If Mattel had not entered into hedges to limit the effect of currency exchange rate fluctuations on its results of operations and cash flows, its earnings before income taxes would have increased by approximately $10 million in 2025 and decreased by approximately $30 million in 2024.",
+          "chunk_id": "0001628280-26-010716:market_risk:0002:0"
+        },
+        {
+          "side": "prior",
+          "text": "Had Mattel not entered into hedges to limit the effect of currency exchange rate fluctuations on its results of operations and cash flows, its earnings before income taxes would have decreased by approximately $30 million in each of 2024 and 2023.",
+          "chunk_id": "0001628280-25-007887:market_risk:0007:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R03",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "Absent-topic question: the Turkey highly-inflationary paragraph (about 1% of 2024 net sales) is in the FY2024 market risk section only. The FY2025 10-K does not mention Turkey or highly inflationary accounting anywhere in the indexed text, so the current-side search should come back empty.",
+      "section": "market_risk",
+      "question": "Turkey highly inflationary economy accounting and functional currency",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Effective April 1, 2022, Mattel has accounted for Turkey as a highly inflationary economy, as the projected three-year cumulative inflation rate exceeded 100%.",
+          "chunk_id": "0001628280-25-007887:market_risk:0007:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R04",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "One risk factor in each filing. The FY2024 heading ('Mattel identified a material weakness ... which, if not remediated ...') sits directly above the quoted paragraph and is treated as the same passage. The FY2025 heading ('Any material weakness ...') is generic and does not state the status. Item 9A/management's report text is outside the risk_factors filter.",
+      "section": "risk_factors",
+      "question": "status of the material weakness in internal control over financial reporting",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Mattel previously determined that there was a material weakness in its internal control over financial reporting, which has been remediated as of December 31, 2025.",
+          "chunk_id": "0001628280-26-010716:risk_factors:0077:0"
+        },
+        {
+          "side": "prior",
+          "text": "Mattel determined that there is a material weakness in its internal control over financial reporting and as a result, its disclosure controls and procedures and internal control over financial reporting are not effective as of December 31, 2024.",
+          "chunk_id": "0001628280-25-007887:risk_factors:0069:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R05",
+      "comparison_id": "MAT:yoy-10q",
+      "note": "One passage per filing in the Contingencies note. The Sleeper insurance-coverage suit, the settled Sleeper class actions and the derivative actions are related but do not answer the count of pending product liability suits, so they are left out.",
+      "section": "financial_notes",
+      "question": "how many Rock 'n Play Sleeper product liability lawsuits remain pending",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "One products liability lawsuit filed in April 2023 remains pending against Fisher-Price, Inc. and Mattel, Inc.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0098:0"
+        },
+        {
+          "side": "prior",
+          "text": "Fourteen products liability lawsuits filed between April 2019 and September 2024 are pending against Fisher-Price, Inc. and Mattel, Inc.",
+          "chunk_id": "0001628280-25-036429:financial_notes:0080:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R06",
+      "comparison_id": "MAT:yoy-10q",
+      "note": "Gold is the overview sentence and the consolidated results paragraph for the second quarter in each filing. Left out: first-half (six-month) gross margin paragraphs, and in the Q2 2025 filing the North America and International segment gross margin paragraphs (the Q2 2026 filing has no segment gross margin paragraphs).",
+      "section": "mdna",
+      "question": "drivers of the consolidated gross margin change in the second quarter versus a year earlier",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Gross margin declined to 48.2% in the second quarter of 2026 compared to 50.9% in the second quarter of 2025, due to the gross incremental cost of tariffs, inflation, higher royalties, and the unfavorable impact of foreign exchange.",
+          "chunk_id": "0001628280-26-054347:mdna:0016:0"
+        },
+        {
+          "side": "current",
+          "text": "The decrease in gross margin was primarily due to gross incremental tariff costs of 170 basis points, cost inflation of 120 basis points, higher royalty expense of 110 basis points, and an unfavorable impact from foreign currency exchange of 60 basis points.",
+          "chunk_id": "0001628280-26-054347:mdna:0030:0"
+        },
+        {
+          "side": "prior",
+          "text": "Gross margin expanded to 50.9% in the second quarter of 2025, as compared to 49.2% in the second quarter of 2024, with savings from the OPG program, lower inventory management costs, favorable mix and other favorability due to supply chain efficiencies, partially offset by cost inflation.",
+          "chunk_id": "0001628280-25-036429:mdna:0014:0"
+        },
+        {
+          "side": "prior",
+          "text": "The increase in gross margin was primarily due to incremental realized savings from the OPG program of 120 basis points, lower inventory management costs of 60 basis points, primarily driven by lower close-out sales, favorable mix of 60 basis points and other factors, including supply chain efficiencies of 40 basis points, partially offset by cost inflation of 110 basis points.",
+          "chunk_id": "0001628280-25-036429:mdna:0029:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R07",
+      "comparison_id": "MAT:yoy-10q",
+      "note": "One passage per filing (the liquidity paragraph). Its next sentence ('Mattel's cash held in Russia can be used within the country; however, its movement out of Russia is currently limited.') repeats at the start of the following chunk; it is the same passage.",
+      "section": "mdna",
+      "question": "cash held in Russia and limits on moving it out",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Of Mattel's $523.9 million in cash and equivalents at June 30, 2026, $393.0 million was held by foreign subsidiaries, including $75.5 million held in Russia.",
+          "chunk_id": "0001628280-26-054347:mdna:0101:0"
+        },
+        {
+          "side": "prior",
+          "text": "Of Mattel's $870.5 million in cash and equivalents at June 30, 2025, $635.3 million was held by foreign subsidiaries, including $73.6 million held in Russia.",
+          "chunk_id": "0001628280-25-036429:mdna:0102:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R08",
+      "comparison_id": "MAT:seq-10q",
+      "note": "Q2 2026 discusses the gain once (first-half other non-operating income paragraph; the quoted sentence also repeats in the next chunk, mdna:0074). Q1 2026 has it twice: the overview paragraph and the other non-operating income paragraph. Income tax paragraphs that only mention 'excluding the impact of the gain' are left out.",
+      "section": "mdna",
+      "question": "gain from remeasuring the previously held Mattel163 equity stake",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Upon obtaining control, Mattel remeasured its previously held 50% equity interest to its estimated fair value as of the Acquisition Date, resulting in a gain of $147.9 million recognized in the first half of 2026.",
+          "chunk_id": "0001628280-26-054347:mdna:0070:0"
+        },
+        {
+          "side": "prior",
+          "text": "Mattel remeasured its prior equity interest to the estimated fair value of $178.6 million as of the Acquisition Date and recognized a gain of $147.9 million in other non-operating income, net in the consolidated statement of operations during the three months ended March 31, 2026.",
+          "chunk_id": "0001628280-26-029316:mdna:0017:0"
+        },
+        {
+          "side": "prior",
+          "text": "Upon obtaining control, Mattel remeasured its previously held 50% equity interest to its estimated fair value as of the Acquisition Date, resulting in a gain of $147.9 million recognized in the first quarter of 2026.",
+          "chunk_id": "0001628280-26-029316:mdna:0034:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R09",
+      "comparison_id": "MAT:seq-10q",
+      "note": "One passage per filing in the Contingencies note (in Q2 2026 the paragraph runs across chunks 0103 and 0104; the quoted sentence is in both). The July 2026 consumer class actions over tariff refunds (Q2 2026 only) concern whether Mattel may keep refunds, not whether it has received them, so they are left out.",
+      "section": "financial_notes",
+      "question": "whether IEEPA tariff refunds have been received or recorded as a receivable",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "During the three months ended June 30, 2026, Mattel received certain refunds under the IEEPA tariff refund process, which were not material.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0103:0"
+        },
+        {
+          "side": "prior",
+          "text": "As of March 31, 2026, Mattel has not recognized any receivable or loss recovery related to potential refunds of IEEPA tariffs",
+          "chunk_id": "0001628280-26-029316:financial_notes:0102:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R10",
+      "comparison_id": "MAT:seq-10q",
+      "note": "Absent-topic question: the plan termination is approved in Q2 2026 and appears only in that filing's employee benefit note. The Q1 2026 10-Q does not mention the Cash Balance Plan, so the prior-side search should come back empty.",
+      "section": "financial_notes",
+      "question": "termination of the U.S. Cash Balance pension plan",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "During the second quarter of 2026, Mattel approved the termination of the Cash Balance Plan, a U.S. qualified defined benefit pension plan.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0074:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R01",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "In the FY2025 10-K the gross profit paragraph is split across two chunks (the margin figures in one, the drivers in the next), so both are listed. In the FY2024 10-K the latest-year paragraph is in chunk 0062, and its last sentence (the one quoted, which holds both figures and drivers) repeats in 0065, so one quote covers it. The FY2024 filing also explains the 2023 vs 2022 margin; that paragraph is left out because it answers a different year. Segment profit drivers are left out too: they explain segment margin, not consolidated gross margin.",
+      "section": "mdna",
+      "question": "what drove the change in consolidated gross margin for the latest fiscal year",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Gross profit, defined as sales less cost of sales, was $4.588 billion, or 30.3% of net sales, in 2025 compared to $4.514 billion, or 29.4% of net sales, in 2024.",
+          "chunk_id": "0000093556-26-000009:mdna:0059:0"
+        },
+        {
+          "side": "current",
+          "text": "The year-over-year changes in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily due to benefits from pricing strategies and supply chain cost transformation efficiencies partially offset by tariffs, lower volume and inflation.",
+          "chunk_id": "0000093556-26-000009:mdna:0061:0"
+        },
+        {
+          "side": "prior",
+          "text": "Excluding these adjustments, gross profit was 30.0% of net sales in 2024 compared to 26.0% of net sales in 2023, primarily driven by the supply chain transformation efficiencies and lower inventory destocking costs.",
+          "chunk_id": "0000093556-25-000007:mdna:0062:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R02",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "Absent-topic question: the FY2024 10-K never mentions rare earth minerals, in any section. The FY2025 risk factors mention them in four places (sourcing, trade policy, trade agreements, and business disruption from severe weather); all four are listed. The FY2025 MD&A cautionary statement also mentions rare earth controls, but it is outside the risk_factors filter.",
+      "section": "risk_factors",
+      "question": "China export restrictions on rare earth minerals and supply risk",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "For example, in April 2025, China restricted export of certain rare earth minerals and may in the future continue to restrict, expand restrictions, or stop exporting these or other materials.",
+          "chunk_id": "0000093556-26-000009:risk_factors:0002:0"
+        },
+        {
+          "side": "current",
+          "text": "For example, in April 2025, China imposed export restrictions on certain rare earth minerals that are used in certain components of the Company’s products, which resulted in delays and shortages of certain components.",
+          "chunk_id": "0000093556-26-000009:risk_factors:0008:0"
+        },
+        {
+          "side": "current",
+          "text": "China’s limitations on exports of rare earth minerals) and exchange controls or new barriers to entry",
+          "chunk_id": "0000093556-26-000009:risk_factors:0011:0"
+        },
+        {
+          "side": "current",
+          "text": "For example, rare earth minerals are critical to the design of the Company's products and some countries from which these materials are sourced have experienced severe weather.",
+          "chunk_id": "0000093556-26-000009:risk_factors:0048:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R03",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "The FY2024 filing states the balance twice: in Note R and in the auditor's critical audit matter, which the index files under financial_notes. The FY2025 filing has no Centredale critical audit matter. Passages that give only the $142.3 million 2024 reserve increase (the Other, net note in both filings) are left out: they do not give the year-end balance. Note R's background on the site is also left out.",
+      "section": "financial_notes",
+      "question": "environmental reserve balance for the Centredale Superfund site at year end",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "As of January 3, 2026, the Company has reserved $156.5 million for this site.",
+          "chunk_id": "0000093556-26-000009:financial_notes:0283:0"
+        },
+        {
+          "side": "prior",
+          "text": "As of December 28, 2024, the Company has reserved $161.8 million for this site.",
+          "chunk_id": "0000093556-25-000007:financial_notes:0287:0"
+        },
+        {
+          "side": "prior",
+          "text": "which includes the cost estimate for the Centredale Manor Restoration Project Superfund Site (Centredale Site) in the amount of $161.8 million",
+          "chunk_id": "0000093556-25-000007:financial_notes:0024:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R04",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "business",
+      "question": "total employee headcount and number of countries",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "As of January 3, 2026, the Company had approximately 43,500 employees in 59 countries.",
+          "chunk_id": "0000093556-26-000009:business:0035:0"
+        },
+        {
+          "side": "prior",
+          "text": "As of December 28, 2024, the Company had approximately 48,500 employees in 60 countries.",
+          "chunk_id": "0000093556-25-000007:business:0031:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R05",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "Each quote ends the quarter's gross profit paragraph, which also gives the margin figures (33.0% vs 27.0% in 2026, 27.0% vs 28.4% in 2025) in the same chunk. The first-half paragraphs, which say only \"driven by the same factors\", are left out as answering year to date. So are the segment profit drivers.",
+      "section": "mdna",
+      "question": "reasons for the change in second-quarter gross margin versus the prior year",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The year-over-year change in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily driven by operational cost improvement and favorable product mix, in addition to a benefit of approximately 250 basis points related to the net impact of tariff refunds realized as described above.",
+          "chunk_id": "0000093556-26-000031:mdna:0035:0"
+        },
+        {
+          "side": "prior",
+          "text": "The year-over-year change in gross profit as a percent of sales and adjusted gross profit as a percent of sales was primarily due to a 3 point gross impact from tariffs and lower volume partially offset by the supply chain efficiencies and the initial benefits from price actions taken during the second quarter of 2025.",
+          "chunk_id": "0000093556-25-000143:mdna:0038:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R07",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "S&P is BBB+ in Q2 2026 and A- in Q2 2025. The 10-Qs do not explain the change: the downgrade (Q3 2025) is stated only in the FY2025 10-K.",
+      "section": "mdna",
+      "question": "current senior unsecured debt credit ratings from S&P, Fitch and Moody's",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The Company maintains investment grade credit ratings from the major U.S. rating agencies on its senior unsecured debt (S&P BBB+, Fitch BBB+, Moody's Baa3)",
+          "chunk_id": "0000093556-26-000031:mdna:0091:0"
+        },
+        {
+          "side": "prior",
+          "text": "The Company maintains investment grade credit ratings from the major U.S. rating agencies on its senior unsecured debt (S&P A-, Fitch BBB+, Moody's Baa3)",
+          "chunk_id": "0000093556-25-000143:mdna:0089:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R08",
+      "comparison_id": "SWK:seq-10q",
+      "note": "In each filing the guidance paragraph is split across two chunks: EPS in the first (Q2 0075:1, Q1 0062:0), free cash flow in the second (Q2 0083:0, Q1 0070:0). In Q1, the $500 to $700 million free cash flow sentence falls in the overlap, so the second Q1 quote is the sentence found only in 0070:0. The guidance assumption paragraphs (tariff tailwind against inflation) are left out because they give no figures. So are the GAAP-to-adjusted EPS difference sentences.",
+      "section": "mdna",
+      "question": "updated full-year 2026 EPS and free cash flow guidance",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The Company is updating its guidance for 2026 diluted earnings per share on a GAAP basis to be in the range of $4.60 to $5.45, revised from $4.15 to $5.35.",
+          "chunk_id": "0000093556-26-000031:mdna:0075:1"
+        },
+        {
+          "side": "current",
+          "text": "The Company is now targeting free cash flow to be in the range of $600 to $800 million, revised from $500 to $700 million",
+          "chunk_id": "0000093556-26-000031:mdna:0083:0"
+        },
+        {
+          "side": "prior",
+          "text": "The Company is updating its guidance for 2026 diluted earnings per share on a GAAP basis to be in the range of $4.15 to $5.35, which is higher than prior guidance factoring in the expected gain on the recently closed CAM divestiture.",
+          "chunk_id": "0000093556-26-000015:mdna:0062:0"
+        },
+        {
+          "side": "prior",
+          "text": "Excluding such payments, free cash flow is expected to be in the range of $700 to $900 million, consistent with prior guidance.",
+          "chunk_id": "0000093556-26-000015:mdna:0070:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R09",
+      "comparison_id": "SWK:seq-10q",
+      "note": "Q2 2026 also cites the refunds for their effects elsewhere: gross margin (about 250 bp), Tools & Outdoor and Engineered Fastening segment profit (about 150 and 50 bp), SG&A, corporate overhead, and the free cash flow guidance. Those passages give neither the claim status nor the refund amount, so they are left out; a reviewer may count them. The Q1 sentence sits in overlapping chunks 0058/0062.",
+      "section": "mdna",
+      "question": "IEEPA tariff refund claims and amount of refunds recognized",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "During the three months ended July 4, 2026, the Company recognized a pre-tax gain of $118 million in cost of sales related to Phase 1 IEEPA tariff refunds realized",
+          "chunk_id": "0000093556-26-000031:mdna:0075:0"
+        },
+        {
+          "side": "prior",
+          "text": "Given these uncertainties, the Company has not recognized any benefit or asset related to potential IEEPA tariff refunds as of April 4, 2026.",
+          "chunk_id": "0000093556-26-000015:mdna:0058:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R10",
+      "comparison_id": "SWK:seq-10q",
+      "note": "Q1 gives an estimated range (the sale closed after quarter end); Q2 gives the recognized gain. The Q2 goodwill note says only that the goodwill was \"included ... in determining the gain on sale\", with no amount, so it is left out. The gain also appears in the notes' tables, which are not gold.",
+      "section": "financial_notes",
+      "question": "pre-tax gain on the sale of the CAM aerospace business",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "On April 6, 2026, the Company completed the sale of its CAM business and received proceeds of approximately $1.8 billion in cash and recognized a pre-tax gain of $276.7 million.",
+          "chunk_id": "0000093556-26-000031:financial_notes:0126:0"
+        },
+        {
+          "side": "prior",
+          "text": "The estimated pre-tax gain on sale to be recognized during the second quarter of 2026 is approximately $260 million to $280 million.",
+          "chunk_id": "0000093556-26-000015:financial_notes:0117:0"
+        }
+      ]
+    }
+  ],
+  "changes": [
+    {
+      "item_id": "MAT-C01",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "Material because an unremediated material weakness (and ineffective ICFR) is a specific, disclosed risk in FY2024 that is removed in FY2025.",
+      "section": "risk_factors",
+      "kind": "modified",
+      "criterion": "new_or_removed_risk",
+      "summary": "The material weakness in internal control over financial reporting (IT general controls), which made controls ineffective at December 31, 2024, is reported as remediated as of December 31, 2025; the risk factor is reworded from an identified weakness to a generic one.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "While Mattel is in the process of implementing its remediation plan to address the material weakness, there can be no assurance that the efforts will fully remediate the material weakness in a timely manner.",
+          "chunk_id": "0001628280-25-007887:risk_factors:0069:0"
+        },
+        {
+          "side": "current",
+          "text": "Mattel previously determined that there was a material weakness in its internal control over financial reporting, which has been remediated as of December 31, 2025.",
+          "chunk_id": "0001628280-26-010716:risk_factors:0077:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-C02",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "The FY2024 risk factors mention digital games only as competition for play time. A separate new AI risk factor was also added in FY2025; it is not labeled here but would also qualify.",
+      "section": "risk_factors",
+      "kind": "added",
+      "criterion": "new_or_removed_risk",
+      "summary": "New risk factor on developing, publishing and commercializing digital games, reflecting the strategy to scale digital play (self-publishing, Mattel163): revenue may not recover development and marketing costs, and reliance on third-party platforms and developers.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Failure to successfully develop, publish, and commercialize digital games could adversely affect Mattel's business, financial condition, and results of operations.",
+          "chunk_id": "0001628280-26-010716:risk_factors:0023:0"
+        },
+        {
+          "side": "current",
+          "text": "The digital games industry is highly competitive, and Mattel's revenue from its digital games may not be sufficient to recover the costs of developing and marketing such games.",
+          "chunk_id": "0001628280-26-010716:risk_factors:0023:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-C03",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "The FY2025 overview also states the increase ('in the fourth quarter of 2025 Mattel increased its targeted annual gross cost savings from $200 million to $225 million'). The split change matters for margin: less of the savings now lands in cost of sales.",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "OPG program targeted annual gross savings raised from $200 million to $225 million, the expected split shifted from about 70% cost of sales / 30% other S&A to 55% / 45%, and expected cash expenditures cut from $130-$165 million to $115-$140 million.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Of the $200 million in targeted annual gross costs savings, approximately 70% is expected to benefit cost of sales and 30% is expected to benefit other selling and administrative expenses.",
+          "chunk_id": "0001628280-25-007887:mdna:0057:0"
+        },
+        {
+          "side": "current",
+          "text": "Of the $225 million in targeted annual gross costs savings, approximately 55% is expected to benefit cost of sales and 45% is expected to benefit other selling and administrative expenses.",
+          "chunk_id": "0001628280-26-010716:mdna:0055:0"
+        },
+        {
+          "side": "current",
+          "text": "Total cash expenditures under the OPG program are expected to be between $115 and $140 million and total non-cash charges are expected to be up to $5 million.",
+          "chunk_id": "0001628280-26-010716:mdna:0055:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-C04",
+      "comparison_id": "MAT:yoy-10q",
+      "note": "Linked to SG&A: the FY2025 10-K cites $30.8 million higher inclined sleeper recall and litigation expenses, and the Q2 2026 MD&A cites $17.7 million lower such expenses in the first half of 2026.",
+      "section": "financial_notes",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "Pending Rock 'n Play Sleeper products liability lawsuits fell from fourteen (June 30, 2025) to one (June 30, 2026); settled or dismissed suits rose from more than forty to more than sixty.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Fourteen products liability lawsuits filed between April 2019 and September 2024 are pending against Fisher-Price, Inc. and Mattel, Inc. alleging that a product defect in the Sleeper caused the fatalities of or injuries to fourteen children.",
+          "chunk_id": "0001628280-25-036429:financial_notes:0080:0"
+        },
+        {
+          "side": "current",
+          "text": "One products liability lawsuit filed in April 2023 remains pending against Fisher-Price, Inc. and Mattel, Inc. alleging that a product defect in the Fisher-Price Rock 'n Play Sleeper (the \"Sleeper\") caused the fatality of a child.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0098:0"
+        },
+        {
+          "side": "current",
+          "text": "More than sixty other lawsuits have been settled and/or dismissed.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0098:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-C05",
+      "comparison_id": "MAT:yoy-10q",
+      "note": "Mattel163 is not mentioned anywhere in the Q2 2025 10-Q.",
+      "section": "mdna",
+      "kind": "added",
+      "criterion": "metric_linked_shift",
+      "summary": "Mattel acquired the remaining 50% of Mattel163 on March 2, 2026 and now consolidates it; remeasuring the prior stake produced a $147.9 million gain that swung first-half other non-operating results to $144.0 million income, and Mattel163 is cited as a driver of Games billings, gross margin, advertising and S&A.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "On March 2, 2026, Mattel acquired the remaining 50% equity interest in Mattel163.",
+          "chunk_id": "0001628280-26-054347:mdna:0070:0"
+        },
+        {
+          "side": "current",
+          "text": "Other non-operating income increased by $155.6 million to $144.0 million in the first half of 2026 from an expense of $11.6 million in the first half of 2025, primarily due to the gain recognized on Mattel's previously held equity interest in Mattel163.",
+          "chunk_id": "0001628280-26-054347:mdna:0070:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-C06",
+      "comparison_id": "MAT:yoy-10q",
+      "note": "Criterion could also be read as changed_quantity (maturity profile). Total debt is unchanged at about $2.33 billion, so the change is in refinancing risk, not leverage. The Q1 2026 10-Q has the same refinancing sentence ('used the proceeds plus cash on hand'), so this is not a seq-10q change.",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "new_or_removed_risk",
+      "summary": "The $600 million 2021 Senior Notes due April 2026, which Q2 2025 said Mattel intended to repay or refinance, were refinanced in 2025 with $600 million of new notes due November 2030, removing the near-term maturity.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Mattel's $600.0 million of 2021 Senior Notes are scheduled to mature in April 2026, which Mattel intends to repay or refinance prior to the scheduled maturity date.",
+          "chunk_id": "0001628280-25-036429:mdna:0118:0"
+        },
+        {
+          "side": "current",
+          "text": "During 2025, Mattel issued $600.0 million of 2025 Senior Notes due November 2030 and used the net proceeds plus cash on hand to repay $600.0 million of 2021 Senior Notes due April 2026.",
+          "chunk_id": "0001628280-26-054347:mdna:0118:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-C07",
+      "comparison_id": "MAT:seq-10q",
+      "note": "Material because it puts at risk tariff refunds the filing says could be material.",
+      "section": "financial_notes",
+      "kind": "added",
+      "criterion": "new_or_removed_risk",
+      "summary": "New litigation: in July 2026 two putative consumer class actions were filed against Mattel and American Girl claiming they should not keep IEEPA tariff refunds where tariff costs were passed on to consumers; no estimate of possible loss can be made.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "In July 2026, two putative class actions were filed in the United States District Court for the Central District of California against Mattel, Inc., American Girl, LLC, and American Girl Brands, LLC asserting claims for unjust enrichment, money had and received, unfair competition under section 17200 of the California Business & Professions Code, and declaratory judgment in connection with IEEPA tariff refunds.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0104:0"
+        },
+        {
+          "side": "current",
+          "text": "A reasonable estimate of the amount of any possible loss or range of loss cannot be made at this time.",
+          "chunk_id": "0001628280-26-054347:financial_notes:0104:0"
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-C08",
+      "comparison_id": "MAT:seq-10q",
+      "note": "Tariffs are the largest named gross margin driver in both 2026 quarters (240 bp in Q1, 170 bp in Q2), so the new Section 301 tariffs matter. The same refund facts also appear in the Contingencies note (see MAT-R09).",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "new_or_removed_risk",
+      "summary": "Tariff picture changed between quarters: Q1 said the Administration announced its intention to use other laws and new tariffs after the IEEPA ruling; Q2 says Section 122 global tariffs were imposed and expired on July 24, 2026 (and were ruled unauthorized by the CIT, stayed on appeal), new Section 301 tariffs were imposed in July 2026, and Mattel received some (not material) IEEPA refunds.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Following the Supreme Court’s decision, the U.S. presidential administration announced its intention to invoke other laws to collect tariffs and announced new tariffs on imports from all countries, in addition to any existing non-IEEPA tariffs.",
+          "chunk_id": "0001628280-26-029316:mdna:0019:0"
+        },
+        {
+          "side": "current",
+          "text": "In July 2026, the Administration imposed additional tariffs under Section 301 of the Trade Act of 1974.",
+          "chunk_id": "0001628280-26-054347:mdna:0019:0"
+        },
+        {
+          "side": "current",
+          "text": "During the three months ended June 30, 2026, Mattel received certain refunds under the IEEPA tariff refund process, which were not material.",
+          "chunk_id": "0001628280-26-054347:mdna:0019:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-C01",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "Material because a lower rating raises funding cost, and the company names a \"solid investment grade credit rating\" among its financial targets. The same rating difference shows in the yoy-10q comparison (SWK-R07).",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "S&P downgraded Stanley's senior unsecured debt rating from A- to BBB+ in Q3 2025. The FY2024 10-K had reported no rating changes during 2024.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "The Company maintains investment grade credit ratings from the major U.S. rating agencies on its senior unsecured debt (S&P A-, Fitch BBB+, Moody's Baa3)",
+          "chunk_id": "0000093556-25-000007:mdna:0107:0"
+        },
+        {
+          "side": "prior",
+          "text": "There were no changes to any of the Company's credit ratings during 2024.",
+          "chunk_id": "0000093556-25-000007:mdna:0107:0"
+        },
+        {
+          "side": "current",
+          "text": "In the third quarter of 2025, S&P downgraded the Company's senior unsecured debt credit rating from A- to BBB+.",
+          "chunk_id": "0000093556-26-000009:mdna:0102:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-C02",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "The FY2024 10-K has no mention of rare earth minerals (see SWK-R02). The new text says the restriction has already caused delays and shortages, so it is a risk that has occurred, not only a hypothetical one.",
+      "section": "risk_factors",
+      "kind": "added",
+      "criterion": "new_or_removed_risk",
+      "summary": "New risk factor language on China's April 2025 export restrictions on rare earth minerals, which have already caused component delays and shortages, and on dependence on few or concentrated suppliers for rare-earth and cobalt components.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "For example, in April 2025, China restricted export of certain rare earth minerals and may in the future continue to restrict, expand restrictions, or stop exporting these or other materials.",
+          "chunk_id": "0000093556-26-000009:risk_factors:0002:0"
+        },
+        {
+          "side": "current",
+          "text": "For example, in April 2025, China imposed export restrictions on certain rare earth minerals that are used in certain components of the Company’s products, which resulted in delays and shortages of certain components.",
+          "chunk_id": "0000093556-26-000009:risk_factors:0008:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-C03",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "No \"government customers\" or government-contract risk text remains in the FY2025 risk factors. The filing gives no reason. The removal coincides with the pending sale of the CAM aerospace business, but the filing does not link the two; treat any such link as unconfirmed.",
+      "section": "risk_factors",
+      "kind": "removed",
+      "criterion": "new_or_removed_risk",
+      "summary": "The FY2025 10-K drops the risk factor on sales to government customers: budget cycles, procurement rules, termination for convenience, and audits that could lead to debarment.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "The Company’s sales to government customers exposes it to business volatility and risks, including government budgeting cycles and appropriations, procurement regulations, governmental policy shifts, early termination of contracts, audits, investigations, sanctions and penalties.",
+          "chunk_id": "0000093556-25-000007:risk_factors:0134:0"
+        },
+        {
+          "side": "prior",
+          "text": "The Company derives a portion of its revenues from contracts with the U.S. government, state and local governments and foreign governments.",
+          "chunk_id": "0000093556-25-000007:risk_factors:0134:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-C04",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "The Q2 2025 10-Q has no mention of CAM; the sale agreement was announced in December 2025. It is linked to metrics: in MD&A the divestiture is a named driver of the Q2 net sales comparison (-3%) and of Engineered Fastening sales (-21%), and the gain is in Q2 pre-tax earnings.",
+      "section": "financial_notes",
+      "kind": "added",
+      "criterion": "metric_linked_shift",
+      "summary": "The CAM aerospace business was sold on April 6, 2026 for about $1.8 billion in cash, with a $276.7 million pre-tax gain. The divestiture took 3 points off Q2 net sales and 21 points off Engineered Fastening sales.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "On April 6, 2026, the Company completed the sale of its CAM business and received proceeds of approximately $1.8 billion in cash and recognized a pre-tax gain of $276.7 million.",
+          "chunk_id": "0000093556-26-000031:financial_notes:0126:0"
+        },
+        {
+          "side": "current",
+          "text": "On April 6, 2026, the Company completed the previously announced sale of its Consolidated Aerospace Manufacturing (\"CAM\") business.",
+          "chunk_id": "0000093556-26-000031:financial_notes:0011:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-C05",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "The Q2 2026 filing also reports a $125 million partial settlement of the 2015 forward share purchase contract, and it adds a share repurchase risk factor (SWK-R06).",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "Capital allocation moved from debt reduction to buybacks. In Q2 2025 the company planned to put cash beyond the dividend toward debt reduction; by Q2 2026 a new $500 million repurchase program was in place and about $250 million (3.24 million shares) had been bought in the quarter.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "In the near term, the Company intends to direct any capital in excess of the quarterly dividend on its common stock toward debt reduction and internal growth investments.",
+          "chunk_id": "0000093556-25-000143:mdna:0000:0"
+        },
+        {
+          "side": "current",
+          "text": "approved a new share repurchase program of up to $500 million in purchase price of shares of the Company's common stock",
+          "chunk_id": "0000093556-26-000031:mdna:0008:0"
+        },
+        {
+          "side": "current",
+          "text": "During the second quarter of 2026, the Company executed open market share repurchases for a total of 3,239,690 shares of common stock for approximately $250.0 million.",
+          "chunk_id": "0000093556-26-000031:mdna:0010:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-C06",
+      "comparison_id": "SWK:seq-10q",
+      "note": "Linked to metrics: the Q2 MD&A credits the refunds' net impact with about 250 bp of the year-over-year gross margin increase and with part of the SG&A increase. The Q2 notes give the offset as $83.4 million.",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "metric_linked_shift",
+      "summary": "IEEPA tariff refunds went from not recognized at all at Q1 end to a $118 million pre-tax gain in Q2 cost of sales. The gain was partly offset by about $83 million of related incentive compensation and growth investments.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Given these uncertainties, the Company has not recognized any benefit or asset related to potential IEEPA tariff refunds as of April 4, 2026.",
+          "chunk_id": "0000093556-26-000015:mdna:0058:0"
+        },
+        {
+          "side": "current",
+          "text": "During the three months ended July 4, 2026, the Company recognized a pre-tax gain of $118 million in cost of sales related to Phase 1 IEEPA tariff refunds realized",
+          "chunk_id": "0000093556-26-000031:mdna:0075:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-C07",
+      "comparison_id": "SWK:seq-10q",
+      "note": "The free cash flow raise is in the next chunk of each filing (see SWK-R08). The guidance assumptions also changed: Q1 named the Middle East conflict as an inflation source, while Q2 names battery metals, tungsten and oil derivatives and assumes the Section 301 tariffs.",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "Full-year 2026 guidance was raised: GAAP EPS to $4.60 to $5.45 (from $4.15 to $5.35), adjusted EPS to $5.20 to $5.80 (from $4.90 to $5.70), and free cash flow to $600 to $800 million (from $500 to $700 million).",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "The Company is updating its guidance for 2026 diluted earnings per share on a GAAP basis to be in the range of $4.15 to $5.35, which is higher than prior guidance factoring in the expected gain on the recently closed CAM divestiture.",
+          "chunk_id": "0000093556-26-000015:mdna:0062:0"
+        },
+        {
+          "side": "prior",
+          "text": "The Company continues to expect diluted earnings per share excluding Non-GAAP adjustments to be in the range of $4.90 to $5.70.",
+          "chunk_id": "0000093556-26-000015:mdna:0062:0"
+        },
+        {
+          "side": "current",
+          "text": "The Company is updating its guidance for 2026 diluted earnings per share on a GAAP basis to be in the range of $4.60 to $5.45, revised from $4.15 to $5.35.",
+          "chunk_id": "0000093556-26-000031:mdna:0075:1"
+        },
+        {
+          "side": "current",
+          "text": "The Company is also updating its guidance for diluted earnings per share excluding Non-GAAP adjustments to be in the range of $5.20 to $5.80, revised from $4.90 to $5.70.",
+          "chunk_id": "0000093556-26-000031:mdna:0075:1"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-C08",
+      "comparison_id": "SWK:seq-10q",
+      "note": "Both facilities back the $3.5 billion commercial paper program, which had nothing outstanding at Q2 end after CAM proceeds repaid it. Committed back-stop liquidity falls by $0.5 billion in total. The same text appears in MD&A.",
+      "section": "financial_notes",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "In June 2026 committed credit capacity was cut: the five-year facility from $2.25 billion to $2.0 billion, and the 364-day facility from $1.25 billion to $1.0 billion.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "In June 2024, the Company amended and restated its existing five-year $2.5 billion committed credit facility with the concurrent execution of a new five-year $2.25 billion committed credit facility",
+          "chunk_id": "0000093556-26-000015:financial_notes:0026:0"
+        },
+        {
+          "side": "prior",
+          "text": "Contemporaneously, the Company entered into a new $1.25 billion syndicated 364-Day Credit Agreement",
+          "chunk_id": "0000093556-26-000015:financial_notes:0026:0"
+        },
+        {
+          "side": "current",
+          "text": "In June 2026, the Company amended and restated its existing five-year $2.25 billion committed credit facility with the concurrent execution of a new five-year $2.0 billion committed credit facility",
+          "chunk_id": "0000093556-26-000031:financial_notes:0029:0"
+        },
+        {
+          "side": "current",
+          "text": "Contemporaneously, the Company entered into a new $1.0 billion syndicated 364-Day Credit Agreement",
+          "chunk_id": "0000093556-26-000031:financial_notes:0031:0"
+        }
+      ]
+    }
+  ],
+  "causes": [
+    {
+      "item_id": "MAT-S01",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "The same sentence goes on to name the offsets: OPG savings of 90 bp and 'the net impact of tariff costs, which were more than offset by the timing of mitigating actions of 30 basis points'. So 'higher tariff costs' is contradicted: on a net basis tariffs helped 2025 gross margin. Royalty expense did rise ($20.5 million, 8%) but is not named as a margin driver; product mix is not mentioned.",
+      "section": "mdna",
+      "change": "Gross margin fell to 48.7% in 2025 from 50.8% in 2024, a decline of about 210 basis points.",
+      "metric": "gross_margin",
+      "direction": "down",
+      "causes": [
+        "cost inflation",
+        "unfavorable foreign currency exchange",
+        "higher discounts and other factors"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The decrease in gross margin was primarily due to the impact of cost inflation of 100 basis points, unfavorable foreign currency exchange of 60 basis points, and higher discounts and other factors of 160 basis points",
+        "chunk_id": "0001628280-26-010716:mdna:0025:0"
+      },
+      "distractors": [
+        "higher tariff costs",
+        "higher royalty expense",
+        "unfavorable product mix"
+      ]
+    },
+    {
+      "item_id": "MAT-S02",
+      "comparison_id": "MAT:yoy-10q",
+      "note": "Offsets named in the next sentence: Mattel163's contribution (120 bp) and mitigating actions plus OPG savings (70 bp). Freight and logistics rose 10%, in line with net sales, and is not named. 'Higher promotional discounts' is effectively contradicted: sales adjustments as a percentage of net sales were 'relatively consistent at 12.6%' versus 12.9%. Mix is not mentioned (Mattel163 is a favorable contribution).",
+      "section": "mdna",
+      "change": "Gross margin fell to 48.2% in Q2 2026 from 50.9% in Q2 2025, a decline of about 270 basis points.",
+      "metric": "gross_margin",
+      "direction": "down",
+      "causes": [
+        "gross incremental tariff costs",
+        "cost inflation",
+        "higher royalty expense",
+        "unfavorable foreign currency exchange"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The decrease in gross margin was primarily due to gross incremental tariff costs of 170 basis points, cost inflation of 120 basis points, higher royalty expense of 110 basis points, and an unfavorable impact from foreign currency exchange of 60 basis points.",
+        "chunk_id": "0001628280-26-054347:mdna:0030:0"
+      },
+      "distractors": [
+        "higher freight and logistics costs",
+        "higher promotional discounts (sales adjustments)",
+        "unfavorable product mix"
+      ]
+    },
+    {
+      "item_id": "MAT-S03",
+      "comparison_id": "MAT:yoy-10q",
+      "note": "Mattel reports advertising and promotion separately from other selling and administrative expenses; A&P also rose (to 11.0% of net sales from 7.8%), so a catalog SG&A figure that combines the two moves for both reasons. The first-half paragraph names an unfavorable FX impact of $9.0 million and lower inclined sleeper expenses of $17.7 million, but the Q2 paragraph names neither; the sleeper distractor is contradicted for the half year, and FX is stated only for the half year, not the quarter. Severance is not named.",
+      "section": "mdna",
+      "change": "Other selling and administrative expenses rose to $406.9 million (36.2% of net sales) in Q2 2026 from $361.3 million (35.5%) in Q2 2025, an increase of $45.6 million or about 13%.",
+      "metric": "sga",
+      "direction": "up",
+      "causes": [
+        "higher investments",
+        "higher employee compensation expenses",
+        "higher expenses associated with Mattel163 and other expenses"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The increase in other selling and administrative expenses was primarily due to higher investments of $20.0 million, higher employee compensation expenses of $8.1 million, and higher expenses associated with Mattel163 and other expenses of $23.9 million, partially offset by realized savings from the OPG program of $8.9 million.",
+        "chunk_id": "0001628280-26-054347:mdna:0032:0"
+      },
+      "distractors": [
+        "unfavorable foreign currency exchange",
+        "higher inclined sleeper recall and litigation expenses",
+        "higher severance and restructuring charges"
+      ]
+    },
+    {
+      "item_id": "SWK-S01",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "The move is about 90 bp, modest next to the Q2 2026 moves, but it is the only full-year margin change whose cause is stated in so many words. Tariffs, lower volume and inflation are named offsets, not causes. \"Higher sales volume\" is contradicted rather than merely unstated: volume fell 4% and lower volume is named as an offset. Product mix and freight are not mentioned for consolidated gross margin.",
+      "section": "mdna",
+      "change": "Gross margin rose to 30.3% in 2025 from 29.4% in 2024 (adjusted: 30.7% from 30.0%).",
+      "metric": "gross_margin",
+      "direction": "up",
+      "causes": [
+        "benefits from pricing strategies",
+        "supply chain cost transformation efficiencies"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year changes in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily due to benefits from pricing strategies and supply chain cost transformation efficiencies partially offset by tariffs, lower volume and inflation.",
+        "chunk_id": "0000093556-26-000009:mdna:0061:0"
+      },
+      "distractors": [
+        "favorable product mix",
+        "lower freight and logistics costs",
+        "higher sales volume"
+      ]
+    },
+    {
+      "item_id": "SWK-S02",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "None of the distractors is given as a margin driver. Consolidated Q2 net sales show no price contribution (only Engineered Fastening had +1% price). The CAM divestiture is named only as a net sales driver. The guidance paragraph expects higher inflation (battery metals, tungsten, oil derivatives) for the year, so lower material costs is at best unstated for the quarter.",
+      "section": "mdna",
+      "change": "Second-quarter gross margin rose to 33.0% in 2026 from 27.0% in 2025, about 600 basis points (adjusted: 33.7% from 27.5%).",
+      "metric": "gross_margin",
+      "direction": "up",
+      "causes": [
+        "operational cost improvement",
+        "favorable product mix",
+        "net impact of tariff refunds realized (about 250 basis points)"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year change in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily driven by operational cost improvement and favorable product mix, in addition to a benefit of approximately 250 basis points related to the net impact of tariff refunds realized as described above.",
+        "chunk_id": "0000093556-26-000031:mdna:0035:0"
+      },
+      "distractors": [
+        "price increases",
+        "lower commodity and raw material costs",
+        "the divestiture of the CAM aerospace business"
+      ]
+    },
+    {
+      "item_id": "SWK-S03",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "\"Higher voluntary retirement program costs\" is contradicted: the VRP charges were in Q2 2025 (part of that quarter's $52.6 million SG&A Non-GAAP adjustments, against $3.0 million in Q2 2026). Distribution center costs did rise ($131.1 million to $140.5 million), but the filing never cites them as a cause, so that distractor is unstated rather than false. Research and development is not mentioned.",
+      "section": "mdna",
+      "change": "Second-quarter SG&A rose to $947.9 million, 23.9% of net sales, in 2026 from $873.1 million, 22.1%, in 2025 (adjusted: 23.9% from 20.8%).",
+      "metric": "sga_ratio",
+      "direction": "up",
+      "causes": [
+        "incremental variable incentive compensation costs directly attributable to the tariff refunds",
+        "growth investments directly attributable to the tariff refunds"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year change in SG&A as a percent of sales and adjusted SG&A as a percent of sales were primarily driven by incremental variable incentive compensation costs and growth investments directly attributable to the tariff refunds realized.",
+        "chunk_id": "0000093556-26-000031:mdna:0037:0"
+      },
+      "distractors": [
+        "higher voluntary retirement program costs",
+        "higher distribution center costs",
+        "higher research and development spending"
+      ]
+    }
+  ],
+  "judge": [
+    {
+      "item_id": "MAT-J01",
+      "comparison_id": "MAT:yoy-10k",
+      "cause_id": "MAT-S01",
+      "claim": "Unfavorable foreign currency exchange contributed to the decline in Mattel's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The decrease in gross margin was primarily due to the impact of cost inflation of 100 basis points, unfavorable foreign currency exchange of 60 basis points, and higher discounts and other factors of 160 basis points",
+        "chunk_id": "0001628280-26-010716:mdna:0025:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "MAT-J02",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "The quote shows a cost of sales line rising, which is consistent with lower margin, but names no cause of the margin change; the gross margin paragraph does not list royalties among the drivers.",
+      "cause_id": "MAT-S01",
+      "claim": "Higher royalty expense contributed to the decline in Mattel's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "Royalty expense increased by $20.5 million, or 8%, to $264.6 million in 2025 from $244.1 million in 2024.",
+        "chunk_id": "0001628280-26-010716:mdna:0025:0"
+      },
+      "verdict": "implies"
+    },
+    {
+      "item_id": "MAT-J03",
+      "comparison_id": "MAT:yoy-10k",
+      "cause_id": "MAT-S01",
+      "claim": "Cost inflation lowered Mattel's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "Interest expense was $118.7 million in 2025, relatively flat as compared to $118.8 million in 2024.",
+        "chunk_id": "0001628280-26-010716:mdna:0028:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "MAT-J04",
+      "comparison_id": "MAT:yoy-10q",
+      "cause_id": "MAT-S02",
+      "claim": "Incremental tariff costs were a driver of the decline in Mattel's gross margin in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "The decrease in gross margin was primarily due to gross incremental tariff costs of 170 basis points, cost inflation of 120 basis points, higher royalty expense of 110 basis points, and an unfavorable impact from foreign currency exchange of 60 basis points.",
+        "chunk_id": "0001628280-26-054347:mdna:0030:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "MAT-J05",
+      "comparison_id": "MAT:yoy-10q",
+      "note": "The quote names tariffs in general, a broader cause than the Section 122 tariffs the claim singles out; the filing never attributes margin to a specific tariff program.",
+      "cause_id": "MAT-S02",
+      "claim": "Section 122 tariffs lowered Mattel's gross margin in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "Gross margin declined to 48.2% in the second quarter of 2026 compared to 50.9% in the second quarter of 2025, due to the gross incremental cost of tariffs, inflation, higher royalties, and the unfavorable impact of foreign exchange.",
+        "chunk_id": "0001628280-26-054347:mdna:0016:0"
+      },
+      "verdict": "implies"
+    },
+    {
+      "item_id": "MAT-J06",
+      "comparison_id": "MAT:yoy-10q",
+      "cause_id": "MAT-S02",
+      "claim": "Higher royalty expense lowered Mattel's gross margin in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "During the second quarter of 2026, Mattel's share repurchases totaled approximately $100 million.",
+        "chunk_id": "0001628280-26-054347:mdna:0016:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "MAT-J07",
+      "comparison_id": "MAT:yoy-10q",
+      "cause_id": "MAT-S03",
+      "claim": "Higher employee compensation expenses contributed to the increase in Mattel's other selling and administrative expenses in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "The increase in other selling and administrative expenses was primarily due to higher investments of $20.0 million, higher employee compensation expenses of $8.1 million, and higher expenses associated with Mattel163 and other expenses of $23.9 million, partially offset by realized savings from the OPG program of $8.9 million.",
+        "chunk_id": "0001628280-26-054347:mdna:0032:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "MAT-J08",
+      "comparison_id": "MAT:yoy-10q",
+      "note": "The note shows such fees were booked in other S&A during the quarter, consistent with the claim, but does not say they caused the year-over-year increase. The MD&A's named cause ('higher expenses associated with Mattel163 and other expenses') is also broader than professional fees.",
+      "cause_id": "MAT-S03",
+      "claim": "Acquisition-related professional fees for Mattel163 increased Mattel's other selling and administrative expenses in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "During the three months ended June 30, 2026, Mattel recognized approximately $4 million and $1 million of acquisition-related expenses, including professional fees and integration expenses, within other selling and administrative expenses and cost of sales, respectively.",
+        "chunk_id": "0001628280-26-054347:financial_notes:0016:0"
+      },
+      "verdict": "implies"
+    },
+    {
+      "item_id": "MAT-J09",
+      "comparison_id": "MAT:yoy-10q",
+      "note": "The quote states a cause, but for an inventory change, not S&A expenses.",
+      "cause_id": "MAT-S03",
+      "claim": "Higher investments increased Mattel's other selling and administrative expenses in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "Inventories decreased by $38.1 million to $829.8 million at June 30, 2026 from $867.9 million at June 30, 2025, primarily due to higher net sales in the second quarter of 2026 and the impact of foreign currency translation.",
+        "chunk_id": "0001628280-26-054347:mdna:0115:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "SWK-J01",
+      "comparison_id": "SWK:yoy-10k",
+      "cause_id": "SWK-S01",
+      "claim": "Benefits from pricing strategies helped raise Stanley's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year changes in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily due to benefits from pricing strategies and supply chain cost transformation efficiencies partially offset by tariffs, lower volume and inflation.",
+        "chunk_id": "0000093556-26-000009:mdna:0061:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "SWK-J02",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "The quote names supply chain cost transformation efficiencies. That is broader than footprint rationalization, which the filing lists as one of the transformation's four value streams; footprint rationalization itself is not named.",
+      "cause_id": "SWK-S01",
+      "claim": "Manufacturing footprint rationalization lifted Stanley's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year changes in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily due to benefits from pricing strategies and supply chain cost transformation efficiencies partially offset by tariffs, lower volume and inflation.",
+        "chunk_id": "0000093556-26-000009:mdna:0061:0"
+      },
+      "verdict": "implies"
+    },
+    {
+      "item_id": "SWK-J03",
+      "comparison_id": "SWK:yoy-10k",
+      "cause_id": "SWK-S01",
+      "claim": "Pricing strategies and supply chain efficiencies raised Stanley's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The Company’s weighted-average discount rates used to determine benefit obligations at January 3, 2026 for the United States and international pension plans were 5.27% and 5.11%, respectively.",
+        "chunk_id": "0000093556-26-000009:mdna:0153:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "SWK-J04",
+      "comparison_id": "SWK:yoy-10q",
+      "cause_id": "SWK-S02",
+      "claim": "Tariff refunds contributed to the increase in Stanley's second-quarter 2026 gross margin.",
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year change in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily driven by operational cost improvement and favorable product mix, in addition to a benefit of approximately 250 basis points related to the net impact of tariff refunds realized as described above.",
+        "chunk_id": "0000093556-26-000031:mdna:0035:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "SWK-J05",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "The quote reports a gain in cost of sales, which supports the claim, but it says nothing about gross margin and names no cause of the margin change.",
+      "cause_id": "SWK-S02",
+      "claim": "Phase 1 IEEPA tariff refunds recognized in cost of sales lifted Stanley's second-quarter 2026 gross margin.",
+      "quote": {
+        "side": "current",
+        "text": "During the three months ended July 4, 2026, the Company recognized a pre-tax gain of $118 million in cost of sales related to Phase 1 IEEPA tariff refunds realized",
+        "chunk_id": "0000093556-26-000031:mdna:0075:0"
+      },
+      "verdict": "implies"
+    },
+    {
+      "item_id": "SWK-J06",
+      "comparison_id": "SWK:yoy-10q",
+      "cause_id": "SWK-S02",
+      "claim": "Operational cost improvement and favorable product mix lifted Stanley's second-quarter 2026 gross margin.",
+      "quote": {
+        "side": "current",
+        "text": "In March 2026, the Company redeemed its $500 million 3.40% notes, at maturity.",
+        "chunk_id": "0000093556-26-000031:mdna:0095:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "SWK-J07",
+      "comparison_id": "SWK:yoy-10q",
+      "cause_id": "SWK-S03",
+      "claim": "Incremental variable incentive compensation tied to the tariff refunds increased Stanley's SG&A as a percentage of sales in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year change in SG&A as a percent of sales and adjusted SG&A as a percent of sales were primarily driven by incremental variable incentive compensation costs and growth investments directly attributable to the tariff refunds realized.",
+        "chunk_id": "0000093556-26-000031:mdna:0037:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "SWK-J08",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "The quote names \"growth investments\", which is broader than marketing and advertising; marketing spend is not named anywhere in the quarter's SG&A discussion.",
+      "cause_id": "SWK-S03",
+      "claim": "Higher brand marketing and advertising spending increased Stanley's SG&A as a percentage of sales in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year change in SG&A as a percent of sales and adjusted SG&A as a percent of sales were primarily driven by incremental variable incentive compensation costs and growth investments directly attributable to the tariff refunds realized.",
+        "chunk_id": "0000093556-26-000031:mdna:0037:0"
+      },
+      "verdict": "implies"
+    },
+    {
+      "item_id": "SWK-J09",
+      "comparison_id": "SWK:yoy-10q",
+      "cause_id": "SWK-S03",
+      "claim": "Incentive compensation and growth investments tied to the tariff refunds increased Stanley's SG&A as a percentage of sales in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "Cash and cash equivalents totaled $592.4 million as of July 4, 2026, of which approximately 60% was held in foreign jurisdictions.",
+        "chunk_id": "0000093556-26-000031:mdna:0095:0"
+      },
+      "verdict": "unrelated"
+    }
+  ],
+  "sampled": [
+    {
+      "item_id": "MAT-F01",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "Reviewer: Not material, talking about reserves for tax benefits and not business metrics",
+      "change_id": "MAT:yoy-10k:removed:0001628280-25-007887:financial_notes:0236",
+      "kind": "removed",
+      "section": "financial_notes",
+      "prior_text": "Mattel records a reserve for unrecognized tax benefits for U.S. federal, state, local, and foreign tax positions related primarily to transfer pricing, tax credits claimed, tax nexus, and apportionment. For each reporting period, management applies a consistent methodology to measure unrecognized tax benefits, and all unrecognized tax benefits are reviewed periodically and adjusted as circumstances warrant. Mattel's measurement of its reserve for unrecognized tax benefits is based on management's assessment of all relevant information, including prior audit experience, the status of audits, conclusions of tax audits, lapsing of applicable statutes of limitations, identification of new issues, and any administrative guidance or developments.",
+      "material": false
+    },
+    {
+      "item_id": "MAT-F02",
+      "comparison_id": "MAT:yoy-10k",
+      "change_id": "MAT:yoy-10k:removed:0001628280-25-007887:mdna:0010",
+      "kind": "removed",
+      "section": "mdna",
+      "prior_text": "During 2024, Mattel executed $400.0 million of share repurchases and has a remaining authorization of $600.0 million as of December 31, 2024.",
+      "material": false
+    },
+    {
+      "item_id": "MAT-F03",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "Reviewer: Covers pension benefits and changes wording to a percentage breakdown of pension investments to plain language. Not relevant to business metrics.",
+      "change_id": "MAT:yoy-10k:modified:0001628280-26-010716:financial_notes:0086",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "Mattel periodically commissions a study of the plans' assets and liabilities to determine an asset allocation that would best match expected cash flows from the plans' assets to expected benefit payments. Mattel monitors the returns earned by the plans' assets and reallocates investments as needed. Mattel's overall investment strategy is to achieve an adequately diversified asset allocation mix of investments that provides for both near-term benefit payments and expected long-term pension liabilities. The assets are invested in a combination of indexed and actively managed funds, as well as government and corporate debt instruments. The U.S. equities are benchmarked against the S&P 500, and the non-U.S. equities are benchmarked against a combination of developed and emerging markets indices. Fixed income securities are long-duration bonds intended to closely match the duration of the liabilities and include U.S. government treasuries and agencies, corporate bonds from various industries, and mortgage-backed and asset-backed securities.",
+      "prior_text": "Mattel periodically commissions a study of the plans' assets and liabilities to determine an asset allocation that would best match expected cash flows from the plans' assets to expected benefit payments. Mattel monitors the returns earned by the plans' assets and reallocates investments as needed. Mattel's overall investment strategy is to achieve an adequately diversified asset allocation mix of investments that provides for both near-term benefit payments as well as long-term growth. The assets are invested in a combination of indexed and actively managed funds. The target allocations for Mattel's domestic plan assets, which comprise 79% of Mattel's total plan assets, are 42% in U.S. equities, 28% in non-U.S. equities, 20% in fixed income securities, and 10% in real estate securities. The U.S. equities are benchmarked against the S&P 500, and the non-U.S. equities are benchmarked against a combination of developed and emerging markets indices. Fixed income securities are long-duration bonds intended to closely match the duration of the liabilities and include U.S. government treasuries and agencies, corporate bonds from various industries, and mortgage-backed and asset-backed securities.",
+      "material": false
+    },
+    {
+      "item_id": "MAT-F04",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "Reviewer: Planned business expansion strategy, not a confirmation of growth or other change",
+      "change_id": "MAT:yoy-10k:added:0001628280-26-010716:business:0003",
+      "kind": "added",
+      "section": "business",
+      "current_text": "•Expand its direct-to-consumer and commercial reach through first party data, retail development, and new channels;",
+      "material": false
+    },
+    {
+      "item_id": "MAT-F05",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "Reviewer: Change of dates based on 2024 vs. 2025 filings, not material",
+      "change_id": "MAT:yoy-10k:modified:0001628280-26-010716:financial_notes:0170",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The following tables present information about Mattel's financial assets and liabilities measured and reported in the financial statements at fair value on a recurring basis as of December 31, 2025 and 2024 and indicate the fair value hierarchy of the valuation techniques utilized to determine such fair value. The three levels of the fair value hierarchy are as follows:",
+      "prior_text": "The following tables present information about Mattel's assets and liabilities measured and reported in the financial statements at fair value on a recurring basis as of December 31, 2024 and 2023 and indicate the fair value hierarchy of the valuation techniques utilized to determine such fair value. The three levels of the fair value hierarchy are as follows:",
+      "material": false
+    },
+    {
+      "item_id": "MAT-F06",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "Reviewer: Cost of sales decreased year-over-year, but not as much as the prior year-over-year",
+      "change_id": "MAT:yoy-10k:modified:0001628280-26-010716:mdna:0043",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Cost of sales decreased by $31.0 million, or 2%, to $1.57 billion in 2025 from $1.60 billion in 2024, primarily due to a decrease in product and other costs of $34.8 million.",
+      "prior_text": "Cost of sales decreased by $121.1 million, or 7%, to $1.60 billion in 2024 from $1.72 billion in 2023, primarily due to a decrease in product and other costs of $115.8 million.",
+      "material": true
+    },
+    {
+      "item_id": "MAT-F07",
+      "comparison_id": "MAT:seq-10q",
+      "note": "Reviewer: 10-Q Q2 2026 is discussing half-year 2026 metrics vs. half-year 2025 metrics, while 10-Q Q1 2026 is discussing first quarter 2026 metrics vs. first quarter 2025 metrics. These are not comparable time frames as they are both year-over-year metrics when the comparison is quarter-over-quarter. They would be material if the comparison period was year-over-year.",
+      "change_id": "MAT:seq-10q:modified:0001628280-26-054347:mdna:0085",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "North America segment income decreased by $50.4 million to $126.5 million in the first half of 2026, as compared to $176.9 million in the first half of 2025, primarily due to higher cost of sales of $49.2 million, higher advertising and promotion expenses of $32.5 million, and higher selling and administrative expenses of $16.0 million, partially offset by higher net sales of $47.3 million.",
+      "prior_text": "North America segment income was $34.5 million in the first quarter of 2026, as compared to $83.1 million in the first quarter of 2025, due to lower net sales of $16.2 million, higher other selling and administrative expenses of $12.2 million, higher cost of sales of $10.3 million, and higher advertising and promotion expenses of $9.9 million.",
+      "material": false
+    },
+    {
+      "item_id": "MAT-F08",
+      "comparison_id": "MAT:yoy-10q",
+      "change_id": "MAT:yoy-10q:modified:0001628280-26-054347:mdna:0068",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Gross margin decreased to 46.7% in the first half of 2026 from 50.2% in the first half of 2025. The decrease in gross margin was primarily due to gross incremental tariff costs of 200 basis points, cost inflation of 110 basis points, higher royalty expense of 100 basis points, and an unfavorable impact from foreign currency exchange of 100 basis points. Gross margin benefited from Mattel163's contribution of 90 basis points, and other factors including mitigating actions to offset tariffs, and realized savings from the OPG program, of 70 basis points.",
+      "prior_text": "Gross margin increased to 50.2% in the first half of 2025 from 48.7% in the first half of 2024. The increase in gross margin was primarily due to incremental realized savings from the OPG program of 120 basis points, lower inventory management costs of 90 basis points, driven by lower close-out sales and inventory obsolescence, and favorable mix and other factors of 40 basis points, partially offset by cost inflation of 100 basis points.",
+      "material": true
+    },
+    {
+      "item_id": "MAT-F09",
+      "comparison_id": "MAT:yoy-10k",
+      "note": "Reviewer: Regular date update on different fiscal years and noting unvested payments for that year, mainly an accounting note and not material to company metrics",
+      "change_id": "MAT:yoy-10k:modified:0001628280-26-010716:financial_notes:0145",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "As of December 31, 2025, total unrecognized compensation cost related to unvested share-based payments totaled $114.0 million and is expected to be recognized over a weighted-average period of 2.1 years.",
+      "prior_text": "As of December 31, 2024, total unrecognized compensation cost related to unvested share-based payments totaled $120.9 million and is expected to be recognized over a weighted-average period of 2.3 years.",
+      "material": false
+    },
+    {
+      "item_id": "MAT-F10",
+      "comparison_id": "MAT:yoy-10q",
+      "change_id": "MAT:yoy-10q:modified:0001628280-26-054347:financial_notes:0111",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "(a)Cost of sales included severance and other restructuring charges of less than $1 million and approximately $2 million for the three months ended June 30, 2026 and June 30, 2025, respectively, and approximately $1 million and $4 million for the six months ended June 30, 2026 and June 30, 2025, respectively, which were allocated to the North America and International segments.",
+      "prior_text": "(a)Cost of sales included severance and other restructuring charges of approximately $1 million which was allocated to the North America and International segments.",
+      "material": false
+    },
+    {
+      "item_id": "MAT-F11",
+      "comparison_id": "MAT:yoy-10k",
+      "change_id": "MAT:yoy-10k:modified:0001628280-26-010716:business:0020",
+      "kind": "modified",
+      "section": "business",
+      "current_text": "Mattel will continue to partner with Disney Pixar for Cars to drive innovation and celebrate the franchise's 20th anniversary in 2026, including fresh new product offerings to support key promotional events.",
+      "prior_text": "Mattel will continue to partner with Disney Pixar for Cars to drive innovation, including fresh new product offerings to support key promotional events in 2025.",
+      "material": false
+    },
+    {
+      "item_id": "MAT-F12",
+      "comparison_id": "MAT:seq-10q",
+      "note": "Reviewer: A rephrasing that is otherwise identical",
+      "change_id": "MAT:seq-10q:modified:0001628280-26-054347:financial_notes:0112",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The following table is a reconciliation of segment income to (loss) income before income taxes for the periods indicated:",
+      "prior_text": "The following table is a reconciliation of segment income to income (loss) before income taxes for the periods indicated:",
+      "material": false
+    },
+    {
+      "item_id": "MAT-F13",
+      "comparison_id": "MAT:yoy-10q",
+      "change_id": "MAT:yoy-10q:modified:0001628280-26-054347:mdna:0093",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Sales adjustments increased to $178.9 million in the first half of 2026 from $158.1 million in the first half of 2025. Sales adjustments as a percentage of net sales were relatively consistent at 19.1% for the first half of 2026, as compared to 18.8% for the first half of 2025.",
+      "prior_text": "Sales adjustments increased to $158.1 million in the first half of 2025 from $142.0 million in the first half of 2024. Sales adjustments as a percentage of net sales increased to 18.8% for the first half of 2025, as compared to 17.6% for the first half of 2024. The increase in sales adjustments as a percentage of net sales was primarily due to higher promotional activities.",
+      "material": true
+    },
+    {
+      "item_id": "SWK-F01",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "Reviewer: Rephrasing of the same content",
+      "change_id": "SWK:yoy-10k:modified:0000093556-26-000009:business:0025",
+      "kind": "modified",
+      "section": "business",
+      "current_text": "The Company’s products are manufactured using resins, ferrous and non-ferrous metals including, but not limited to, steel, zinc, copper, brass, aluminum and nickel. The Company also purchases components such as batteries, motors, engines, transmissions, and electronic components to use in manufacturing and assembly operations along with resin-based molded parts. The raw materials required are procured globally and generally available from multiple sources at competitive prices. As part of the Company's Enterprise Risk Management, the Company has implemented a supplier risk mitigation strategy in order to identify and address any potential supply disruption or material scarcity issues associated with commodities, components, finished goods and critical services. The Company does not anticipate difficulties in obtaining supplies for any raw materials used in its production processes and has maintained the proactive measures to secure global energy supply insulating the Company's production from supply constraints.",
+      "prior_text": "The Company’s products are manufactured using resins, ferrous and non-ferrous metals including, but not limited to, steel, zinc, copper, brass, aluminum and nickel. The Company also purchases components such as batteries, motors, engines, transmissions, and electronic components to use in manufacturing and assembly operations along with resin-based molded parts. The raw materials required are procured globally and generally available from multiple sources at competitive prices. As part of the Company's Enterprise Risk Management, the Company has implemented a supplier risk mitigation strategy in order to identify and address any potential supply disruption or material scarcity issues associated with commodities, components, finished goods and critical services. The Company does not anticipate difficulties in obtaining supplies for any raw materials used in its production processes and has maintained the proactive measures taken in 2022 to secure energy supply in its European factories to insulate the Company's production from supply constraints in the region.",
+      "material": false
+    },
+    {
+      "item_id": "SWK-F02",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "Reviewer: Talking about strategic focus with goals, not actual metrics that changed",
+      "change_id": "SWK:yoy-10q:removed:0000093556-25-000143:mdna:0005",
+      "kind": "removed",
+      "section": "mdna",
+      "prior_text": "•Returning adjusted gross margins to historical 35%+ levels by accelerating the operations and supply chain transformation to improve fill rates and better match inventory with customer demand; and",
+      "material": false
+    },
+    {
+      "item_id": "SWK-F03",
+      "comparison_id": "SWK:seq-10q",
+      "note": "Reviewer: Rephrasing of same action",
+      "change_id": "SWK:seq-10q:modified:0000093556-26-000031:mdna:0008",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "In terms of capital allocation, the Company’s top priority is funding organic growth investments that drive long-term value. The Company also remains committed, over time, to maintaining a strong and growing dividend and opportunistically repurchasing shares. The Company deployed the vast majority of the net proceeds from the Consolidated Aerospace Manufacturing (\"CAM\") divestiture to reduce debt and repurchase shares in the second quarter of 2026.",
+      "prior_text": "In terms of capital allocation, the Company’s top priority is funding organic growth investments that drive long-term value. The Company also remains committed, over time, to maintaining a strong and growing dividend and opportunistically repurchasing shares. The Company has deployed the vast majority of the net proceeds from the Consolidated Aerospace Manufacturing (\"CAM\") divestiture to reduce debt in the second quarter of 2026. The Company is now positioned to pursue capital allocation that accelerates shareholder value creation, which it expects to take the form of share repurchases.",
+      "material": false
+    },
+    {
+      "item_id": "SWK-F04",
+      "comparison_id": "SWK:seq-10q",
+      "note": "Reviewer: Standard date adjustments for different filing periods",
+      "change_id": "SWK:seq-10q:modified:0000093556-26-000031:financial_notes:0060",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The Company uses the portfolio method for releasing the stranded tax effects from Accumulated other comprehensive loss. The reclassifications out of Accumulated other comprehensive loss for the three and six months ended July 4, 2026 and June 28, 2025 were as follows:",
+      "prior_text": "The Company uses the portfolio method for releasing the stranded tax effects from Accumulated other comprehensive loss. The reclassifications out of Accumulated other comprehensive loss for the three months ended April 4, 2026 and March 29, 2025 were as follows:",
+      "material": false
+    },
+    {
+      "item_id": "SWK-F05",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "Reviewer: Minimal rephrasing",
+      "change_id": "SWK:yoy-10k:modified:0000093556-26-000009:risk_factors:0113",
+      "kind": "modified",
+      "section": "risk_factors",
+      "current_text": "The Company’s information systems and data may be vulnerable to cybersecurity threats and incidents which can include uncoordinated individual attempts to gain unauthorized access to information technology (\"IT\") systems, sophisticated and targeted measures known as advanced persistent threats, breaches due to human error, malfeasance, or other cybersecurity incidents directed at the Company, its products, services and technologies, including those leveraging “Internet of Things,” robotics or generative artificial intelligence capabilities, its customers and/or its third-party service providers, including cloud providers. New vulnerabilities may be introduced as cybersecurity threats continue to evolve and if the Company or its third-party vendors increase their use of, or reliance on, emerging technologies, such as generative artificial intelligence and machine learning. The Company deploys measures which it believes leverage industry accepted frameworks to deter, prevent, detect, respond to, and mitigate cybersecurity threats. The Company has invested and continues to invest in risk management and information security and data protection measures it believes are appropriate to protect its systems and data, including employee and critical service provider training, organizational investments, incident response plans, tabletop exercises, technical defenses and defensive product software designs. The cost and operational consequences of implementing, maintaining and enhancing these measures could increase significantly to overcome increasingly intense, complex, and sophisticated cybersecurity threats.",
+      "prior_text": "The Company’s information systems and data may be vulnerable to cybersecurity threats and incidents which can include uncoordinated individual attempts to gain unauthorized access to information technology (\"IT\") systems, sophisticated and targeted measures known as advanced persistent threats, breaches due to human error, malfeasance, or other cybersecurity incidents directed at the Company, its products, services and technologies, including those leveraging “Internet of Things” or generative artificial intelligence capabilities, its customers and/or its third-party service providers, including cloud providers. New vulnerabilities may be introduced as cybersecurity threats continue to evolve and if the Company or its third-party vendors increase their use of, or reliance on, emerging technologies, such as generative artificial intelligence and machine learning. The Company deploys measures which it believes leverage industry accepted frameworks to deter, prevent, detect, respond to, and mitigate cybersecurity threats. The Company has invested and continues to invest in risk management and information security and data privacy measures it believes are appropriate to protect its systems and data, including employee and critical service provider training, organizational investments, incident response plans, tabletop exercises, technical defenses and defensive product software designs. The cost and operational consequences of implementing, maintaining and enhancing these measures could increase significantly to overcome increasingly intense, complex, and sophisticated cybersecurity threats.",
+      "material": false
+    },
+    {
+      "item_id": "SWK-F06",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "Reviewer: Minimal rephrasing",
+      "change_id": "SWK:yoy-10q:modified:0000093556-26-000031:mdna:0047",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "For the three and six months ended June 28, 2025, the Company recognized an income tax benefit of $75.2 million and $38.0 million, respectively, resulting in effective tax rates of (281.6)% and (24.6)%, respectively. Excluding the tax effect on Non-GAAP adjustments for the three and six months ended June 28, 2025, the Company recognized an income tax benefit of $53.4 million and $8.7 million, respectively, resulting in effective tax rates of (48.7)% and (3.2)%, respectively. These effective tax rates for the three and six months ended June 28, 2025 differ from the U.S. statutory tax rate of 21% primarily due to the remeasurement of uncertain tax positions, partially offset by non-deductible expenses.",
+      "prior_text": "Income Taxes: For the three and six months ended June 28, 2025, the Company recognized an income tax benefit of $75.2 million and $38.0 million, respectively, resulting in effective tax rates of (281.6)% and (24.6)%, respectively. Excluding the tax effect on Non-GAAP adjustments, for the three and six months ended June 28, 2025, the Company recognized an income tax benefit of $53.4 million and $8.7 million, respectively, resulting in effective tax rates of (48.7)% and (3.2)%, respectively. These effective tax rates for the three and six months ended June 28, 2025 differ from the U.S. statutory tax rate of 21% primarily due to the remeasurement of uncertain tax positions, partially offset by non-deductible expenses.",
+      "material": false
+    },
+    {
+      "item_id": "SWK-F07",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "Reviewer: Minimal rephrasing",
+      "change_id": "SWK:yoy-10q:modified:0000093556-26-000031:financial_notes:0097",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The Company is committed to upholding the highest standards of corporate governance and is continuously focused on ensuring the effectiveness of its policies, procedures, and controls.",
+      "prior_text": "The Company is committed to upholding the highest standards of corporate governance and is continuously focused on ensuring the effectiveness of its policies, procedures, and controls. The Company is in the process, with the assistance of professional advisors, of reviewing and further enhancing relevant policies, procedures, and controls.",
+      "material": false
+    },
+    {
+      "item_id": "SWK-F08",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "Reviewer: Accounting updates and routine date changes for filings in different years",
+      "change_id": "SWK:yoy-10k:modified:0000093556-26-000009:financial_notes:0248",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "As of January 3, 2026, the Company has approximately $1.6 billion and $3.8 billion of net operating loss carryforwards available to reduce future tax obligations in certain U.S. state and foreign jurisdictions, respectively. The Company’s foreign net operating loss carryforwards primarily relate to its subsidiaries’ operations in Luxembourg ($2.3 billion), United Kingdom ($905.1 million), France ($203.5 million), Germany ($126.0 million), Brazil ($78.2 million), and other foreign jurisdictions ($184.4 million). The net operating loss carryforwards have various expiration dates beginning in 2026 with certain jurisdictions having indefinite carryforward periods. The foreign capital loss carryforwards of $20.9 million as of January 3, 2026 have indefinite carryforward periods.",
+      "prior_text": "As of December 28, 2024, the Company has approximately $1.6 billion and $3.8 billion of net operating loss carryforwards available to reduce future tax obligations in certain U.S. state and foreign jurisdictions, respectively. The Company’s foreign net operating loss carryforwards primarily relate to its subsidiaries’ operations in Luxembourg ($2.3 billion), United Kingdom ($947.3 million), France ($187.3 million), Germany ($108.9 million), Brazil ($76.8 million), and other foreign jurisdictions ($169.5 million). The net operating loss carryforwards have various expiration dates beginning in 2025 with certain jurisdictions having indefinite carryforward periods. The foreign capital loss carryforwards of $19.4 million as of December 28, 2024 have indefinite carryforward periods.",
+      "material": false
+    },
+    {
+      "item_id": "SWK-F09",
+      "comparison_id": "SWK:seq-10q",
+      "note": "Reviewer: Potential explanation of drivers of costs",
+      "change_id": "SWK:seq-10q:modified:0000093556-26-000031:mdna:0031",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "1 Footprint Rationalization costs in 2026 primarily relate to accelerated depreciation of manufacturing equipment driven by plants closed in the second quarter of 2026, as well as site transformation and re-configuration costs. Footprint Rationalization costs in 2025 primarily relate to site transformation and re-configuration costs. Facility exit costs related to site closures are reported in Restructuring charges. 2 In June 2025, the Company implemented a voluntary retirement program (“VRP”) to right-size the Company’s corporate and support functions to align with a more focused portfolio following recent divestitures and more streamlined operations as part of the supply chain transformation. The costs associated with the VRP relate to separation benefits provided to eligible employees who voluntarily retired from the Company. 3 Complexity Reduction & Operational Excellence costs in 2025 primarily related to third-party consulting fees to provide expertise in identifying business model changes and quantifying related cost savings opportunities within the Company’s Engineered Fastening business, developing a detailed program and related governance, and assisting the Company with the implementation of actions necessary to achieve the identified objectives. 4 Includes an $8.1 million gain on sale of a distribution center in the second quarter of 2025 as part of the supply chain transformation. 5 Asset impairment charges in 2026 relate to the write-down of assets associated with the exit of a Tools and Outdoor product line and related plant closure. 6 Refer to \"Restructuring Activities\" below for further discussion.",
+      "prior_text": "1 Footprint Rationalization costs in 2026 and 2025 primarily relate to site transformation and re-configuration costs. Facility exit costs related to site closures are reported in Restructuring charges. 2 Complexity Reduction & Operational Excellence costs in 2025 primarily related to third-party consulting fees to provide expertise in identifying business model changes and quantifying related cost savings opportunities within the Company’s Engineered Fastening business, developing a detailed program and related governance, and assisting the Company with the implementation of actions necessary to achieve the identified objectives. 3 Asset impairment charges in 2026 relate to the write-down of assets associated with the exit of a Tools and Outdoor product line and related plant closure. 4 Refer to \"Restructuring Activities\" below for further discussion.",
+      "material": true
+    },
+    {
+      "item_id": "SWK-F10",
+      "comparison_id": "SWK:seq-10q",
+      "change_id": "SWK:seq-10q:modified:0000093556-26-000031:mdna:0085",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "The difference between the guidance for 2026 diluted earnings per share on a GAAP basis and diluted earnings per share excluding Non-GAAP adjustments is approximately $0.35 to $0.60, consisting primarily of charges related to footprint actions and other cost actions, largely offset by the gain on the sale of the CAM business.",
+      "prior_text": "The difference between the guidance for 2026 diluted earnings per share on a GAAP basis and diluted earnings per share excluding Non-GAAP adjustments is approximately $0.35 to $0.75, consisting primarily of charges related to footprint actions and other cost actions, largely offset by the estimated gain on the recently closed sale of the CAM business.",
+      "material": false
+    },
+    {
+      "item_id": "SWK-F11",
+      "comparison_id": "SWK:yoy-10k",
+      "note": "Reviewer: Management goals, not drivers or evidence",
+      "change_id": "SWK:yoy-10k:modified:0000093556-26-000009:mdna:0032",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Management continues to invest in these core franchises to drive growth and returns. Priorities include product innovation, brand and commercial activation, and continued transformation of operations and supply chain capabilities to improve service levels, align inventory with demand, and enhance global cost competitiveness.",
+      "prior_text": "Management recognizes that these core franchises are important foundations that have a proven track record of providing strong cash flow and growth prospects. Management is committed to growing these businesses through accelerating investments into innovative product development, brand support, commercial activation, and accelerating the operations and supply chain transformation to improve fill rates and better match inventory with customer demand, while improving global cost competitiveness.",
+      "material": false
+    },
+    {
+      "item_id": "SWK-F12",
+      "comparison_id": "SWK:yoy-10k",
+      "change_id": "SWK:yoy-10k:modified:0000093556-26-000009:mdna:0138",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "The Company’s primary exposure to interest rate risk comes from its commercial paper program in which the pricing is partially based on short-term U.S. interest rates. The Company has a $3.5 billion commercial paper program which includes Euro denominated borrowings in addition to U.S. Dollars. The impact of a hypothetical 10% increase in the average interest rate of the Company’s average commercial paper borrowings outstanding during 2025 would have been an incremental pre-tax loss of approximately $4 million. As of January 3, 2026, the Company had $605.6 million of commercial paper borrowings outstanding.",
+      "prior_text": "The Company’s primary exposure to interest rate risk comes from its commercial paper program in which the pricing is partially based on short-term U.S. interest rates. The impact of a hypothetical 10% increase in the average interest rate of the Company’s average commercial paper borrowings outstanding during 2024 would have been an incremental pre-tax loss of approximately $5 million. The Company had no outstanding commercial paper borrowings at December 28, 2024.",
+      "material": false
+    },
+    {
+      "item_id": "SWK-F13",
+      "comparison_id": "SWK:yoy-10q",
+      "note": "Reviewer: Covers breakdowns of segment restructuring costs",
+      "change_id": "SWK:yoy-10q:modified:0000093556-26-000031:financial_notes:0079",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "Segments: The $60.0 million of net restructuring charges for the six months ended July 4, 2026 includes: $50.0 million in the Tools & Outdoor segment; $6.5 million in the Engineered Fastening segment; and $3.5 million in Corporate.",
+      "prior_text": "Segments: The $20.0 million of net restructuring charges for the six months ended June 28, 2025 includes: $9.3 million in the Tools & Outdoor segment; $1.6 million in the Engineered Fastening segment; and $9.1 million in Corporate.",
+      "material": true
+    }
+  ]
+}

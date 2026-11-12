@@ -1,0 +1,570 @@
+{
+  "retrieval": [
+    {
+      "item_id": "HSY-R01",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "mdna",
+      "question": "what drove the change in gross margin for the most recent fiscal year",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Gross margin was 33.5% in 2025 compared with 47.3% in 2024, a decrease of approximately 1,380 basis points.",
+          "chunk_id": "0001628280-26-008586:mdna:0034:0"
+        },
+        {
+          "side": "current",
+          "text": "Despite a strategic pricing action in the third quarter combined with other specific actions taken to mitigate these gross margin pressures, our direct inputs continue to be the primary incremental cost to our business",
+          "chunk_id": "0001628280-26-008586:mdna:0023:0"
+        },
+        {
+          "side": "prior",
+          "text": "Gross margin was 47.3% in 2024 compared with 44.8% in 2023, an increase of 250 basis points.",
+          "chunk_id": "0000047111-25-000014:mdna:0034:0"
+        },
+        {
+          "side": "prior",
+          "text": "Despite specific actions taken to mitigate these gross margin pressures, we continue to experience overall declines in consumer demands for our products",
+          "chunk_id": "0000047111-25-000014:mdna:0022:0"
+        }
+      ],
+      "note": "Gold is the latest-year gross margin paragraph plus the Overview passage on gross margin pressures in each filing. Each 10-K also explains the prior year's margin change (2024 vs 2023 in the FY2025 filing, 2023 vs 2022 in the FY2024 filing); those are left out as answering a different year."
+    },
+    {
+      "item_id": "HSY-R02",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "market_risk",
+      "question": "average cocoa futures price change for the year and cocoa crop outlook",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "During 2025, average cocoa futures contract prices increased 5.8% compared with 2024 based on the Intercontinental Exchange futures contract.",
+          "chunk_id": "0001628280-26-008586:market_risk:0023:0"
+        },
+        {
+          "side": "prior",
+          "text": "During 2024, average cocoa futures contract prices increased 131.5% compared with 2023 based on the Intercontinental Exchange futures contract.",
+          "chunk_id": "0000047111-25-000014:market_risk:0023:0"
+        }
+      ],
+      "note": "The cocoa futures price table (t68) in each filing also holds the annual averages, but it is a table, so it is not gold."
+    },
+    {
+      "item_id": "HSY-R03",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "risk_factors",
+      "question": "risks from artificial intelligence adoption and AI regulation",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Furthermore, artificial intelligence (“AI”) technologies have developed rapidly, and our business may be adversely affected if we cannot successfully integrate AI into our business in a timely, cost-effective, and compliant manner.",
+          "chunk_id": "0001628280-26-008586:risk_factors:0058:0"
+        },
+        {
+          "side": "current",
+          "text": "competition laws, employment laws, import/export requirements, AI, and environmental laws, among others",
+          "chunk_id": "0001628280-26-008586:risk_factors:0082:0"
+        },
+        {
+          "side": "current",
+          "text": "Additionally, compliance with new and evolving laws, regulations or industry standards relating to AI may require significant investment and resources, and may limit our ability to use AI",
+          "chunk_id": "0001628280-26-008586:risk_factors:0085:0"
+        },
+        {
+          "side": "current",
+          "text": "AI technologies may amplify certain existing technology-related risks such as cybersecurity threats, data privacy concerns, and intellectual property challenges.",
+          "chunk_id": "0001628280-26-008586:risk_factors:0092:0"
+        }
+      ],
+      "note": "Absent topic: the FY2024 10-K never mentions AI (checked across all its sections). The second current quote only lists AI among laws whose changes could hurt the business, so it is a weak answer; drop it if you want only substantive passages."
+    },
+    {
+      "item_id": "HSY-R04",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "business",
+      "question": "employee headcount and share of workforce under collective bargaining",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "As of December 31, 2025, the Company employed approximately 17,550 full-time and 2,045 part-time employees worldwide.",
+          "chunk_id": "0001628280-26-008586:business:0033:0"
+        },
+        {
+          "side": "prior",
+          "text": "As of December 31, 2024, the Company employed approximately 18,540 full-time and 1,490 part-time employees worldwide.",
+          "chunk_id": "0000047111-25-000014:business:0033:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R05",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "mdna",
+      "question": "consolidated second-quarter net sales change broken down by price, volume and acquisitions",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The net sales increase reflects a favorable price realization of approximately 12%, primarily related to pricing actions within the North America Confectionery and International segments.",
+          "chunk_id": "0001628280-26-050900:mdna:0014:0"
+        },
+        {
+          "side": "prior",
+          "text": "The net sales increase reflects a volume increase of approximately 21%, related to everyday core U.S. confection",
+          "chunk_id": "0000047111-25-000112:mdna:0018:0"
+        }
+      ],
+      "note": "Consolidated Q2 only. The six-month and segment net sales paragraphs are left out; widen the gold if the question should cover segments."
+    },
+    {
+      "item_id": "HSY-R06",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "market_risk",
+      "question": "foreign currency forward contracts fair value sensitivity to a 10% adverse rate move",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The potential decline in fair value of foreign currency forward exchange contracts resulting from a hypothetical near-term adverse change in market rates of 10% was $23.9 million as of June 28, 2026",
+          "chunk_id": "0001628280-26-050900:market_risk:0000:0"
+        },
+        {
+          "side": "prior",
+          "text": "The potential decline in fair value of foreign currency forward exchange contracts resulting from a hypothetical near-term adverse change in market rates of 10% was $32.8 million as of June 29, 2025",
+          "chunk_id": "0000047111-25-000112:market_risk:0000:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R07",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "mdna",
+      "question": "impact of the Middle East conflict on commodity prices, supply and results",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "For the first six months of 2026, this conflict did not have a material impact on our commodity prices or supply availability.",
+          "chunk_id": "0001628280-26-050900:mdna:0011:0"
+        },
+        {
+          "side": "current",
+          "text": "as well as the conflict in the Middle East, we may continue to experience increasing supply chain costs, higher inflation and other impacts to our business",
+          "chunk_id": "0001628280-26-050900:mdna:0014:0"
+        },
+        {
+          "side": "current",
+          "text": "•Political, economic and/or financial market conditions, including impacts on our business arising from the ongoing conflict in the Middle East, could negatively impact our financial results;",
+          "chunk_id": "0001628280-26-050900:mdna:0099:0"
+        }
+      ],
+      "note": "Absent topic: the Q2 2025 10-Q names the Russia-Ukraine conflict instead and mentions the Middle East only as a sales region (MEA), which does not answer the question."
+    },
+    {
+      "item_id": "HSY-R08",
+      "comparison_id": "HSY:seq-10q",
+      "section": "financial_notes",
+      "question": "effective income tax rate for the period and what drove it",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The effective tax rates for the six months ended June 28, 2026 and June 29, 2025 were 24.4% and 39.3%, respectively.",
+          "chunk_id": "0001628280-26-050900:financial_notes:0097:0"
+        },
+        {
+          "side": "prior",
+          "text": "The effective tax rates for the three months ended March 29, 2026 and March 30, 2025 were 26.6% and 30.7%, respectively.",
+          "chunk_id": "0001628280-26-028682:financial_notes:0090:0"
+        }
+      ],
+      "note": "The OECD Pillar Two paragraph in each note says it has no material effect on the rate; it is left out as not a driver."
+    },
+    {
+      "item_id": "HSY-R09",
+      "comparison_id": "HSY:seq-10q",
+      "section": "financial_notes",
+      "question": "is the LesserEvil purchase price allocation final or still preliminary",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The purchase price allocation presented above has been finalized as of the second quarter of 2026.",
+          "chunk_id": "0001628280-26-050900:financial_notes:0020:0"
+        },
+        {
+          "side": "prior",
+          "text": "The purchase price allocation presented above is preliminary.",
+          "chunk_id": "0001628280-26-028682:financial_notes:0018:0"
+        }
+      ],
+      "note": "The Sour Strips paragraphs about its own (2025) finalized allocation do not answer the question. The goodwill table row 'Measurement period adjustments' is a table and not gold."
+    },
+    {
+      "item_id": "HSY-R10",
+      "comparison_id": "HSY:seq-10q",
+      "section": "mdna",
+      "question": "full-year 2026 capital expenditure guidance",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "we expect 2026 capital expenditures, including capitalized software, to be in the range of approximately $425 million to $475 million, reflecting a trend towards historical levels",
+          "chunk_id": "0001628280-26-050900:mdna:0075:0"
+        },
+        {
+          "side": "prior",
+          "text": "we expect 2026 capital expenditures, including capitalized software, to be in the range of approximately $425 million to $475 million, reflecting a trend towards historical levels",
+          "chunk_id": "0001628280-26-028682:mdna:0057:0"
+        }
+      ],
+      "note": "The guidance sentence is word for word the same in both 10-Qs, so the quote text is the same on each side."
+    }
+  ],
+  "changes": [
+    {
+      "item_id": "HSY-C01",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "metric_linked_shift",
+      "summary": "Tariffs went from having no material impact in 2024 to a material negative impact on 2025 results of operations and commodity prices, in line with the tariff costs cited for the gross margin decline.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "For the year ended December 31, 2024, neither the conflict between Russia and Ukraine, nor the imposition of tariffs on U.S. imports and retaliatory tariffs, had a material impact on our commodity prices or supply availability.",
+          "chunk_id": "0000047111-25-000014:mdna:0026:0"
+        },
+        {
+          "side": "current",
+          "text": "For the year ended December 31, 2025, the imposition of tariffs on U.S. imports and retaliatory tariffs, had a material negative impact on our results of operations and commodity prices.",
+          "chunk_id": "0001628280-26-008586:mdna:0023:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-C02",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "risk_factors",
+      "kind": "removed",
+      "criterion": "new_or_removed_risk",
+      "summary": "The FY2025 10-K drops the risk factor discussion of the Russia-Ukraine conflict and sanctions, and the political-conditions risk header no longer names it.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Additionally, in February 2022, Russia invaded Ukraine and this conflict is still ongoing.",
+          "chunk_id": "0000047111-25-000014:risk_factors:0087:0"
+        },
+        {
+          "side": "prior",
+          "text": "Political, economic and/or financial market conditions, including impacts on our business arising from the ongoing conflict between Russia and Ukraine, could negatively impact our financial results.",
+          "chunk_id": "0000047111-25-000014:risk_factors:0084:0"
+        }
+      ],
+      "note": "The header sentence survives in the FY2025 filing without the Russia-Ukraine clause; the separate paragraph on the conflict is gone entirely."
+    },
+    {
+      "item_id": "HSY-C03",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "risk_factors",
+      "kind": "added",
+      "criterion": "new_or_removed_risk",
+      "summary": "New risk factor language on artificial intelligence: competitors may adopt AI more successfully, and AI regulation may require investment and limit its use.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Our competitors may incorporate AI into their business more successfully than us, which could have an adverse effect on our competitive position, reputation and operations.",
+          "chunk_id": "0001628280-26-008586:risk_factors:0058:0"
+        },
+        {
+          "side": "current",
+          "text": "Additionally, compliance with new and evolving laws, regulations or industry standards relating to AI may require significant investment and resources, and may limit our ability to use AI",
+          "chunk_id": "0001628280-26-008586:risk_factors:0085:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-C04",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "financial_notes",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "LesserEvil went from a pending merger agreement to a completed acquisition with $769.1 million of initial cash consideration and up to $200 million of contingent consideration.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "If approved, the Company expects the acquisition to close by the end of 2025 and will be financed with cash on hand and short-term borrowings.",
+          "chunk_id": "0000047111-25-000112:financial_notes:0016:0"
+        },
+        {
+          "side": "current",
+          "text": "The initial cash consideration paid for LesserEvil totaled $769,090 and consisted of cash on hand and short-term borrowings; however, the Company may be required to pay additional contingent consideration ranging from zero to a maximum of $200,000",
+          "chunk_id": "0001628280-26-050900:financial_notes:0015:0"
+        }
+      ],
+      "note": "Notes amounts are in thousands ($769,090 = $769.1 million)."
+    },
+    {
+      "item_id": "HSY-C05",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "market_risk",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "The six-month average cocoa futures price fell to $1.80 per pound, down about 51% from the prior-year annual average, versus $4.22 per pound (up about 22%) a year earlier.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "During the first six months of 2025, the average cocoa futures contract price was $4.22 per pound",
+          "chunk_id": "0000047111-25-000112:market_risk:0004:0"
+        },
+        {
+          "side": "current",
+          "text": "During the first six months of 2026, the average cocoa futures contract price was $1.80 per pound",
+          "chunk_id": "0001628280-26-050900:market_risk:0004:0"
+        },
+        {
+          "side": "current",
+          "text": "This average cocoa futures contract price represents a decline of approximately 51% compared to the 2025 annual average of $3.65 per pound.",
+          "chunk_id": "0001628280-26-050900:market_risk:0004:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-C06",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "mdna",
+      "kind": "added",
+      "criterion": "new_or_removed_risk",
+      "summary": "The Q2 2026 10-Q adds the Middle East conflict as a geopolitical risk the company is monitoring for supply chain disruption and inflationary costs.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Additionally, we are actively monitoring the ongoing conflict in the Middle East and the potential impact on our business.",
+          "chunk_id": "0001628280-26-050900:mdna:0011:0"
+        }
+      ],
+      "note": "Could also be labeled 'modified': the Q2 2025 safe-harbor bullet named the Russia-Ukraine conflict where Q2 2026 names the Middle East. Labeled 'added' because the Trends paragraph on the Middle East has no counterpart in Q2 2025."
+    },
+    {
+      "item_id": "HSY-C07",
+      "comparison_id": "HSY:seq-10q",
+      "section": "financial_notes",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "In June 2026 the Board approved an additional $500 million share repurchase authorization, and the amount left under the December 2023 program fell from about $470 million to about $270 million after Q2 buybacks.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "approximately $470 million remains available for repurchases under our December 2023 share repurchase authorization",
+          "chunk_id": "0001628280-26-028682:financial_notes:0140:0"
+        },
+        {
+          "side": "current",
+          "text": "approximately $270 million remains available for repurchases under our December 2023 share repurchase authorization. In June 2026, our Board of Directors approved an additional $500 million share repurchase authorization.",
+          "chunk_id": "0001628280-26-050900:financial_notes:0155:0"
+        }
+      ],
+      "note": "The current text also appears in the Q2 2026 MD&A share repurchase footnote; the Q1 2026 MD&A does not carry the remaining-authorization sentence."
+    },
+    {
+      "item_id": "HSY-C08",
+      "comparison_id": "HSY:seq-10q",
+      "section": "market_risk",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "Open commodity derivative notional value fell from $925.2 million at Q1 end to $504.1 million at Q2 end, while the 10% price-decline sensitivity rose from $32.5 million to $48.2 million.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Our open commodity derivative contracts had a notional value of $925.2 million as of March 29, 2026 and $667.4 million as of December 31, 2025.",
+          "chunk_id": "0001628280-26-028682:market_risk:0008:0"
+        },
+        {
+          "side": "current",
+          "text": "Our open commodity derivative contracts had a notional value of $504.1 million as of June 28, 2026 and $973.1 million as of December 31, 2025.",
+          "chunk_id": "0001628280-26-050900:market_risk:0008:0"
+        }
+      ],
+      "note": "The Q1 2026 10-Q gives $667.4 million for December 31, 2025, but the FY2025 10-K and the Q2 2026 10-Q give $973.1 million ($667.4 million is the December 31, 2024 figure). This looks like an error in the Q1 filing; the change is labeled on the quarter-end values."
+    }
+  ],
+  "causes": [
+    {
+      "item_id": "HSY-S01",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "mdna",
+      "change": "Gross margin fell to 33.5% in 2025 from 47.3% in 2024, a decline of about 1,380 basis points.",
+      "metric": "gross_margin",
+      "direction": "down",
+      "causes": [
+        "higher commodity costs",
+        "higher tariff costs",
+        "unfavorable mark-to-market activity on commodity derivatives",
+        "lower volume"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The decrease was driven by higher commodity and tariff costs, unfavorable mark-to-market activity on our commodity derivative instruments and lower volume, which more than offset the benefits from net price realization",
+        "chunk_id": "0001628280-26-008586:mdna:0034:0"
+      },
+      "distractors": [
+        "unfavorable foreign currency exchange rates",
+        "higher business realignment costs",
+        "higher advertising and consumer marketing spending"
+      ],
+      "note": "Business realignment costs were lower in 2025 and are named as an offset in the cost of sales paragraph, so 'higher business realignment costs' is contradicted rather than merely unstated."
+    },
+    {
+      "item_id": "HSY-S02",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "mdna",
+      "change": "Second-quarter gross margin rose to 45.3% in 2026 from 30.5% in 2025, an increase of 1,490 basis points.",
+      "metric": "gross_margin",
+      "direction": "up",
+      "causes": [
+        "favorable net price realization",
+        "net savings from the AAA Initiative"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "Gross margin was 45.3% in the second quarter of 2026 compared to 30.5% in the same period of 2025, an increase of 1,490 basis points. The increase was driven by favorable net price realization and net savings related to our AAA Initiative",
+        "chunk_id": "0001628280-26-050900:mdna:0018:0"
+      },
+      "distractors": [
+        "higher sales volume",
+        "favorable foreign currency exchange rates",
+        "lower logistics costs"
+      ],
+      "note": "The cost of sales paragraph also cites $117.4 million of favorable mark-to-market activity on commodity derivatives, which is not in the gross margin sentence; it is neither a stated cause here nor a distractor. Volume declined, logistics costs rose (segment text) and FX impact was minimal, so the distractors are unstated or contradicted."
+    },
+    {
+      "item_id": "HSY-S03",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "mdna",
+      "change": "SM&A expenses rose 3.7% to $2,460.6 million in 2025 from $2,373.6 million in 2024.",
+      "metric": "sga",
+      "direction": "up",
+      "causes": [
+        "higher compensation and benefit costs",
+        "investments in advertising and related consumer marketing"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The increase was driven by higher compensation and benefit costs and investments in advertising and related consumer marketing expenses.",
+        "chunk_id": "0001628280-26-008586:mdna:0037:0"
+      },
+      "distractors": [
+        "higher technology and capability investments",
+        "LesserEvil acquisition and integration costs",
+        "higher business realignment costs"
+      ],
+      "note": "The FY2025 10-K says capability and technology investments decreased (unallocated corporate expense) and business realignment costs fell, so two distractors are contradicted; acquisition costs are not mentioned for SM&A."
+    }
+  ],
+  "judge": [
+    {
+      "item_id": "HSY-J01",
+      "comparison_id": "HSY:yoy-10k",
+      "cause_id": "HSY-S01",
+      "claim": "Higher tariff costs contributed to Hershey's gross margin decline in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The decrease was driven by higher commodity and tariff costs, unfavorable mark-to-market activity on our commodity derivative instruments and lower volume, which more than offset the benefits from net price realization",
+        "chunk_id": "0001628280-26-008586:mdna:0034:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "HSY-J02",
+      "comparison_id": "HSY:yoy-10k",
+      "cause_id": "HSY-S01",
+      "claim": "Higher cocoa costs drove Hershey's gross margin decline in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The increase was driven by $1,965.1 million of unfavorable costs, primarily related to $736.6 million in higher commodity costs",
+        "chunk_id": "0001628280-26-008586:mdna:0034:0"
+      },
+      "verdict": "implies",
+      "note": "The quote names commodity costs (broader than cocoa) as a driver of higher cost of sales, not of gross margin directly."
+    },
+    {
+      "item_id": "HSY-J03",
+      "comparison_id": "HSY:yoy-10k",
+      "cause_id": "HSY-S01",
+      "claim": "Higher commodity and tariff costs lowered Hershey's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "For 2025, we increased the expected return on plan assets assumption to 7.0% from the 6.8% assumption used during 2024.",
+        "chunk_id": "0001628280-26-008586:mdna:0137:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "HSY-J04",
+      "comparison_id": "HSY:yoy-10q",
+      "cause_id": "HSY-S02",
+      "claim": "Net savings from the AAA Initiative helped raise gross margin in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "Gross margin was 45.3% in the second quarter of 2026 compared to 30.5% in the same period of 2025, an increase of 1,490 basis points. The increase was driven by favorable net price realization and net savings related to our AAA Initiative",
+        "chunk_id": "0001628280-26-050900:mdna:0018:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "HSY-J05",
+      "comparison_id": "HSY:yoy-10q",
+      "cause_id": "HSY-S02",
+      "claim": "Pricing actions drove the gross margin expansion in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "The net sales increase reflects a favorable price realization of approximately 12%, primarily related to pricing actions within the North America Confectionery and International segments.",
+        "chunk_id": "0001628280-26-050900:mdna:0014:0"
+      },
+      "verdict": "implies",
+      "note": "The quote ties pricing actions to net sales growth only; it supports the claim but states no cause for the gross margin change."
+    },
+    {
+      "item_id": "HSY-J06",
+      "comparison_id": "HSY:yoy-10q",
+      "cause_id": "HSY-S02",
+      "claim": "Favorable net price realization raised gross margin in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "Net interest expense was $50.0 million in the second quarter of 2026 compared to $46.0 million in the same period of 2025, an increase of $4.0 million, or 8.5%.",
+        "chunk_id": "0001628280-26-050900:mdna:0024:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "HSY-J07",
+      "comparison_id": "HSY:yoy-10k",
+      "cause_id": "HSY-S03",
+      "claim": "Higher compensation and benefit costs increased SM&A expenses in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The increase was driven by higher compensation and benefit costs and investments in advertising and related consumer marketing expenses.",
+        "chunk_id": "0001628280-26-008586:mdna:0037:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "HSY-J08",
+      "comparison_id": "HSY:yoy-10k",
+      "cause_id": "HSY-S03",
+      "claim": "Higher incentive compensation drove the 2025 increase in SM&A expenses.",
+      "quote": {
+        "side": "current",
+        "text": "SM&A expenses, excluding advertising and related consumer marketing, increased approximately 4.2% in 2025 driven by higher compensation costs, partially offset by net savings related to our AAA Initiative.",
+        "chunk_id": "0001628280-26-008586:mdna:0037:0"
+      },
+      "verdict": "implies",
+      "note": "The quote names compensation costs, broader than incentive compensation. Incentive compensation is named only for unallocated corporate expense, in a different passage."
+    },
+    {
+      "item_id": "HSY-J09",
+      "comparison_id": "HSY:yoy-10k",
+      "cause_id": "HSY-S03",
+      "claim": "Investments in advertising and consumer marketing increased SM&A expenses in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "Peanut prices in the U.S. ranged from a high of $0.64 per pound to a low of $0.48 per pound during 2025.",
+        "chunk_id": "0001628280-26-008586:market_risk:0027:0"
+      },
+      "verdict": "unrelated"
+    }
+  ]
+}

@@ -1,0 +1,871 @@
+{
+  "reviewer": "project author",
+  "method": "Each draft item shown on a review page with its quotes highlighted in their chunks; accept or reject (sampled changes: material or not material), with an optional note. No item was edited. Exported from the page on 2026-11-12.",
+  "drafts_sha256": {
+    "HSY.json": "5e8506e8d27af8872cd48a359d8056625305f5a06d28ed1820bd84e50b28cf92",
+    "MAT.json": "00528c132f81e0661a9251f15a5d0c5189fbabe625ddc2b802d7ff1b9cb9b2cb",
+    "SWK.json": "70ec3964c1658d3736e51f76b8ae22b8a13221980fdd79cbb1d25b76ed49e5a5",
+    "sampled.json": "435cf52a0a585b92477af6eec56404b79c3e2300d3554856c4de40bb58d7ce73"
+  },
+  "decisions": [
+    {
+      "item_id": "HSY-C01",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:42:15+00:00"
+    },
+    {
+      "item_id": "HSY-C02",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:42:39+00:00"
+    },
+    {
+      "item_id": "HSY-C03",
+      "kind": "change",
+      "decision": "reject",
+      "note": "Nonspecific risk factor",
+      "reviewed_at": "2026-11-12T19:47:49+00:00"
+    },
+    {
+      "item_id": "HSY-C04",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:44:32+00:00"
+    },
+    {
+      "item_id": "HSY-C05",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:45:00+00:00"
+    },
+    {
+      "item_id": "HSY-C06",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:45:31+00:00"
+    },
+    {
+      "item_id": "HSY-C07",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:46:06+00:00"
+    },
+    {
+      "item_id": "HSY-C08",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:47:18+00:00"
+    },
+    {
+      "item_id": "HSY-F01",
+      "kind": "sampled",
+      "decision": "material",
+      "material": true,
+      "reviewed_at": "2026-11-12T04:35:08+00:00"
+    },
+    {
+      "item_id": "HSY-F02",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Talks about internal promotions, not company financial metrics",
+      "reviewed_at": "2026-11-12T04:35:52+00:00"
+    },
+    {
+      "item_id": "HSY-F03",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Talks about business realignment expenses which are excluded from segment performance and are thus not relevant to the overall company's performance",
+      "reviewed_at": "2026-11-12T04:37:01+00:00"
+    },
+    {
+      "item_id": "HSY-F04",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "reviewed_at": "2026-11-12T04:38:22+00:00"
+    },
+    {
+      "item_id": "HSY-F05",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "reviewed_at": "2026-11-12T04:40:18+00:00"
+    },
+    {
+      "item_id": "HSY-F06",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Not material as it is discussing changes relevant only from an accounting perspective, not from a financially material perspective",
+      "reviewed_at": "2026-11-12T04:42:03+00:00"
+    },
+    {
+      "item_id": "HSY-F07",
+      "kind": "sampled",
+      "decision": "material",
+      "material": true,
+      "note": "Discusses rising net sales and factors associated with the change in metric",
+      "reviewed_at": "2026-11-12T04:42:56+00:00"
+    },
+    {
+      "item_id": "HSY-F08",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Does not say anything meaningfully different from prior year's 10-Q about acquisition of a brand",
+      "reviewed_at": "2026-11-12T04:44:38+00:00"
+    },
+    {
+      "item_id": "HSY-F09",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Management notes about acquisitions and potential pitfalls but does not directly address any metric",
+      "reviewed_at": "2026-11-12T04:45:56+00:00"
+    },
+    {
+      "item_id": "HSY-F10",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Date changes associated with different fiscal years but contains otherwise identical content",
+      "reviewed_at": "2026-11-12T04:46:26+00:00"
+    },
+    {
+      "item_id": "HSY-F11",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Discusses accounting cash flow for payment of taxes but does not affect relevant metrics",
+      "reviewed_at": "2026-11-12T04:47:40+00:00"
+    },
+    {
+      "item_id": "HSY-F12",
+      "kind": "sampled",
+      "decision": "material",
+      "material": true,
+      "note": "Talks about increase of net sales, as well as the drivers behind the increase in net sales year-over-year.",
+      "reviewed_at": "2026-11-12T04:48:20+00:00"
+    },
+    {
+      "item_id": "HSY-F13",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Talks about cash flow hedges for foreign exchange contracts that is not relevant to key metrics",
+      "reviewed_at": "2026-11-12T04:48:53+00:00"
+    },
+    {
+      "item_id": "HSY-F14",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Missing passage from 10-Q Q1 2026. Manual inspection shows that the passage exists on both sides and would otherwise comprise a Material change (decrease in net sales for the North America Confectionery segment quarter-over-quarter); however, since the paragraph is missing from the prior in this sample, the change should not be labeled as material.",
+      "reviewed_at": "2026-11-12T04:54:21+00:00"
+    },
+    {
+      "item_id": "HSY-J01",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:52:29+00:00"
+    },
+    {
+      "item_id": "HSY-J02",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:52:41+00:00"
+    },
+    {
+      "item_id": "HSY-J03",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:52:58+00:00"
+    },
+    {
+      "item_id": "HSY-J04",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:53:16+00:00"
+    },
+    {
+      "item_id": "HSY-J05",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:53:39+00:00"
+    },
+    {
+      "item_id": "HSY-J06",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:54:01+00:00"
+    },
+    {
+      "item_id": "HSY-J07",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:55:16+00:00"
+    },
+    {
+      "item_id": "HSY-J08",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:55:37+00:00"
+    },
+    {
+      "item_id": "HSY-J09",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:55:46+00:00"
+    },
+    {
+      "item_id": "HSY-R01",
+      "kind": "retrieval",
+      "decision": "accept",
+      "note": "10-K FY2025 answering sentence: \"The decrease was driven by higher commodity and tariff costs, unfavorable mark-to-market activity on our commodity derivative instruments and lower volume, which more than offset the benefits from net price realization, supply chain productivity, and net savings related to our Advancing Agility & Automation Initiative (“AAA Initiative”).\"",
+      "reviewed_at": "2026-11-12T18:25:46+00:00"
+    },
+    {
+      "item_id": "HSY-R02",
+      "kind": "retrieval",
+      "decision": "accept",
+      "note": "Answering sentences in 10-K 2025: \"The production forecast for the 2025 – 2026 season is estimated to match the same levels as for the 2024 – 2025 season as growing conditions in West Africa remain favorable. Higher cocoa prices to the consumer have lowered consumption and a second consecutive surplus is expected in the 2025 – 2026 growing season.\"",
+      "reviewed_at": "2026-11-12T18:29:21+00:00"
+    },
+    {
+      "item_id": "HSY-R03",
+      "kind": "retrieval",
+      "decision": "reject",
+      "note": "Speculative about possible AI regulation, not a substantive claim about how AI regulations are affecting the business",
+      "reviewed_at": "2026-11-12T18:40:59+00:00"
+    },
+    {
+      "item_id": "HSY-R04",
+      "kind": "retrieval",
+      "decision": "accept",
+      "note": "Collective bargaining share sentence in 10-K 2025: \"Collective bargaining agreements covered approximately 5,570 employees, or approximately 28% of the Company’s employees worldwide.\"",
+      "reviewed_at": "2026-11-12T18:55:55+00:00"
+    },
+    {
+      "item_id": "HSY-R05",
+      "kind": "retrieval",
+      "decision": "accept",
+      "note": "Quoted sentence which covers the net sales change: \"Net sales were $2,787.3 million in the second quarter of 2026 compared to $2,614.7 million in the same period of 2025, an increase of $172.6 million, or 6.6%.\"\n\nThe rest of the paragraph covers the remaining breakdown by price, volume, and acquisitions.",
+      "reviewed_at": "2026-11-12T19:00:03+00:00"
+    },
+    {
+      "item_id": "HSY-R06",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:02:25+00:00"
+    },
+    {
+      "item_id": "HSY-R07",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:04:09+00:00"
+    },
+    {
+      "item_id": "HSY-R08",
+      "kind": "retrieval",
+      "decision": "accept",
+      "note": "Driver sentence in 10-Q Q2 2026: \"The 2025 effective tax rate was higher due to the impact of tax reserves and foreign rate differentials related to mark-to-market activity.\"",
+      "reviewed_at": "2026-11-12T19:05:49+00:00"
+    },
+    {
+      "item_id": "HSY-R09",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:06:18+00:00"
+    },
+    {
+      "item_id": "HSY-R10",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:07:18+00:00"
+    },
+    {
+      "item_id": "HSY-S01",
+      "kind": "cause",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:41:00+00:00"
+    },
+    {
+      "item_id": "HSY-S02",
+      "kind": "cause",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:42:24+00:00"
+    },
+    {
+      "item_id": "HSY-S03",
+      "kind": "cause",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:44:00+00:00"
+    },
+    {
+      "item_id": "MAT-C01",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:47:35+00:00"
+    },
+    {
+      "item_id": "MAT-C02",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:50:41+00:00"
+    },
+    {
+      "item_id": "MAT-C03",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:52:33+00:00"
+    },
+    {
+      "item_id": "MAT-C04",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:53:08+00:00"
+    },
+    {
+      "item_id": "MAT-C05",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:53:48+00:00"
+    },
+    {
+      "item_id": "MAT-C06",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:54:50+00:00"
+    },
+    {
+      "item_id": "MAT-C07",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:55:52+00:00"
+    },
+    {
+      "item_id": "MAT-C08",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:57:05+00:00"
+    },
+    {
+      "item_id": "MAT-F01",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Not material, talking about reserves for tax benefits and not business metrics",
+      "reviewed_at": "2026-11-12T04:55:50+00:00"
+    },
+    {
+      "item_id": "MAT-F02",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "reviewed_at": "2026-11-12T04:57:38+00:00"
+    },
+    {
+      "item_id": "MAT-F03",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Covers pension benefits and changes wording to a percentage breakdown of pension investments to plain language. Not relevant to business metrics.",
+      "reviewed_at": "2026-11-12T04:58:56+00:00"
+    },
+    {
+      "item_id": "MAT-F04",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Planned business expansion strategy, not a confirmation of growth or other change",
+      "reviewed_at": "2026-11-12T05:00:18+00:00"
+    },
+    {
+      "item_id": "MAT-F05",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Change of dates based on 2024 vs. 2025 filings, not material",
+      "reviewed_at": "2026-11-12T05:03:54+00:00"
+    },
+    {
+      "item_id": "MAT-F06",
+      "kind": "sampled",
+      "decision": "material",
+      "material": true,
+      "note": "Cost of sales decreased year-over-year, but not as much as the prior year-over-year",
+      "reviewed_at": "2026-11-12T05:04:43+00:00"
+    },
+    {
+      "item_id": "MAT-F07",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "10-Q Q2 2026 is discussing half-year 2026 metrics vs. half-year 2025 metrics, while 10-Q Q1 2026 is discussing first quarter 2026 metrics vs. first quarter 2025 metrics. These are not comparable time frames as they are both year-over-year metrics when the comparison is quarter-over-quarter. They would be material if the comparison period was year-over-year.",
+      "reviewed_at": "2026-11-12T05:08:12+00:00"
+    },
+    {
+      "item_id": "MAT-F08",
+      "kind": "sampled",
+      "decision": "material",
+      "material": true,
+      "reviewed_at": "2026-11-12T05:08:34+00:00"
+    },
+    {
+      "item_id": "MAT-F09",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Regular date update on different fiscal years and noting unvested payments for that year, mainly an accounting note and not material to company metrics",
+      "reviewed_at": "2026-11-12T05:09:27+00:00"
+    },
+    {
+      "item_id": "MAT-F10",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "reviewed_at": "2026-11-12T05:10:29+00:00"
+    },
+    {
+      "item_id": "MAT-F11",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "reviewed_at": "2026-11-12T05:10:43+00:00"
+    },
+    {
+      "item_id": "MAT-F12",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "A rephrasing that is otherwise identical",
+      "reviewed_at": "2026-11-12T05:11:08+00:00"
+    },
+    {
+      "item_id": "MAT-F13",
+      "kind": "sampled",
+      "decision": "material",
+      "material": true,
+      "reviewed_at": "2026-11-12T05:11:23+00:00"
+    },
+    {
+      "item_id": "MAT-J01",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:56:01+00:00"
+    },
+    {
+      "item_id": "MAT-J02",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:56:32+00:00"
+    },
+    {
+      "item_id": "MAT-J03",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:56:39+00:00"
+    },
+    {
+      "item_id": "MAT-J04",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:56:54+00:00"
+    },
+    {
+      "item_id": "MAT-J05",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:57:06+00:00"
+    },
+    {
+      "item_id": "MAT-J06",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:57:17+00:00"
+    },
+    {
+      "item_id": "MAT-J07",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:57:29+00:00"
+    },
+    {
+      "item_id": "MAT-J08",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:57:58+00:00"
+    },
+    {
+      "item_id": "MAT-J09",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:58:06+00:00"
+    },
+    {
+      "item_id": "MAT-R01",
+      "kind": "retrieval",
+      "decision": "accept",
+      "note": "Accept based on the strict interpretation of film tie-ins, although a rephrasing of the question to \"upcoming films, series, and shows\" or even a broader \"upcoming collaborations\" would have wider hits and would bring more sources of evidence for retrieval",
+      "reviewed_at": "2026-11-12T19:14:01+00:00"
+    },
+    {
+      "item_id": "MAT-R02",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:14:30+00:00"
+    },
+    {
+      "item_id": "MAT-R03",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:15:04+00:00"
+    },
+    {
+      "item_id": "MAT-R04",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:17:01+00:00"
+    },
+    {
+      "item_id": "MAT-R05",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:17:51+00:00"
+    },
+    {
+      "item_id": "MAT-R06",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:18:59+00:00"
+    },
+    {
+      "item_id": "MAT-R07",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:19:32+00:00"
+    },
+    {
+      "item_id": "MAT-R08",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:20:39+00:00"
+    },
+    {
+      "item_id": "MAT-R09",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:22:09+00:00"
+    },
+    {
+      "item_id": "MAT-R10",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:23:00+00:00"
+    },
+    {
+      "item_id": "MAT-S01",
+      "kind": "cause",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:45:00+00:00"
+    },
+    {
+      "item_id": "MAT-S02",
+      "kind": "cause",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:46:02+00:00"
+    },
+    {
+      "item_id": "MAT-S03",
+      "kind": "cause",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:47:13+00:00"
+    },
+    {
+      "item_id": "SWK-C01",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:57:30+00:00"
+    },
+    {
+      "item_id": "SWK-C02",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:57:41+00:00"
+    },
+    {
+      "item_id": "SWK-C03",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:58:19+00:00"
+    },
+    {
+      "item_id": "SWK-C04",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:59:30+00:00"
+    },
+    {
+      "item_id": "SWK-C05",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:00:34+00:00"
+    },
+    {
+      "item_id": "SWK-C06",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:01:28+00:00"
+    },
+    {
+      "item_id": "SWK-C07",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:03:19+00:00"
+    },
+    {
+      "item_id": "SWK-C08",
+      "kind": "change",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:04:35+00:00"
+    },
+    {
+      "item_id": "SWK-F01",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Rephrasing of the same content",
+      "reviewed_at": "2026-11-12T05:11:53+00:00"
+    },
+    {
+      "item_id": "SWK-F02",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Talking about strategic focus with goals, not actual metrics that changed",
+      "reviewed_at": "2026-11-12T05:12:43+00:00"
+    },
+    {
+      "item_id": "SWK-F03",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Rephrasing of same action",
+      "reviewed_at": "2026-11-12T05:13:15+00:00"
+    },
+    {
+      "item_id": "SWK-F04",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Standard date adjustments for different filing periods",
+      "reviewed_at": "2026-11-12T05:13:37+00:00"
+    },
+    {
+      "item_id": "SWK-F05",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Minimal rephrasing",
+      "reviewed_at": "2026-11-12T05:13:52+00:00"
+    },
+    {
+      "item_id": "SWK-F06",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Minimal rephrasing",
+      "reviewed_at": "2026-11-12T05:14:01+00:00"
+    },
+    {
+      "item_id": "SWK-F07",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Minimal rephrasing",
+      "reviewed_at": "2026-11-12T05:14:15+00:00"
+    },
+    {
+      "item_id": "SWK-F08",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Accounting updates and routine date changes for filings in different years",
+      "reviewed_at": "2026-11-12T05:14:53+00:00"
+    },
+    {
+      "item_id": "SWK-F09",
+      "kind": "sampled",
+      "decision": "material",
+      "material": true,
+      "note": "Potential explanation of drivers of costs",
+      "reviewed_at": "2026-11-12T05:16:17+00:00"
+    },
+    {
+      "item_id": "SWK-F10",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "reviewed_at": "2026-11-12T05:16:38+00:00"
+    },
+    {
+      "item_id": "SWK-F11",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "note": "Management goals, not drivers or evidence",
+      "reviewed_at": "2026-11-12T05:17:01+00:00"
+    },
+    {
+      "item_id": "SWK-F12",
+      "kind": "sampled",
+      "decision": "not_material",
+      "material": false,
+      "reviewed_at": "2026-11-12T05:17:42+00:00"
+    },
+    {
+      "item_id": "SWK-F13",
+      "kind": "sampled",
+      "decision": "material",
+      "material": true,
+      "note": "Covers breakdowns of segment restructuring costs",
+      "reviewed_at": "2026-11-12T05:18:12+00:00"
+    },
+    {
+      "item_id": "SWK-J01",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T21:03:08+00:00"
+    },
+    {
+      "item_id": "SWK-J02",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T21:03:16+00:00"
+    },
+    {
+      "item_id": "SWK-J03",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T21:03:20+00:00"
+    },
+    {
+      "item_id": "SWK-J04",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T21:03:28+00:00"
+    },
+    {
+      "item_id": "SWK-J05",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T21:03:42+00:00"
+    },
+    {
+      "item_id": "SWK-J06",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T21:03:46+00:00"
+    },
+    {
+      "item_id": "SWK-J07",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T21:03:52+00:00"
+    },
+    {
+      "item_id": "SWK-J08",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T21:04:00+00:00"
+    },
+    {
+      "item_id": "SWK-J09",
+      "kind": "judge",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T21:04:03+00:00"
+    },
+    {
+      "item_id": "SWK-R01",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:27:37+00:00"
+    },
+    {
+      "item_id": "SWK-R02",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:28:14+00:00"
+    },
+    {
+      "item_id": "SWK-R03",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:30:57+00:00"
+    },
+    {
+      "item_id": "SWK-R04",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:31:34+00:00"
+    },
+    {
+      "item_id": "SWK-R05",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:31:59+00:00"
+    },
+    {
+      "item_id": "SWK-R06",
+      "kind": "retrieval",
+      "decision": "reject",
+      "note": "Speculative about what risk factors could arise but doesn't give any substantive forecasts.",
+      "reviewed_at": "2026-11-12T19:36:49+00:00"
+    },
+    {
+      "item_id": "SWK-R07",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:37:21+00:00"
+    },
+    {
+      "item_id": "SWK-R08",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:37:51+00:00"
+    },
+    {
+      "item_id": "SWK-R09",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:39:42+00:00"
+    },
+    {
+      "item_id": "SWK-R10",
+      "kind": "retrieval",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T19:40:16+00:00"
+    },
+    {
+      "item_id": "SWK-S01",
+      "kind": "cause",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:48:43+00:00"
+    },
+    {
+      "item_id": "SWK-S02",
+      "kind": "cause",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:50:09+00:00"
+    },
+    {
+      "item_id": "SWK-S03",
+      "kind": "cause",
+      "decision": "accept",
+      "reviewed_at": "2026-11-12T20:51:34+00:00"
+    }
+  ]
+}
