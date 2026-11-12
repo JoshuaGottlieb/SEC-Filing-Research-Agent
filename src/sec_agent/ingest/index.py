@@ -209,6 +209,20 @@ class ChunkIndex:
             unchanged=len(chunks) - len(stale),
         )
 
+    def vectors(self, chunk_ids: Sequence[str]) -> dict[str, list[float]]:
+        """The stored embedding of each chunk asked for that the index holds, by chunk id.
+
+        These are the vectors dense search compares, so a measurement on them (T2.4's redundancy
+        check) sees what the search saw, without embedding anything again.
+        """
+        if not chunk_ids:
+            return {}
+        stored = self._collection.get(ids=list(chunk_ids), include=["embeddings"])
+        return {
+            chunk_id: [float(value) for value in vector]
+            for chunk_id, vector in zip(stored["ids"], stored["embeddings"], strict=True)
+        }
+
     def search(self, query: str, where: ChunkFilter, top_k: int) -> list[IndexHit]:
         """The chunks nearest the query among those the filter allows, nearest first.
 
