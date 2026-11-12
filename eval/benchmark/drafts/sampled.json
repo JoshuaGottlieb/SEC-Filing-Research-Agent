@@ -124,10 +124,10 @@
     {
       "item_id": "HSY-F14",
       "comparison_id": "HSY:seq-10q",
-      "change_id": "HSY:seq-10q:added:0001628280-26-050900:mdna:0045",
+      "change_id": "HSY:seq-10q:added:0001628280-26-050900:mdna:0047",
       "kind": "added",
       "section": "mdna",
-      "current_text": "Net sales of our North America Confectionery segment were $2,173.6 million in the second quarter of 2026 compared to $2,085.5 million in the same period of 2025, an increase of $88.1 million, or 4.2%. The increase was driven by favorable price realization of approximately 14%, primarily due to the pricing action announced in 2025. Volume declined approximately 10%, driven primarily by price elasticity. Additionally, there was no impact from foreign currency exchange rates."
+      "current_text": "Net sales of our North America Confectionery segment were $4,663.5 million in the first six months of 2026 compared to $4,385.6 million in the same period of 2025, an increase of $277.9 million, or 6.3%. The increase was driven by favorable price realization of approximately 13%, primarily due to the pricing action announced in 2025. Volume declined approximately 7%, driven primarily by price elasticity. Additionally, there was no impact from foreign currency exchange rates."
     },
     {
       "item_id": "MAT-F01",
@@ -183,11 +183,11 @@
     {
       "item_id": "MAT-F07",
       "comparison_id": "MAT:seq-10q",
-      "change_id": "MAT:seq-10q:modified:0001628280-26-054347:mdna:0085",
+      "change_id": "MAT:seq-10q:modified:0001628280-26-054347:mdna:0073",
       "kind": "modified",
       "section": "mdna",
-      "current_text": "North America segment income decreased by $50.4 million to $126.5 million in the first half of 2026, as compared to $176.9 million in the first half of 2025, primarily due to higher cost of sales of $49.2 million, higher advertising and promotion expenses of $32.5 million, and higher selling and administrative expenses of $16.0 million, partially offset by higher net sales of $47.3 million.",
-      "prior_text": "North America segment income was $34.5 million in the first quarter of 2026, as compared to $83.1 million in the first quarter of 2025, due to lower net sales of $16.2 million, higher other selling and administrative expenses of $12.2 million, higher cost of sales of $10.3 million, and higher advertising and promotion expenses of $9.9 million."
+      "current_text": "Other non-operating income increased by $155.6 million to $144.0 million in the first half of 2026 from an expense of $11.6 million in the first half of 2025, primarily due to the gain recognized on Mattel's previously held equity interest in Mattel163. On March 2, 2026, Mattel acquired the remaining 50% equity interest in Mattel163. Prior to the acquisition of the remaining 50% equity interest in Mattel163, Mattel accounted for its investment under the equity method. Upon obtaining control, Mattel remeasured its previously held 50% equity interest to its estimated fair value as of the Acquisition Date, resulting in a gain of $147.9 million recognized in the first half of 2026.",
+      "prior_text": "Other non-operating income increased by $161.1 million to $148.1 million in the first quarter of 2026 from an expense of $13.0 million in the first quarter of 2025, primarily driven by the gain recognized on Mattel's previously held equity interest in Mattel163. On March 2, 2026, Mattel acquired the remaining 50% equity interest in Mattel163. Prior to the acquisition of the remaining 50% equity interest in Mattel163, Mattel accounted for its investment under the equity method. Upon obtaining control, Mattel remeasured its previously held 50% equity interest to its estimated fair value as of the Acquisition Date, resulting in a gain of $147.9 million recognized in the first quarter of 2026."
     },
     {
       "item_id": "MAT-F08",

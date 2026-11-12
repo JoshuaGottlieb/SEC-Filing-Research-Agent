@@ -1231,11 +1231,11 @@
       "item_id": "MAT-F07",
       "comparison_id": "MAT:seq-10q",
       "note": "Reviewer: 10-Q Q2 2026 is discussing half-year 2026 metrics vs. half-year 2025 metrics, while 10-Q Q1 2026 is discussing first quarter 2026 metrics vs. first quarter 2025 metrics. These are not comparable time frames as they are both year-over-year metrics when the comparison is quarter-over-quarter. They would be material if the comparison period was year-over-year.",
-      "change_id": "MAT:seq-10q:modified:0001628280-26-054347:mdna:0085",
+      "change_id": "MAT:seq-10q:modified:0001628280-26-054347:mdna:0073",
       "kind": "modified",
       "section": "mdna",
-      "current_text": "North America segment income decreased by $50.4 million to $126.5 million in the first half of 2026, as compared to $176.9 million in the first half of 2025, primarily due to higher cost of sales of $49.2 million, higher advertising and promotion expenses of $32.5 million, and higher selling and administrative expenses of $16.0 million, partially offset by higher net sales of $47.3 million.",
-      "prior_text": "North America segment income was $34.5 million in the first quarter of 2026, as compared to $83.1 million in the first quarter of 2025, due to lower net sales of $16.2 million, higher other selling and administrative expenses of $12.2 million, higher cost of sales of $10.3 million, and higher advertising and promotion expenses of $9.9 million.",
+      "current_text": "Other non-operating income increased by $155.6 million to $144.0 million in the first half of 2026 from an expense of $11.6 million in the first half of 2025, primarily due to the gain recognized on Mattel's previously held equity interest in Mattel163. On March 2, 2026, Mattel acquired the remaining 50% equity interest in Mattel163. Prior to the acquisition of the remaining 50% equity interest in Mattel163, Mattel accounted for its investment under the equity method. Upon obtaining control, Mattel remeasured its previously held 50% equity interest to its estimated fair value as of the Acquisition Date, resulting in a gain of $147.9 million recognized in the first half of 2026.",
+      "prior_text": "Other non-operating income increased by $161.1 million to $148.1 million in the first quarter of 2026 from an expense of $13.0 million in the first quarter of 2025, primarily driven by the gain recognized on Mattel's previously held equity interest in Mattel163. On March 2, 2026, Mattel acquired the remaining 50% equity interest in Mattel163. Prior to the acquisition of the remaining 50% equity interest in Mattel163, Mattel accounted for its investment under the equity method. Upon obtaining control, Mattel remeasured its previously held 50% equity interest to its estimated fair value as of the Acquisition Date, resulting in a gain of $147.9 million recognized in the first quarter of 2026.",
       "material": false
     },
     {

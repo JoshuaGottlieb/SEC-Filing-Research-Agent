@@ -9,6 +9,11 @@ must not change: a different draw after seeing labels would no longer be a fair 
 is deterministic for fixed filings and model, so a rerun draws the same changes. Each company's
 changes from its three comparisons are pooled and drawn uniformly without replacement; the
 user then labels each one material or not.
+
+A change to alignment can change the draw. The sample was redrawn once, on 2026-11-12, after
+PR #45 corrected seq-10q pairing (quarter paragraphs had paired with six-month ones). The seed and
+counts stayed the same, and only HSY-F14 and MAT-F07 changed. Both were relabeled, and
+`review_log.json` keeps the superseded decisions.
 """
 
 from __future__ import annotations

@@ -663,11 +663,11 @@
     {
       "item_id": "HSY-F14",
       "comparison_id": "HSY:seq-10q",
-      "note": "Reviewer: Missing passage from 10-Q Q1 2026. Manual inspection shows that the passage exists on both sides and would otherwise comprise a Material change (decrease in net sales for the North America Confectionery segment quarter-over-quarter); however, since the paragraph is missing from the prior in this sample, the change should not be labeled as material.",
-      "change_id": "HSY:seq-10q:added:0001628280-26-050900:mdna:0045",
+      "note": "Reviewer: Missing passage from 10-Q Q1 2026. Q1 2026 only lists year-over-year with Q1 2025. Q2 2026 only lists year-over-year for both six month and single quarter with 2025. No quarter-over-quarter information exists in this part of the filing.",
+      "change_id": "HSY:seq-10q:added:0001628280-26-050900:mdna:0047",
       "kind": "added",
       "section": "mdna",
-      "current_text": "Net sales of our North America Confectionery segment were $2,173.6 million in the second quarter of 2026 compared to $2,085.5 million in the same period of 2025, an increase of $88.1 million, or 4.2%. The increase was driven by favorable price realization of approximately 14%, primarily due to the pricing action announced in 2025. Volume declined approximately 10%, driven primarily by price elasticity. Additionally, there was no impact from foreign currency exchange rates.",
+      "current_text": "Net sales of our North America Confectionery segment were $4,663.5 million in the first six months of 2026 compared to $4,385.6 million in the same period of 2025, an increase of $277.9 million, or 6.3%. The increase was driven by favorable price realization of approximately 13%, primarily due to the pricing action announced in 2025. Volume declined approximately 7%, driven primarily by price elasticity. Additionally, there was no impact from foreign currency exchange rates.",
       "material": false
     }
   ]
