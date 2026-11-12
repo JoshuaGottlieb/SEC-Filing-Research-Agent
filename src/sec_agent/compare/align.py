@@ -13,6 +13,14 @@ paragraph word for word, the one keeping passages at closer relative positions w
 result never depends on float noise. A pair below a similarity floor is not a match: the earlier
 paragraph was removed and the later one added.
 
+A first-quarter 10-Q reports each figure once, since its quarter is also its year to date, while a
+later 10-Q reports it twice, for the quarter and for the year to date. Compared quarter to
+quarter, the first-quarter paragraph belongs with the later quarter's paragraph, but it reads
+closer to the year-to-date one ("first quarter" against "first six months" or "first half"), by
+up to 0.086 on the three pinned comparisons. So in such a comparison a pairing of a quarter
+paragraph with a year-to-date one is matched at a penalty (`PERIOD_MISMATCH_PENALTY`); the floor
+and the recorded similarity still use the unpenalized value.
+
 A matched pair is unchanged ("boilerplate") when the only differences are the ones a filing makes
 when its text is carried forward: punctuation and typography, years moved on by the gap between
 the two filings, the month of the period end, and the day of a period-end date. Any other
@@ -74,6 +82,25 @@ MIN_MATCH_SIMILARITY = 0.75
 # the rounding error in summing a section's similarities, and far below any gap that tells two
 # texts apart (on the nine pinned comparisons it changed only an exact tie).
 SIMILARITY_RESOLUTION = 1e-6
+# Taken off a pairing of a quarter paragraph with a year-to-date one when the earlier filing is a
+# first-quarter 10-Q (see the module docstring). On the three pinned comparisons it moved 39
+# first-quarter paragraphs to the later quarter's paragraph on the same topic and paired nothing
+# unrelated; 3 with a larger pull stay with the year to date. At 0.1 two unrelated Mattel
+# paragraphs were paired, and 0.02 left about half the pulled paragraphs where they were.
+# Found on Hershey's benchmark item HSY-F14.
+PERIOD_MISMATCH_PENALTY = 0.05
+# A paragraph's period is read from its opening, where the first sentence names it; later
+# mentions often refer to another period. 40 words chosen by hand.
+PERIOD_WORDS = 40
+_QUARTER = re.compile(
+    # "three and six months" names both periods, so it matches this as well as `_YEAR_TO_DATE`.
+    r"\b(?:first|second|third|fourth) quarter\b|\bthree (?:and (?:six|nine) )?months\b"
+    r"|\bquarter ended\b",
+    re.IGNORECASE,
+)
+_YEAR_TO_DATE = re.compile(
+    r"\b(?:six|nine) months\b|\bfirst half\b|\byear[- ]to[- ]date\b", re.IGNORECASE
+)
 
 # Typography that changes between years without changing what the text says.
 _TYPOGRAPHY = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-"})
@@ -174,11 +201,19 @@ class PeriodRoll(Record):
     # The months the two periods end in, such as March and June for consecutive quarters.
     prior_month: str
     current_month: str
+    # The earlier filing is a first-quarter 10-Q and the later one a later quarter's, so the
+    # earlier has one paragraph where the later has a quarter and a year-to-date one (see
+    # `period_kind`).
+    prior_quarter_is_year_to_date: bool = False
 
     @classmethod
     def of(cls, comparison: Comparison) -> PeriodRoll:
         current, prior = comparison.current.period, comparison.prior.period
         return cls(
+            # Only a 10-Q has a first quarter, and both filings of a comparison share a form.
+            prior_quarter_is_year_to_date=(
+                prior.fiscal_period == "Q1" and current.fiscal_period != "Q1"
+            ),
             year_shifts=frozenset(
                 {
                     current.fiscal_year - prior.fiscal_year,
@@ -271,6 +306,36 @@ def prepare_passages(paragraphs: Sequence[Paragraph]) -> tuple[Passage, ...]:
     return tuple(passages)
 
 
+class PeriodKind(StrEnum):
+    QUARTER = "quarter"
+    YEAR_TO_DATE = "year_to_date"
+
+
+def period_kind(text: str) -> PeriodKind | None:
+    """The period a paragraph reports, from its opening; None when it names neither or both
+    ("for the three and six months ended")."""
+    opening = " ".join(text.split()[:PERIOD_WORDS])
+    quarter, year_to_date = bool(_QUARTER.search(opening)), bool(_YEAR_TO_DATE.search(opening))
+    if quarter == year_to_date:
+        return None
+    return PeriodKind.QUARTER if quarter else PeriodKind.YEAR_TO_DATE
+
+
+def _period_penalty(current: Sequence[str], prior: Sequence[str]) -> np.ndarray:
+    """`PERIOD_MISMATCH_PENALTY` where one text reports a quarter and the other a year to date."""
+    current_kinds = [period_kind(text) for text in current]
+    prior_kinds = [period_kind(text) for text in prior]
+    return np.array(
+        [
+            [
+                PERIOD_MISMATCH_PENALTY if a is not None and b is not None and a != b else 0.0
+                for b in prior_kinds
+            ]
+            for a in current_kinds
+        ]
+    )
+
+
 def _similarities(embedder: Embedder, current: Sequence[str], prior: Sequence[str]) -> np.ndarray:
     # One call embeds both sides, so the model batches them together. Each distinct text is
     # embedded once: two copies can fall in different batches inside the model and come back a
@@ -350,13 +415,14 @@ def align_passages(
     current_rest = [i for i in range(len(current)) if i not in by_current]
     prior_rest = [j for j in range(len(prior)) if j not in by_prior]
     if current_rest and prior_rest:
-        similarity = _similarities(
-            embedder,
-            [current[i].text for i in current_rest],
-            [prior[j].text for j in prior_rest],
-        )
+        current_texts = [current[i].text for i in current_rest]
+        prior_texts = [prior[j].text for j in prior_rest]
+        similarity = _similarities(embedder, current_texts, prior_texts)
+        matching = similarity
+        if roll.prior_quarter_is_year_to_date:
+            matching = similarity - _period_penalty(current_texts, prior_texts)
         rows, columns = _assign(
-            similarity,
+            matching,
             (np.asarray(current_rest) + 0.5) / len(current),
             (np.asarray(prior_rest) + 0.5) / len(prior),
         )

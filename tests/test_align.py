@@ -13,11 +13,14 @@ import pytest
 
 from sec_agent.compare.align import (
     MIN_MATCH_SIMILARITY,
+    PERIOD_MISMATCH_PENALTY,
+    PERIOD_WORDS,
     RUNNING_HEADER,
     SIMILARITY_RESOLUTION,
     AlignedPair,
     PairLabel,
     Passage,
+    PeriodKind,
     PeriodRoll,
     SectionOutcome,
     _assign,
@@ -27,6 +30,7 @@ from sec_agent.compare.align import (
     align_section,
     changes_for,
     is_carried_forward,
+    period_kind,
     prepare_passages,
     section_outcome,
 )
@@ -50,6 +54,8 @@ HEADER = "NOTES TO CONSOLIDATED FINANCIAL STATEMENTS—(Continued)"
 YEARLY = PeriodRoll(year_shifts={1}, prior_month="December", current_month="December")
 QUARTERLY = PeriodRoll(year_shifts={0}, prior_month="March", current_month="June")
 YOY_10Q = PeriodRoll(year_shifts={1}, prior_month="June", current_month="June")
+# Q1 to Q2: the earlier filing's quarter is also its year to date.
+FIRST_QUARTER = QUARTERLY.model_copy(update={"prior_quarter_is_year_to_date": True})
 # Stanley's 52/53-week years: FY2025 ended January 3, 2026, FY2024 December 28, 2024, and its
 # Q2 2026 ended July 4, 2026 against June 28, 2025.
 STANLEY_YEARLY = PeriodRoll(year_shifts={1, 2}, prior_month="December", current_month="January")
@@ -313,7 +319,30 @@ def test_period_roll_is_read_from_the_comparison(make_filing):
         current=make_filing(FormType.FORM_10Q, 2026, "Q2", date(2026, 6, 28)),
         prior=make_filing(FormType.FORM_10Q, 2026, "Q1", date(2026, 3, 29)),
     )
-    assert PeriodRoll.of(seq) == QUARTERLY
+    assert PeriodRoll.of(seq) == FIRST_QUARTER
+    yoy_10q = Comparison(
+        comparison_id="HSY:yoy-10q",
+        ticker="HSY",
+        comparison_type=ComparisonType.YOY_10Q,
+        current=make_filing(FormType.FORM_10Q, 2026, "Q2", date(2026, 6, 28)),
+        prior=make_filing(FormType.FORM_10Q, 2025, "Q2", date(2025, 6, 29)),
+    )
+    assert not PeriodRoll.of(yoy_10q).prior_quarter_is_year_to_date
+    second_to_third = seq.model_copy(
+        update={
+            "current": make_filing(FormType.FORM_10Q, 2026, "Q3", date(2026, 9, 27)),
+            "prior": make_filing(FormType.FORM_10Q, 2026, "Q2", date(2026, 6, 28)),
+        }
+    )
+    assert not PeriodRoll.of(second_to_third).prior_quarter_is_year_to_date
+    # Two first quarters a year apart each report every figure once: nothing to separate.
+    first_to_first = seq.model_copy(
+        update={
+            "current": make_filing(FormType.FORM_10Q, 2026, "Q1", date(2026, 3, 29)),
+            "prior": make_filing(FormType.FORM_10Q, 2025, "Q1", date(2025, 3, 30)),
+        }
+    )
+    assert not PeriodRoll.of(first_to_first).prior_quarter_is_year_to_date
     stanley = Comparison(
         comparison_id="SWK:yoy-10k",
         ticker="SWK",
@@ -483,6 +512,120 @@ def test_position_is_only_a_tie_break_across_many_pairs():
     np.fill_diagonal(similarity, 0.8 + 2 * SIMILARITY_RESOLUTION)
     rows, columns = _assign(similarity, np.linspace(0, 1, n), np.linspace(1, 0, n))
     assert list(columns) == list(range(n))
+
+
+# A first quarter against a later quarter (HSY-F14: Hershey's Q1 2026 segment paragraph went to
+# the Q2 six-month paragraph and left the Q2 quarterly one as added).
+
+Q1_SALES = "Net sales were $3,104.2 million in the first quarter of 2026."
+Q2_SALES = "Net sales were $2,787.3 million in the second quarter of 2026."
+H1_SALES = "Net sales were $5,891.5 million in the first six months of 2026."
+
+
+def at_cosine(cosine: float, axis: int) -> list[float]:
+    # A unit vector with this cosine to [1, 0, 0, 0], leaning into its own axis.
+    vector = [cosine, 0.0, 0.0, 0.0]
+    vector[axis] = (1 - cosine**2) ** 0.5
+    return vector
+
+
+@pytest.mark.parametrize(
+    ("text", "kind"),
+    [
+        (Q1_SALES, PeriodKind.QUARTER),
+        (
+            "Tools & Outdoor Segment profit for the first three months of 2026 was $276.0 million.",
+            PeriodKind.QUARTER,
+        ),
+        (
+            "The components of lease expense for the three months ended March 29, 2026 were:",
+            PeriodKind.QUARTER,
+        ),
+        (H1_SALES, PeriodKind.YEAR_TO_DATE),
+        ("Net sales in the first half of 2026 were $1.99 billion.", PeriodKind.YEAR_TO_DATE),
+        (
+            "On a year-to-date basis, corporate overhead amounted to $146.3 million.",
+            PeriodKind.YEAR_TO_DATE,
+        ),
+        (
+            "Net sales for the nine months ended September 27, 2026 rose 3%.",
+            PeriodKind.YEAR_TO_DATE,
+        ),
+        ("For the three and six months ended July 4, 2026, the Company recognized a charge.", None),
+        ("Gross billings represent amounts invoiced to a customer.", None),
+    ],
+)
+def test_the_period_kind_is_read_from_the_paragraph(text, kind):
+    assert period_kind(text) is kind
+
+
+def test_the_period_is_read_from_the_opening_words_only():
+    padding = ["Earlier"] * (PERIOD_WORDS - 2)
+    assert period_kind(" ".join([*padding, "first", "quarter"])) is PeriodKind.QUARTER
+    assert period_kind(" ".join([*padding, "words", "then", "first", "quarter"])) is None
+
+
+def first_quarter_embedder(quarter: float, year_to_date: float = 0.98) -> FixedEmbedder:
+    return FixedEmbedder(
+        {
+            Q1_SALES: at_cosine(1.0, 1),
+            Q2_SALES: at_cosine(quarter, 2),
+            H1_SALES: at_cosine(year_to_date, 3),
+        }
+    )
+
+
+def test_a_first_quarter_paragraph_pairs_with_the_later_quarter():
+    # The six-month paragraph reads closer (0.98 against 0.95), as on Hershey.
+    embedder = first_quarter_embedder(quarter=0.95)
+    pairs = align_passages(
+        passages(Q2_SALES, H1_SALES), passages(Q1_SALES), embedder, FIRST_QUARTER
+    )
+    assert labels(pairs) == ["modified", "added"]
+    assert pairs[0].prior is not None and pairs[0].prior.text == Q1_SALES
+    # The recorded similarity is the embeddings', not the penalized one.
+    assert pairs[0].similarity == pytest.approx(0.95)
+
+
+def test_without_a_first_quarter_the_closer_paragraph_wins():
+    # In any other comparison both filings report both periods, so nothing is penalized.
+    embedder = first_quarter_embedder(quarter=0.95)
+    pairs = align_passages(passages(Q2_SALES, H1_SALES), passages(Q1_SALES), embedder, QUARTERLY)
+    assert labels(pairs) == ["added", "modified"]
+
+
+@pytest.mark.parametrize(
+    ("gap", "partner"), [(0.03, Q2_SALES), (0.049, Q2_SALES), (0.051, H1_SALES), (0.08, H1_SALES)]
+)
+def test_the_penalty_only_outweighs_a_smaller_pull(gap, partner):
+    # A first-quarter paragraph whose quarterly partner reads much further away keeps the year to
+    # date: the penalty is a preference, not a ban.
+    assert PERIOD_MISMATCH_PENALTY == 0.05
+    embedder = first_quarter_embedder(quarter=0.98 - gap)
+    pairs = align_passages(
+        passages(Q2_SALES, H1_SALES), passages(Q1_SALES), embedder, FIRST_QUARTER
+    )
+    matched = [pair for pair in pairs if pair.label is PairLabel.MODIFIED]
+    assert len(matched) == 1 and matched[0].current is not None
+    assert matched[0].current.text == partner
+
+
+def test_the_floor_reads_the_unpenalized_similarity():
+    # 0.78 clears the floor; 0.78 less the penalty would not.
+    assert 0.78 - PERIOD_MISMATCH_PENALTY < MIN_MATCH_SIMILARITY <= 0.78
+    embedder = first_quarter_embedder(quarter=0.0, year_to_date=0.78)
+    pairs = align_passages(passages(H1_SALES), passages(Q1_SALES), embedder, FIRST_QUARTER)
+    assert labels(pairs) == ["modified"]
+    assert pairs[0].similarity == pytest.approx(0.78)
+
+
+def test_a_paragraph_naming_no_period_is_never_penalized():
+    plain = "Gross billings represent amounts invoiced to a customer."
+    embedder = FixedEmbedder(
+        {Q1_SALES: at_cosine(1.0, 1), plain: at_cosine(0.96, 2), Q2_SALES: at_cosine(0.93, 3)}
+    )
+    pairs = align_passages(passages(plain, Q2_SALES), passages(Q1_SALES), embedder, FIRST_QUARTER)
+    assert labels(pairs) == ["modified", "added"]
 
 
 @pytest.mark.parametrize(
