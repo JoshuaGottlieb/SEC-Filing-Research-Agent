@@ -35,14 +35,20 @@ from sec_agent.schemas import (
     Record,
 )
 
-# The plan's initial thresholds (gap 6 of the master plan), to be tuned on Hershey once the
-# benchmark labels exist.
+# The plan's initial thresholds (gap 6 of the master plan), kept by the user on 2026-11-12 after
+# the Hershey benchmark labels. Every Hershey margin move is far from 100 bps (the smallest is
+# 240 bps), so the labels cannot move that one. At 10% the stated-cause gross-margin moves are
+# flagged and no labeled material change depends on a smaller relative move: net sales +4.4%
+# (labeled material) arrives as a text change. Lower cutoffs would add revenue +6.6% and SG&A
+# +7.7% at 5%, and revenue +4.4% and SG&A +3.7% at 3%, none of them a labeled material change, as
+# numeric changes, which are always material.
 MIN_MARGIN_MOVE = 0.01  # 100 basis points, as a fraction
 MIN_RELATIVE_MOVE = 0.10  # 10%
 # How much of a move the year-earlier move must match, in the same direction, to explain it as
-# seasonal: at least half. Chosen by hand and kept by the user on 2026-11-10, to be revisited for
-# tuning with the benchmark labels (T6.1). On the pinned filings it leaves Mattel's Q1-to-Q2 gross
-# margin (+331 bps, against +158 bps a year earlier: a share of 0.48) just short of seasonal.
+# seasonal: at least half. Chosen by hand and kept by the user on 2026-11-10 and again on
+# 2026-11-12: Hershey's shares are 0.67, 1.04 or opposite in sign, so its labels cannot move it.
+# On the pinned filings it leaves Mattel's Q1-to-Q2 gross margin (+331 bps, against +158 bps a
+# year earlier: a share of 0.48) just short of seasonal; Mattel is held out for testing.
 MIN_SEASONAL_SHARE = 0.5
 
 MARGINS = (MetricName.GROSS_MARGIN, MetricName.OPERATING_MARGIN, MetricName.NET_MARGIN)
