@@ -75,7 +75,10 @@ SENTENCE_END = re.compile(r"[.:;!?)\]\"”’]\s*$")
 CONTINUATION_START = re.compile(r"^[a-z0-9$(]")
 # Below this cosine similarity a pair the assignment made is not a match. On Hershey's three
 # comparisons every forced pair under 0.72 joined unrelated paragraphs and every pair from 0.76
-# up shared a topic, so the floor sits in that gap. To be tuned on Hershey once labels exist.
+# up shared a topic, so the floor sits in that gap. Kept by the user on 2026-11-12 after the
+# Hershey benchmark labels: the 7 labeled material changes' passages pair at 0.86 to 0.995, or sit
+# inside a modified paragraph, and the one removed passage pairs at 0.64. Any floor from 0.65 to
+# 0.85 gives all 7 the same result, so the labels do not move it.
 MIN_MATCH_SIMILARITY = 0.75
 # Similarities rounded to this step before matching, so pairings whose totals differ by less are
 # a tie, which the passages' relative positions decide (see `_assign`). Chosen by hand: far above

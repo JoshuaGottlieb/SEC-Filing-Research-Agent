@@ -34,11 +34,15 @@ CROSS_ENCODER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 # Both are the plan's figures.
 CANDIDATES_PER_PERIOD = 20
 KEEP_PER_PERIOD = 5
-# The lowest raw score a passage may have and still be kept. A provisional value, set by the user
-# on 2026-11-06 from a study with no labels (proxy labels, three companies): of 120 searches for
-# topics a filing lacks, 2 still looked complete at -6, against 11 at -7 and 1 at -4; of 60 MD&A
-# searches any filing answers, 2 came back empty at -6, against 0 at -7 and 14 at -4. Genuine
-# answers do score between -8 and -6, so some are lost. Revisit with the benchmark labels (T6.1).
+# The lowest raw score a passage may have and still be kept. Set by the user on 2026-11-06 from a
+# study with no labels (proxy labels, three companies): of 120 searches for topics a filing lacks,
+# 2 still looked complete at -6, against 11 at -7 and 1 at -4; of 60 MD&A searches any filing
+# answers, 2 came back empty at -6, against 0 at -7 and 14 at -4. Genuine answers do score
+# between -8 and -6, so some are lost. Kept by the user on 2026-11-12 after the Hershey benchmark
+# labels (9 questions, 21 answering passages, 1 filing lacking its topic): 17 of 21 passages come
+# back in the top 5 at -6, 18 at -8 and 15 at -1.25. The filing lacking its topic has an
+# off-topic passage at -1.3, so emptying it needs a cutoff above two real answers (-1.5, -2.86).
+# No cutoff separates them; a topic a filing lacks has to be caught after search.
 MIN_SCORE = -6.0
 # Pairs scored per forward pass. Speed was flat from 8 to 64 on this 4-core CPU (10 to 14 pairs a
 # second, one run each), so this is the fastest of those runs and not a tuned value.
@@ -88,8 +92,7 @@ class Reranker:
     """Hybrid search followed by the cross-encoder, one filing at a time.
 
     `min_score` decides when a period counts as having no match, so it sets how often a result
-    is `incomplete`. It defaults to `MIN_SCORE`, which is provisional. The caller owns the
-    searcher and the scorer.
+    is `incomplete`. It defaults to `MIN_SCORE`. The caller owns the searcher and the scorer.
     """
 
     def __init__(
