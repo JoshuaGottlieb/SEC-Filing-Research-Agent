@@ -383,6 +383,10 @@ def test_a_metric_that_does_not_resolve_fails():
         ("The charge was $1,250.", "$1,250"),
         ("The charge was €40 million.", "€40 million"),
         ("The company sold 12 million units.", "12 million"),
+        # Abbreviated amounts, read case-insensitively: before, "$563M" was no figure at all.
+        ("The charge was $563M.", "$563m"),
+        ("The charge was $45K.", "$45k"),
+        ("The charge was $1.35 bn.", "$1.35 bn"),
     ],
 )
 def test_a_figure_with_nothing_behind_it_fails(text, figure):
@@ -412,6 +416,10 @@ def test_a_figure_must_match_the_quote_whole():
         "A new risk factor on tariffs was added.",
         # A known limit: a bare count is not recognized as a figure.
         "The company closed 200 stores.",
+        # A letter after a number is a scale only after a currency symbol.
+        "The Form 10-K and the 10K both list it in the 4th quarter.",
+        # The same limit as a bare count: no currency symbol, so not read.
+        "Shares outstanding were 563M.",
     ],
 )
 def test_other_numbers_are_not_figures(text):
@@ -902,6 +910,44 @@ def test_scale_does_not_apply_to_prose():
 def test_figures_are_compared_by_value(text, quote, passes):
     prose = f"{quote} in the year."
     assert traced(text, prose, quote).passed is passes
+
+
+@pytest.mark.parametrize(
+    ("text", "quote", "passes"),
+    [
+        ("It was $563.0M.", "It was $563.0 million", True),
+        ("It was $1.35B.", "It was $1.35 billion", True),
+        ("It was $1.35 bn.", "It was $1,350 million", True),
+        ("It was $45K.", "It was $45,000", True),
+        ("It was $5mm.", "It was $5 million", True),
+        ("It was $2 mil.", "It was $2 million", True),
+        # The abbreviation keeps its precision: "$563M" does not claim the tenth.
+        ("It was $563M.", "It was $563.2 million", True),
+        ("It was $563.0M.", "It was $563.2 million", False),
+        # All three passed before: the claims read as $563, as $1, and as no figure.
+        ("It was $563.0M.", "It was $563", False),
+        ("It was $1.35B.", "It was $1", False),
+        ("It was $563M.", "It was $563 thousand", False),
+    ],
+)
+def test_an_abbreviated_amount_is_read_at_its_scale(text, quote, passes):
+    prose = f"{quote} in the year."
+    assert traced(text, prose, quote).passed is passes
+
+
+def test_an_amount_with_unknown_letters_fails_rather_than_passing_unread():
+    # Not "$563" with something after it: the claim states a figure nothing can back.
+    result = traced("The charge was $563x.", "The charge was $563 in the year.", "$563")
+    assert kinds(result) == [CitationFailureKind.UNTRACED_FIGURE]
+    assert "'$563x' is not a figure the checker can read" in result.failures[0].detail
+
+
+def test_letters_after_a_number_in_a_table_are_read_as_before():
+    # A cell such as "10K" or "563M shares" was read as nothing before, and still is, so a claim's
+    # bare figure cannot trace to it. A spaced letter leaves the number as it was read.
+    table = "(In millions)\nForm | 10K | 563M shares"
+    assert not traced("It was $10 million.", table, "Form | 10K").passed
+    assert not traced("It was $563 million.", table, "563M shares").passed
 
 
 # Real figures, as in 0001628280-26-008586:t186:0, whose only caption is about shares.

@@ -334,6 +334,9 @@ class _FigureKind(StrEnum):
     # A table cell with no symbol. It sits under a "$" column as often as not, so it can be money
     # or a count. Only read from table quotes: in prose a bare number is usually not a figure.
     BARE = "bare"
+    # An amount with a currency symbol and letters joined to it that are not a known scale, such
+    # as "$563x". It matches nothing, so a claim stating one fails instead of passing unread.
+    UNREADABLE = "unreadable"
 
 
 class _Figure(NamedTuple):
@@ -351,12 +354,34 @@ class _Figure(NamedTuple):
 
 # A number with whatever marks it as a figure. Numbers cut from a word or a longer number are not
 # matched, so the "2025" in "FY2025" is not read. A ")" can sit before the unit, as in "(60.2)%".
+# The text is casefolded first, so only lower case is matched.
+#
+# Models abbreviate amounts ("$563.0M", "$1.35B", "$45K"): 6 of 107 HSY materiality rationales
+# did, measured by lane 1 on 2026-11-12. Before this was handled, "$563M" was read as no figure, so
+# a claim stating it passed unchecked, and "$563.0M" was read as $563. An abbreviation counts only
+# after a currency symbol, joined to the number or after one space: without one, "10-K" and
+# "Form 10K" would read as ten thousand. Other letters joined to an amount make it unreadable,
+# never a shorter number. Letters joined to a number with no currency symbol ("4th", "1990s",
+# "563m shares") are not read at all, like a count with no unit ("200 stores").
 _NUMBER = re.compile(
-    r"(?P<currency>[$€£])?(?<![\w.,])(?P<number>\d(?:[\d,]*\d)?(?:\.\d+)?)(?!\w)"
-    r"(?:\)?[ -]?(?P<unit>%|percent\b|percentage[ -]points?\b|basis[ -]points?\b|bps\b"
-    r"|thousand\b|million\b|billion\b|trillion\b))?"
+    r"(?P<currency>[$€£])?(?<![\w.,])(?P<number>\d(?:[\d,]*\d)?(?:\.\d+)?)"
+    r"(?: ?(?P<abbreviation>k|mm|mn|mil|m|bn|bil|b|tn)(?!\w)"
+    r"|(?P<joined>[^\W\d]\w*)"
+    r"|(?!\w)(?:\)?[ -]?(?P<unit>%|percent\b|percentage[ -]points?\b|basis[ -]points?\b|bps\b"
+    r"|thousand\b|million\b|billion\b|trillion\b))?)"
 )
 _WORD_SCALES = {"thousand": 1e3, "million": 1e6, "billion": 1e9, "trillion": 1e12}
+_ABBREVIATED_SCALES = {
+    "k": 1e3,
+    "m": 1e6,
+    "mm": 1e6,
+    "mn": 1e6,
+    "mil": 1e6,
+    "b": 1e9,
+    "bn": 1e9,
+    "bil": 1e9,
+    "tn": 1e12,
+}
 # How many percentage points one of each unit is.
 _POINT_UNITS = {"percentage point": 1.0, "basis point": 0.01, "bp": 0.01}
 
@@ -365,7 +390,8 @@ def _parse_figures(text: str, *, bare: bool = False) -> Iterator[_Figure]:
     """The figures in normalized text, each as a kind, a value and a display tolerance.
 
     A number with no symbol or unit is not a figure unless `bare`: "Item 7", "Note 12" and
-    "fiscal 2025" are not figures in a claim, so "200 stores" is not caught either.
+    "fiscal 2025" are not figures in a claim, so "200 stores" is not caught either. An amount
+    abbreviated after a currency symbol is scaled ("$1.35b" is 1.35 billion dollars); see `_NUMBER`.
     """
     for match in _NUMBER.finditer(text):
         digits = match["number"].replace(",", "")
@@ -373,6 +399,27 @@ def _parse_figures(text: str, *, bare: bool = False) -> Iterator[_Figure]:
         step = 0.5 * 10 ** -len(digits.partition(".")[2])
         unit = (match["unit"] or "").replace("-", " ").removesuffix("s")
         currency = match["currency"]
+        if match["joined"]:
+            # Only a claim needs it, to fail. Read from a table it would reach the scale votes.
+            if currency and not bare:
+                yield _Figure(_FigureKind.UNREADABLE, number, step, match.group(), currency)
+            continue
+        if match["abbreviation"]:
+            if currency:
+                scale = _ABBREVIATED_SCALES[match["abbreviation"]]
+                yield _Figure(
+                    _FigureKind.MONEY,
+                    number * scale,
+                    step * scale,
+                    match.group(),
+                    currency,
+                    word_scale=scale,
+                )
+            # Without a currency symbol, a spaced letter ("10 k") leaves the number as it was
+            # read before abbreviations were, and a joined one ("10k") leaves nothing.
+            elif bare and match.end("number") < match.start("abbreviation"):
+                yield _Figure(_FigureKind.BARE, number, step, match["number"])
+            continue
         if unit in ("%", "percent"):
             yield _Figure(_FigureKind.PERCENT, number, step, match.group())
         elif unit in _POINT_UNITS:
@@ -694,7 +741,10 @@ def _check_figures(
             continue
         if figure.word_scale == 1.0 and any(_matches(figure, number) for number in unscaled):
             continue
-        if figure.word_scale != 1.0 and any(
+        if figure.kind is _FigureKind.UNREADABLE:
+            kind = CitationFailureKind.UNTRACED_FIGURE
+            detail = f"{figure.text!r} is not a figure the checker can read, so nothing backs it"
+        elif figure.word_scale != 1.0 and any(
             _matches(figure, number._replace(value=number.value * figure.word_scale))
             for number in unscaled
         ):
