@@ -8,16 +8,19 @@ from collections import Counter
 from collections.abc import Sequence
 from datetime import date
 
+import numpy as np
 import pytest
 
 from sec_agent.compare.align import (
     MIN_MATCH_SIMILARITY,
     RUNNING_HEADER,
+    SIMILARITY_RESOLUTION,
     AlignedPair,
     PairLabel,
     Passage,
     PeriodRoll,
     SectionOutcome,
+    _assign,
     align_comparison,
     align_filings,
     align_passages,
@@ -400,6 +403,86 @@ def test_the_assignment_matches_each_paragraph_to_its_own_topic():
         ("modified", "Tariffs changed.", "Tariffs were low."),
         ("added", "Pensions are new.", None),
     ]
+
+
+class BatchNoiseEmbedder(FixedEmbedder):
+    """Like bge on a CPU: a vector moves a little with where its text falls in the call."""
+
+    def __init__(self, vectors: dict[str, list[float]]) -> None:
+        super().__init__(vectors)
+        self.calls: list[list[str]] = []
+
+    def embed_passages(self, texts: Sequence[str]) -> list[list[float]]:
+        self.calls.append(list(texts))
+        # Far below the rounding step, as the real noise is.
+        return [
+            [v + (1e-7 * k if d == 1 else 0.0) for d, v in enumerate(self.vectors[text])]
+            for k, text in enumerate(texts)
+        ]
+
+
+def test_a_repeated_paragraph_takes_its_partners_by_position_not_by_noise():
+    # Mattel's quarter and year to date both say the same sentence; the earlier filing's quarter
+    # said 10% and its year to date 7%. Both earlier sentences are equally similar to the copies.
+    copy, filler = "Vehicles billings rose 7%.", "Other text stays the same."
+    quarter, year = "Vehicles billings rose 10% in the quarter.", "Vehicles billings rose 7% ytd."
+    vectors = {copy: [1.0, 0.0, 0.0], quarter: [0.9, 0.436, 0.0], year: [0.9, 0.0, 0.436]}
+    embedder = BatchNoiseEmbedder(vectors)
+    pairs = align_passages(
+        passages(copy, filler, copy), passages(quarter, filler, year), embedder, YOY_10Q
+    )
+    # Each text is embedded once, so the two copies can't come back a few bits apart; with the
+    # copy embedded twice, the noise above would cross the pairs.
+    assert embedder.calls == [[copy, quarter, year]]
+    assert [(p.current.paragraph_ids, p.prior.paragraph_ids) for p in pairs] == [
+        (("p0",), ("p0",)),
+        (("p1",), ("p1",)),
+        (("p2",), ("p2",)),
+    ]
+
+
+def test_position_is_the_place_in_the_whole_section():
+    # The later copy closes its section (0.95). Of the two equally similar earlier sentences, the
+    # one closing its section (0.975) is the nearer, not the one halfway (0.475), even though
+    # among the passages left unmatched the halfway one sits nearer the end of its own filing.
+    fillers = [f"Filler{k} stays." for k in range(9)]
+    current = passages(*fillers, "Vehicles rose 7%.")
+    prior = passages(
+        *[f"Gone{k} text." for k in range(9)], "Vehicles rose 10%.", *fillers, "Vehicles rose 9%."
+    )
+    pairs = align_passages(current, prior, TopicEmbedder(), YOY_10Q)
+    assert pairs[9].label is PairLabel.MODIFIED
+    assert pairs[9].prior.text == "Vehicles rose 9%."
+
+
+@pytest.mark.parametrize(
+    ("prior_positions", "expected"), [([0.25, 0.75], [0, 1]), ([0.75, 0.25], [1, 0])]
+)
+def test_a_tie_goes_to_the_pairing_with_closer_positions(prior_positions, expected):
+    # The other pairing wins by 0.8 of a rounding step: noise, more than the position term.
+    noise = 0.4 * SIMILARITY_RESOLUTION
+    favored = np.array([[0.9, 0.9], [0.9, 0.9]])
+    for row, column in enumerate(expected):
+        favored[row, 1 - column] += noise
+    rows, columns = _assign(favored, np.array([0.25, 0.75]), np.array(prior_positions))
+    assert (list(rows), list(columns)) == ([0, 1], expected)
+
+
+@pytest.mark.parametrize("steps", [1, 3, 100_000])
+def test_position_never_overrides_a_real_difference_in_similarity(steps):
+    # The positions favor crossing as strongly as they can; one step of similarity still wins.
+    similarity = np.array([[0.9 + steps * SIMILARITY_RESOLUTION, 0.9], [0.9, 0.9]])
+    rows, columns = _assign(similarity, np.array([0.0, 1.0]), np.array([1.0, 0.0]))
+    assert (list(rows), list(columns)) == ([0, 1], [0, 1])
+
+
+def test_position_is_only_a_tie_break_across_many_pairs():
+    # Forty pairs, all at the worst positions, can't outweigh one rounding step of similarity.
+    n = 40
+    similarity = np.full((n, n), 0.8)
+    np.fill_diagonal(similarity, 0.8 + 2 * SIMILARITY_RESOLUTION)
+    rows, columns = _assign(similarity, np.linspace(0, 1, n), np.linspace(1, 0, n))
+    assert list(columns) == list(range(n))
 
 
 @pytest.mark.parametrize(

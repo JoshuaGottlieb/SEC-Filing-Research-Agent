@@ -8,7 +8,9 @@ the run's cost) never sees text that was carried forward.
 Matching has two steps. Paragraphs whose text is identical in both filings pair off first, since
 much of a filing repeats the previous one word for word. The rest are embedded and matched with
 `linear_sum_assignment` on cosine similarity, which finds the pairing with the highest total
-similarity rather than a greedy one. A pair below a similarity floor is not a match: the earlier
+similarity rather than a greedy one. When two pairings tie, as they do when a filing repeats a
+paragraph word for word, the one keeping passages at closer relative positions wins, so the
+result never depends on float noise. A pair below a similarity floor is not a match: the earlier
 paragraph was removed and the later one added.
 
 A matched pair is unchanged ("boilerplate") when the only differences are the ones a filing makes
@@ -67,6 +69,11 @@ CONTINUATION_START = re.compile(r"^[a-z0-9$(]")
 # comparisons every forced pair under 0.72 joined unrelated paragraphs and every pair from 0.76
 # up shared a topic, so the floor sits in that gap. To be tuned on Hershey once labels exist.
 MIN_MATCH_SIMILARITY = 0.75
+# Similarities rounded to this step before matching, so pairings whose totals differ by less are
+# a tie, which the passages' relative positions decide (see `_assign`). Chosen by hand: far above
+# the rounding error in summing a section's similarities, and far below any gap that tells two
+# texts apart (on the nine pinned comparisons it changed only an exact tie).
+SIMILARITY_RESOLUTION = 1e-6
 
 # Typography that changes between years without changing what the text says.
 _TYPOGRAPHY = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-"})
@@ -265,12 +272,34 @@ def prepare_passages(paragraphs: Sequence[Paragraph]) -> tuple[Passage, ...]:
 
 
 def _similarities(embedder: Embedder, current: Sequence[str], prior: Sequence[str]) -> np.ndarray:
-    # One call embeds both sides, so the model batches them together. Vectors are normalized
-    # again here so the dot product is the cosine whatever the embedder returns.
-    vectors = np.asarray(embedder.embed_passages([*current, *prior]), dtype=float)
+    # One call embeds both sides, so the model batches them together. Each distinct text is
+    # embedded once: two copies can fall in different batches inside the model and come back a
+    # few bits apart, and those bits would then decide a tie between the copies. Vectors are
+    # normalized again here so the dot product is the cosine whatever the embedder returns.
+    texts = list(dict.fromkeys([*current, *prior]))
+    where = {text: k for k, text in enumerate(texts)}
+    vectors = np.asarray(embedder.embed_passages(texts), dtype=float)
     norms = np.linalg.norm(vectors, axis=1, keepdims=True)
     vectors = vectors / np.where(norms == 0, 1.0, norms)
-    return vectors[: len(current)] @ vectors[len(current) :].T
+    return vectors[[where[text] for text in current]] @ vectors[[where[text] for text in prior]].T
+
+
+def _assign(
+    similarity: np.ndarray, current_positions: np.ndarray, prior_positions: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """The pairing with the highest total similarity, and on a tie the one whose passages sit
+    closest in relative position (0 at a section's start, 1 at its end).
+
+    A tie is real when a filing repeats a paragraph, say once for the quarter and once for the
+    year to date: swapping the copies' partners leaves the total unchanged, and without this the
+    solver's internal order would decide which partner each copy gets.
+    """
+    units = np.round(similarity / SIMILARITY_RESOLUTION)
+    distance = np.abs(current_positions[:, None] - prior_positions[None, :])
+    # At most this many pairs are made, each distance is at most 1, so the distance term sums to
+    # less than one unit and only decides between pairings whose rounded totals are equal.
+    pairs = min(similarity.shape)
+    return linear_sum_assignment(units - distance / (pairs + 1), maximize=True)
 
 
 def align_passages(
@@ -326,7 +355,11 @@ def align_passages(
             [current[i].text for i in current_rest],
             [prior[j].text for j in prior_rest],
         )
-        rows, columns = linear_sum_assignment(similarity, maximize=True)
+        rows, columns = _assign(
+            similarity,
+            (np.asarray(current_rest) + 0.5) / len(current),
+            (np.asarray(prior_rest) + 0.5) / len(prior),
+        )
         for row, column in zip(rows, columns, strict=True):
             score = float(similarity[row, column])
             if score < MIN_MATCH_SIMILARITY:
