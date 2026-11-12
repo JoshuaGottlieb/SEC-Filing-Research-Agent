@@ -1,0 +1,674 @@
+{
+  "retrieval": [
+    {
+      "item_id": "HSY-R01",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "Gold is the latest-year gross margin paragraph plus the Overview passage on gross margin pressures in each filing. Each 10-K also explains the prior year's margin change (2024 vs 2023 in the FY2025 filing, 2023 vs 2022 in the FY2024 filing); those are left out as answering a different year.\nReviewer: 10-K FY2025 answering sentence: \"The decrease was driven by higher commodity and tariff costs, unfavorable mark-to-market activity on our commodity derivative instruments and lower volume, which more than offset the benefits from net price realization, supply chain productivity, and net savings related to our Advancing Agility & Automation Initiative (“AAA Initiative”).\"",
+      "section": "mdna",
+      "question": "what drove the change in gross margin for the most recent fiscal year",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The decrease was driven by higher commodity and tariff costs, unfavorable mark-to-market activity on our commodity derivative instruments and lower volume",
+          "chunk_id": "0001628280-26-008586:mdna:0034:0"
+        },
+        {
+          "side": "current",
+          "text": "Despite a strategic pricing action in the third quarter combined with other specific actions taken to mitigate these gross margin pressures, our direct inputs continue to be the primary incremental cost to our business",
+          "chunk_id": "0001628280-26-008586:mdna:0023:0"
+        },
+        {
+          "side": "prior",
+          "text": "Gross margin was 47.3% in 2024 compared with 44.8% in 2023, an increase of 250 basis points.",
+          "chunk_id": "0000047111-25-000014:mdna:0034:0"
+        },
+        {
+          "side": "prior",
+          "text": "Despite specific actions taken to mitigate these gross margin pressures, we continue to experience overall declines in consumer demands for our products",
+          "chunk_id": "0000047111-25-000014:mdna:0022:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R02",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "The cocoa futures price table (t68) in each filing also holds the annual averages, but it is a table, so it is not gold.\nReviewer: Answering sentences in 10-K 2025: \"The production forecast for the 2025 – 2026 season is estimated to match the same levels as for the 2024 – 2025 season as growing conditions in West Africa remain favorable. Higher cocoa prices to the consumer have lowered consumption and a second consecutive surplus is expected in the 2025 – 2026 growing season.\"",
+      "section": "market_risk",
+      "question": "average cocoa futures price change for the year and cocoa crop outlook",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Higher cocoa prices to the consumer have lowered consumption and a second consecutive surplus is expected in the 2025 – 2026 growing season.",
+          "chunk_id": "0001628280-26-008586:market_risk:0023:0"
+        },
+        {
+          "side": "prior",
+          "text": "During 2024, average cocoa futures contract prices increased 131.5% compared with 2023 based on the Intercontinental Exchange futures contract.",
+          "chunk_id": "0000047111-25-000014:market_risk:0023:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R04",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "Reviewer: Collective bargaining share sentence in 10-K 2025: \"Collective bargaining agreements covered approximately 5,570 employees, or approximately 28% of the Company’s employees worldwide.\"",
+      "section": "business",
+      "question": "employee headcount and share of workforce under collective bargaining",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Collective bargaining agreements covered approximately 5,570 employees, or approximately 28% of the Company’s employees worldwide.",
+          "chunk_id": "0001628280-26-008586:business:0033:0"
+        },
+        {
+          "side": "prior",
+          "text": "As of December 31, 2024, the Company employed approximately 18,540 full-time and 1,490 part-time employees worldwide.",
+          "chunk_id": "0000047111-25-000014:business:0033:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R05",
+      "comparison_id": "HSY:yoy-10q",
+      "note": "Consolidated Q2 only. The six-month and segment net sales paragraphs are left out; widen the gold if the question should cover segments.\nReviewer: Quoted sentence which covers the net sales change: \"Net sales were $2,787.3 million in the second quarter of 2026 compared to $2,614.7 million in the same period of 2025, an increase of $172.6 million, or 6.6%.\"\n\nThe rest of the paragraph covers the remaining breakdown by price, volume, and acquisitions.",
+      "section": "mdna",
+      "question": "consolidated second-quarter net sales change broken down by price, volume and acquisitions",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Net sales were $2,787.3 million in the second quarter of 2026 compared to $2,614.7 million in the same period of 2025, an increase of $172.6 million, or 6.6%.",
+          "chunk_id": "0001628280-26-050900:mdna:0014:0"
+        },
+        {
+          "side": "prior",
+          "text": "The net sales increase reflects a volume increase of approximately 21%, related to everyday core U.S. confection",
+          "chunk_id": "0000047111-25-000112:mdna:0018:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R06",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "market_risk",
+      "question": "foreign currency forward contracts fair value sensitivity to a 10% adverse rate move",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The potential decline in fair value of foreign currency forward exchange contracts resulting from a hypothetical near-term adverse change in market rates of 10% was $23.9 million as of June 28, 2026",
+          "chunk_id": "0001628280-26-050900:market_risk:0000:0"
+        },
+        {
+          "side": "prior",
+          "text": "The potential decline in fair value of foreign currency forward exchange contracts resulting from a hypothetical near-term adverse change in market rates of 10% was $32.8 million as of June 29, 2025",
+          "chunk_id": "0000047111-25-000112:market_risk:0000:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R07",
+      "comparison_id": "HSY:yoy-10q",
+      "note": "Absent topic: the Q2 2025 10-Q names the Russia-Ukraine conflict instead and mentions the Middle East only as a sales region (MEA), which does not answer the question.",
+      "section": "mdna",
+      "question": "impact of the Middle East conflict on commodity prices, supply and results",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "For the first six months of 2026, this conflict did not have a material impact on our commodity prices or supply availability.",
+          "chunk_id": "0001628280-26-050900:mdna:0011:0"
+        },
+        {
+          "side": "current",
+          "text": "as well as the conflict in the Middle East, we may continue to experience increasing supply chain costs, higher inflation and other impacts to our business",
+          "chunk_id": "0001628280-26-050900:mdna:0014:0"
+        },
+        {
+          "side": "current",
+          "text": "•Political, economic and/or financial market conditions, including impacts on our business arising from the ongoing conflict in the Middle East, could negatively impact our financial results;",
+          "chunk_id": "0001628280-26-050900:mdna:0099:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R08",
+      "comparison_id": "HSY:seq-10q",
+      "note": "The OECD Pillar Two paragraph in each note says it has no material effect on the rate; it is left out as not a driver.\nReviewer: Driver sentence in 10-Q Q2 2026: \"The 2025 effective tax rate was higher due to the impact of tax reserves and foreign rate differentials related to mark-to-market activity.\"",
+      "section": "financial_notes",
+      "question": "effective income tax rate for the period and what drove it",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The 2025 effective tax rate was higher due to the impact of tax reserves and foreign rate differentials related to mark-to-market activity.",
+          "chunk_id": "0001628280-26-050900:financial_notes:0097:0"
+        },
+        {
+          "side": "prior",
+          "text": "The effective tax rates for the three months ended March 29, 2026 and March 30, 2025 were 26.6% and 30.7%, respectively.",
+          "chunk_id": "0001628280-26-028682:financial_notes:0090:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R09",
+      "comparison_id": "HSY:seq-10q",
+      "note": "The Sour Strips paragraphs about its own (2025) finalized allocation do not answer the question. The goodwill table row 'Measurement period adjustments' is a table and not gold.",
+      "section": "financial_notes",
+      "question": "is the LesserEvil purchase price allocation final or still preliminary",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The purchase price allocation presented above has been finalized as of the second quarter of 2026.",
+          "chunk_id": "0001628280-26-050900:financial_notes:0020:0"
+        },
+        {
+          "side": "prior",
+          "text": "The purchase price allocation presented above is preliminary.",
+          "chunk_id": "0001628280-26-028682:financial_notes:0018:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R10",
+      "comparison_id": "HSY:seq-10q",
+      "note": "The guidance sentence is word for word the same in both 10-Qs, so the quote text is the same on each side.",
+      "section": "mdna",
+      "question": "full-year 2026 capital expenditure guidance",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "we expect 2026 capital expenditures, including capitalized software, to be in the range of approximately $425 million to $475 million, reflecting a trend towards historical levels",
+          "chunk_id": "0001628280-26-050900:mdna:0075:0"
+        },
+        {
+          "side": "prior",
+          "text": "we expect 2026 capital expenditures, including capitalized software, to be in the range of approximately $425 million to $475 million, reflecting a trend towards historical levels",
+          "chunk_id": "0001628280-26-028682:mdna:0057:0"
+        }
+      ]
+    }
+  ],
+  "changes": [
+    {
+      "item_id": "HSY-C01",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "metric_linked_shift",
+      "summary": "Tariffs went from having no material impact in 2024 to a material negative impact on 2025 results of operations and commodity prices, in line with the tariff costs cited for the gross margin decline.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "For the year ended December 31, 2024, neither the conflict between Russia and Ukraine, nor the imposition of tariffs on U.S. imports and retaliatory tariffs, had a material impact on our commodity prices or supply availability.",
+          "chunk_id": "0000047111-25-000014:mdna:0026:0"
+        },
+        {
+          "side": "current",
+          "text": "For the year ended December 31, 2025, the imposition of tariffs on U.S. imports and retaliatory tariffs, had a material negative impact on our results of operations and commodity prices.",
+          "chunk_id": "0001628280-26-008586:mdna:0023:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-C02",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "The header sentence survives in the FY2025 filing without the Russia-Ukraine clause; the separate paragraph on the conflict is gone entirely.",
+      "section": "risk_factors",
+      "kind": "removed",
+      "criterion": "new_or_removed_risk",
+      "summary": "The FY2025 10-K drops the risk factor discussion of the Russia-Ukraine conflict and sanctions, and the political-conditions risk header no longer names it.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Additionally, in February 2022, Russia invaded Ukraine and this conflict is still ongoing.",
+          "chunk_id": "0000047111-25-000014:risk_factors:0087:0"
+        },
+        {
+          "side": "prior",
+          "text": "Political, economic and/or financial market conditions, including impacts on our business arising from the ongoing conflict between Russia and Ukraine, could negatively impact our financial results.",
+          "chunk_id": "0000047111-25-000014:risk_factors:0084:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-C04",
+      "comparison_id": "HSY:yoy-10q",
+      "note": "Notes amounts are in thousands ($769,090 = $769.1 million).",
+      "section": "financial_notes",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "LesserEvil went from a pending merger agreement to a completed acquisition with $769.1 million of initial cash consideration and up to $200 million of contingent consideration.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "If approved, the Company expects the acquisition to close by the end of 2025 and will be financed with cash on hand and short-term borrowings.",
+          "chunk_id": "0000047111-25-000112:financial_notes:0016:0"
+        },
+        {
+          "side": "current",
+          "text": "The initial cash consideration paid for LesserEvil totaled $769,090 and consisted of cash on hand and short-term borrowings; however, the Company may be required to pay additional contingent consideration ranging from zero to a maximum of $200,000",
+          "chunk_id": "0001628280-26-050900:financial_notes:0015:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-C05",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "market_risk",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "The six-month average cocoa futures price fell to $1.80 per pound, down about 51% from the prior-year annual average, versus $4.22 per pound (up about 22%) a year earlier.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "During the first six months of 2025, the average cocoa futures contract price was $4.22 per pound",
+          "chunk_id": "0000047111-25-000112:market_risk:0004:0"
+        },
+        {
+          "side": "current",
+          "text": "During the first six months of 2026, the average cocoa futures contract price was $1.80 per pound",
+          "chunk_id": "0001628280-26-050900:market_risk:0004:0"
+        },
+        {
+          "side": "current",
+          "text": "This average cocoa futures contract price represents a decline of approximately 51% compared to the 2025 annual average of $3.65 per pound.",
+          "chunk_id": "0001628280-26-050900:market_risk:0004:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-C06",
+      "comparison_id": "HSY:yoy-10q",
+      "note": "Could also be labeled 'modified': the Q2 2025 safe-harbor bullet named the Russia-Ukraine conflict where Q2 2026 names the Middle East. Labeled 'added' because the Trends paragraph on the Middle East has no counterpart in Q2 2025.",
+      "section": "mdna",
+      "kind": "added",
+      "criterion": "new_or_removed_risk",
+      "summary": "The Q2 2026 10-Q adds the Middle East conflict as a geopolitical risk the company is monitoring for supply chain disruption and inflationary costs.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Additionally, we are actively monitoring the ongoing conflict in the Middle East and the potential impact on our business.",
+          "chunk_id": "0001628280-26-050900:mdna:0011:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-C07",
+      "comparison_id": "HSY:seq-10q",
+      "note": "The current text also appears in the Q2 2026 MD&A share repurchase footnote; the Q1 2026 MD&A does not carry the remaining-authorization sentence.",
+      "section": "financial_notes",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "In June 2026 the Board approved an additional $500 million share repurchase authorization, and the amount left under the December 2023 program fell from about $470 million to about $270 million after Q2 buybacks.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "approximately $470 million remains available for repurchases under our December 2023 share repurchase authorization",
+          "chunk_id": "0001628280-26-028682:financial_notes:0140:0"
+        },
+        {
+          "side": "current",
+          "text": "approximately $270 million remains available for repurchases under our December 2023 share repurchase authorization. In June 2026, our Board of Directors approved an additional $500 million share repurchase authorization.",
+          "chunk_id": "0001628280-26-050900:financial_notes:0155:0"
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-C08",
+      "comparison_id": "HSY:seq-10q",
+      "note": "The Q1 2026 10-Q gives $667.4 million for December 31, 2025, but the FY2025 10-K and the Q2 2026 10-Q give $973.1 million ($667.4 million is the December 31, 2024 figure). This looks like an error in the Q1 filing; the change is labeled on the quarter-end values.",
+      "section": "market_risk",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "Open commodity derivative notional value fell from $925.2 million at Q1 end to $504.1 million at Q2 end, while the 10% price-decline sensitivity rose from $32.5 million to $48.2 million.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Our open commodity derivative contracts had a notional value of $925.2 million as of March 29, 2026 and $667.4 million as of December 31, 2025.",
+          "chunk_id": "0001628280-26-028682:market_risk:0008:0"
+        },
+        {
+          "side": "current",
+          "text": "Our open commodity derivative contracts had a notional value of $504.1 million as of June 28, 2026 and $973.1 million as of December 31, 2025.",
+          "chunk_id": "0001628280-26-050900:market_risk:0008:0"
+        }
+      ]
+    }
+  ],
+  "causes": [
+    {
+      "item_id": "HSY-S01",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "Business realignment costs were lower in 2025 and are named as an offset in the cost of sales paragraph, so 'higher business realignment costs' is contradicted rather than merely unstated.",
+      "section": "mdna",
+      "change": "Gross margin fell to 33.5% in 2025 from 47.3% in 2024, a decline of about 1,380 basis points.",
+      "metric": "gross_margin",
+      "direction": "down",
+      "causes": [
+        "higher commodity costs",
+        "higher tariff costs",
+        "unfavorable mark-to-market activity on commodity derivatives",
+        "lower volume"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The decrease was driven by higher commodity and tariff costs, unfavorable mark-to-market activity on our commodity derivative instruments and lower volume, which more than offset the benefits from net price realization",
+        "chunk_id": "0001628280-26-008586:mdna:0034:0"
+      },
+      "distractors": [
+        "unfavorable foreign currency exchange rates",
+        "higher business realignment costs",
+        "higher advertising and consumer marketing spending"
+      ]
+    },
+    {
+      "item_id": "HSY-S02",
+      "comparison_id": "HSY:yoy-10q",
+      "note": "The cost of sales paragraph also cites $117.4 million of favorable mark-to-market activity on commodity derivatives, which is not in the gross margin sentence; it is neither a stated cause here nor a distractor. Volume declined, logistics costs rose (segment text) and FX impact was minimal, so the distractors are unstated or contradicted.",
+      "section": "mdna",
+      "change": "Second-quarter gross margin rose to 45.3% in 2026 from 30.5% in 2025, an increase of 1,490 basis points.",
+      "metric": "gross_margin",
+      "direction": "up",
+      "causes": [
+        "favorable net price realization",
+        "net savings from the AAA Initiative"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "Gross margin was 45.3% in the second quarter of 2026 compared to 30.5% in the same period of 2025, an increase of 1,490 basis points. The increase was driven by favorable net price realization and net savings related to our AAA Initiative",
+        "chunk_id": "0001628280-26-050900:mdna:0018:0"
+      },
+      "distractors": [
+        "higher sales volume",
+        "favorable foreign currency exchange rates",
+        "lower logistics costs"
+      ]
+    },
+    {
+      "item_id": "HSY-S03",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "The FY2025 10-K says capability and technology investments decreased (unallocated corporate expense) and business realignment costs fell, so two distractors are contradicted; acquisition costs are not mentioned for SM&A.",
+      "section": "mdna",
+      "change": "SM&A expenses rose 3.7% to $2,460.6 million in 2025 from $2,373.6 million in 2024.",
+      "metric": "sga",
+      "direction": "up",
+      "causes": [
+        "higher compensation and benefit costs",
+        "investments in advertising and related consumer marketing"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The increase was driven by higher compensation and benefit costs and investments in advertising and related consumer marketing expenses.",
+        "chunk_id": "0001628280-26-008586:mdna:0037:0"
+      },
+      "distractors": [
+        "higher technology and capability investments",
+        "LesserEvil acquisition and integration costs",
+        "higher business realignment costs"
+      ]
+    }
+  ],
+  "judge": [
+    {
+      "item_id": "HSY-J01",
+      "comparison_id": "HSY:yoy-10k",
+      "cause_id": "HSY-S01",
+      "claim": "Higher tariff costs contributed to Hershey's gross margin decline in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The decrease was driven by higher commodity and tariff costs, unfavorable mark-to-market activity on our commodity derivative instruments and lower volume, which more than offset the benefits from net price realization",
+        "chunk_id": "0001628280-26-008586:mdna:0034:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "HSY-J02",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "The quote names commodity costs (broader than cocoa) as a driver of higher cost of sales, not of gross margin directly.",
+      "cause_id": "HSY-S01",
+      "claim": "Higher cocoa costs drove Hershey's gross margin decline in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The increase was driven by $1,965.1 million of unfavorable costs, primarily related to $736.6 million in higher commodity costs",
+        "chunk_id": "0001628280-26-008586:mdna:0034:0"
+      },
+      "verdict": "implies"
+    },
+    {
+      "item_id": "HSY-J03",
+      "comparison_id": "HSY:yoy-10k",
+      "cause_id": "HSY-S01",
+      "claim": "Higher commodity and tariff costs lowered Hershey's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "For 2025, we increased the expected return on plan assets assumption to 7.0% from the 6.8% assumption used during 2024.",
+        "chunk_id": "0001628280-26-008586:mdna:0137:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "HSY-J04",
+      "comparison_id": "HSY:yoy-10q",
+      "cause_id": "HSY-S02",
+      "claim": "Net savings from the AAA Initiative helped raise gross margin in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "Gross margin was 45.3% in the second quarter of 2026 compared to 30.5% in the same period of 2025, an increase of 1,490 basis points. The increase was driven by favorable net price realization and net savings related to our AAA Initiative",
+        "chunk_id": "0001628280-26-050900:mdna:0018:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "HSY-J05",
+      "comparison_id": "HSY:yoy-10q",
+      "note": "The quote ties pricing actions to net sales growth only; it supports the claim but states no cause for the gross margin change.",
+      "cause_id": "HSY-S02",
+      "claim": "Pricing actions drove the gross margin expansion in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "The net sales increase reflects a favorable price realization of approximately 12%, primarily related to pricing actions within the North America Confectionery and International segments.",
+        "chunk_id": "0001628280-26-050900:mdna:0014:0"
+      },
+      "verdict": "implies"
+    },
+    {
+      "item_id": "HSY-J06",
+      "comparison_id": "HSY:yoy-10q",
+      "cause_id": "HSY-S02",
+      "claim": "Favorable net price realization raised gross margin in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "Net interest expense was $50.0 million in the second quarter of 2026 compared to $46.0 million in the same period of 2025, an increase of $4.0 million, or 8.5%.",
+        "chunk_id": "0001628280-26-050900:mdna:0024:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "HSY-J07",
+      "comparison_id": "HSY:yoy-10k",
+      "cause_id": "HSY-S03",
+      "claim": "Higher compensation and benefit costs increased SM&A expenses in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The increase was driven by higher compensation and benefit costs and investments in advertising and related consumer marketing expenses.",
+        "chunk_id": "0001628280-26-008586:mdna:0037:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "HSY-J08",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "The quote names compensation costs, broader than incentive compensation. Incentive compensation is named only for unallocated corporate expense, in a different passage.",
+      "cause_id": "HSY-S03",
+      "claim": "Higher incentive compensation drove the 2025 increase in SM&A expenses.",
+      "quote": {
+        "side": "current",
+        "text": "SM&A expenses, excluding advertising and related consumer marketing, increased approximately 4.2% in 2025 driven by higher compensation costs, partially offset by net savings related to our AAA Initiative.",
+        "chunk_id": "0001628280-26-008586:mdna:0037:0"
+      },
+      "verdict": "implies"
+    },
+    {
+      "item_id": "HSY-J09",
+      "comparison_id": "HSY:yoy-10k",
+      "cause_id": "HSY-S03",
+      "claim": "Investments in advertising and consumer marketing increased SM&A expenses in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "Peanut prices in the U.S. ranged from a high of $0.64 per pound to a low of $0.48 per pound during 2025.",
+        "chunk_id": "0001628280-26-008586:market_risk:0027:0"
+      },
+      "verdict": "unrelated"
+    }
+  ],
+  "sampled": [
+    {
+      "item_id": "HSY-F01",
+      "comparison_id": "HSY:yoy-10k",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:mdna:0031",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Net sales were $11,692.6 million in 2025 compared to $11,202.3 million in 2024, an increase of $490.3 million, or 4.4%. The net sales increase reflects a favorable price realization of approximately 6% primarily due to higher list prices across all three segments, as well as a benefit of approximately 1% from the 2024 acquisition of Sour Strips and the 2025 acquisition of LesserEvil. The increase was partially offset by a volume decrease of approximately 1%, primarily driven by price elasticity impacts within the North America Confectionery and International segments, partially offset by strong results in North America Salty Snacks. The increase was further offset by an unfavorable foreign currency exchange impact of less than 1%.",
+      "prior_text": "Net sales were $11,165.0 million in 2023 compared to $10,419.3 million in 2022, an increase of $745.7 million, or 7.2%. The net sales increase reflects a favorable price realization of 8.3% due to higher list prices across all segments and by a favorable impact from foreign currency exchange rates of 0.2%. The increase was slightly offset by a volume decrease of 1.3% due to a decrease in consumer demand primarily in everyday core U.S. confection brands.",
+      "material": true
+    },
+    {
+      "item_id": "HSY-F02",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "Reviewer: Talks about internal promotions, not company financial metrics",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:business:0039",
+      "kind": "modified",
+      "section": "business",
+      "current_text": "•Talent Acquisition, Development and Training. Hiring and developing our employees is critically important to our operations and we are focused on creating experiences and programs that foster growth and performance. We provide all employees the chance to learn, grow and own their work. We have partnered with leading online content experts and increased internal learning development to expand our catalog of online and classroom courses. Additionally, we co-created a culture of development with the enthusiastic support of our employees. Through individual development plans, learning opportunities, feedback and coaching, employees can build careers at The Hershey Company, as evidenced by our fill rate for director and above roles where greater than 70% have been promoted internally over the past three years.",
+      "prior_text": "•Talent Acquisition, Development and Training. Hiring and developing our employees is critically important to our operations and we are focused on creating experiences and programs that foster growth and performance. We provide all employees the chance to learn, grow and own their work. We have partnered with leading online content experts and increased internal learning development to expand our catalog of online and classroom courses. Additionally, we co-created a culture of development with the enthusiastic support of our employees. Through individual development plans, learning opportunities, feedback and coaching, employees can build careers at The Hershey Company, as evidenced by the fact that the majority of our executive officers were promoted from within the organization (see Information about Our Executive Officers).",
+      "material": false
+    },
+    {
+      "item_id": "HSY-F03",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "Reviewer: Talks about business realignment expenses which are excluded from segment performance and are thus not relevant to the overall company's performance",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:financial_notes:0157",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "Since inception through December 31, 2025, we recognized total costs associated with the AAA Initiative of $176,937. These charges predominantly included employee severance and related separation benefits related to workforce reductions and third-party costs supporting the design and implementation of the new organizational structure, as well as technology capability costs. The costs and related benefits of the AAA Initiative predominantly relates to the North America Confectionery segment and Corporate. However, segment operating results do not include these business realignment expenses because we evaluate segment performance excluding such costs.",
+      "prior_text": "Since inception through December 31, 2024, we recognized total costs associated with the AAA Initiative of $117,536. These charges predominantly included employee severance and related separation benefits related to workforce reductions and third-party costs supporting the design and implementation of the new organizational structure, as well as technology capability costs. The costs and related benefits of the AAA Initiative predominantly relates to the North America Confectionery segment and Corporate. However, segment operating results do not include these business realignment expenses because we evaluate segment performance excluding such costs.",
+      "material": false
+    },
+    {
+      "item_id": "HSY-F04",
+      "comparison_id": "HSY:seq-10q",
+      "change_id": "HSY:seq-10q:modified:0001628280-26-050900:mdna:0049",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "The North America Salty Snacks segment is responsible for our grocery and snacks market positions, including our salty snacking products. North America Salty Snacks results, which accounted for 13.9% and 12.1% of our net sales for the three months ended June 28, 2026 and June 29, 2025, respectively, were as follows:",
+      "prior_text": "The North America Salty Snacks segment is responsible for our grocery and snacks market positions, including our salty snacking products. North America Salty Snacks results, which accounted for 11.3% and 9.9% of our net sales for the three months ended March 29, 2026 and March 30, 2025, respectively, were as follows:",
+      "material": false
+    },
+    {
+      "item_id": "HSY-F05",
+      "comparison_id": "HSY:yoy-10k",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:mdna:0040",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "SM&A expenses were $2,373.6 million in 2024 compared to $2,436.5 million in 2023, a decrease of $62.9 million, or 2.6%. The decrease was driven by lower corporate expenses. Total advertising and related consumer marketing expenses declined 0.1% driven by North America Confectionery, significantly offset by increased spending in North America Salty Snacks. SM&A expenses, excluding advertising and related consumer marketing, decreased approximately 3.8% in 2024 driven by lower compensation and benefit costs across segments.",
+      "prior_text": "Selling, marketing and administrative (“SM&A”) expenses were $2,373.6 million in 2024 compared to $2,436.5 million in 2023, a decrease of $62.9 million, or 2.6%. The decrease was driven by lower corporate expenses. Total advertising and related consumer marketing expenses declined 0.1%% driven by North America Confectionery, significantly offset by increased spending in North America Salty Snacks. SM&A expenses, excluding advertising and related consumer marketing, decreased approximately 3.8% in 2024 driven by lower compensation and benefit costs across segments.",
+      "material": false
+    },
+    {
+      "item_id": "HSY-F06",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "Reviewer: Not material as it is discussing changes relevant only from an accounting perspective, not from a financially material perspective",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:financial_notes:0079",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The acquisition has been accounted for as a business combination and, accordingly, Sour Strips has been included within the North America Confectionery segment from the date of acquisition. The purchase consideration, inclusive of the acquisition date fair value of the contingent consideration, was allocated to minimal net assets acquired, goodwill and other intangible assets. The purchase price allocation was finalized as of the second quarter of 2025 and included an immaterial amount of measurement period adjustments. The measurement period adjustments to the initial allocation were based on more detailed information obtained about the specific assets acquired and liabilities assumed, specifically, post-closing adjustments to the working capital acquired.",
+      "prior_text": "The acquisition has been accounted for as a business combination and, accordingly, Sour Strips has been included within the North America Confectionery segment from the date of acquisition. The purchase consideration, inclusive of the acquisition date fair value of the contingent consideration, was allocated to minimal net assets acquired, goodwill and other intangible assets. The purchase price allocation is preliminary as we are in the process of evaluating additional information necessary to finalize the valuation of assets acquired and liabilities assumed as of the acquisition date including, but not limited to, post-closing adjustments to the working capital acquired. The final fair value determination is not expected to result in material adjustments to our preliminary purchase price allocation, including other intangible assets and goodwill. We expect to finalize the purchase price allocation by mid-2025.",
+      "material": false
+    },
+    {
+      "item_id": "HSY-F07",
+      "comparison_id": "HSY:yoy-10q",
+      "note": "Reviewer: Discusses rising net sales and factors associated with the change in metric",
+      "change_id": "HSY:yoy-10q:modified:0001628280-26-050900:mdna:0059",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Net sales of our International segment were $490.1 million in the first six months of 2026 compared to $441.2 million in the same period of 2025, an increase of $48.9 million, or 11.1%. The increase was driven by a favorable price realization of approximately 11%, primarily due to strategic pricing actions across key markets. The increase was further due to a favorable impact from foreign currency exchange rates of approximately 5%. The increase was partially offset by volume declines of approximately 5% across certain key markets.",
+      "prior_text": "Net sales of our International segment were $441.2 million in the first six months of 2025 compared to $475.1 million the same period of 2024, a decrease of $33.9 million, or 7.1%. The decrease was due to an unfavorable impact from foreign currency exchange rates of approximately 7%, driven by Mexico, Brazil and Latin America, and volume declines of approximately 1%, primarily attributable to APAC and India and Mexico, Brazil and Latin America. The decrease was partially offset by a favorable price realization of approximately 1%, driven by Mexico, Brazil and Latin America.",
+      "material": true
+    },
+    {
+      "item_id": "HSY-F08",
+      "comparison_id": "HSY:yoy-10q",
+      "note": "Reviewer: Does not say anything meaningfully different from prior year's 10-Q about acquisition of a brand",
+      "change_id": "HSY:yoy-10q:modified:0001628280-26-050900:financial_notes:0024",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "On November 8, 2024, we completed the acquisition of the Sour Strips brand from Actual Candy, LLC. Sour Strips is an emerging sour candy brand and is available in a wide range of food distribution channels in the United States. The initial cash consideration paid for Sour Strips was deemed immaterial and consisted of cash on hand and short-term borrowings; however, the Company may be required to pay additional contingent consideration if certain defined targets are met over a multi-year period. We paid a portion of contingent consideration in April 2026. Acquisition-related costs for the Sour Strips acquisition were immaterial.",
+      "prior_text": "On November 8, 2024, we completed the acquisition of the Sour Strips brand from Actual Candy, LLC. Sour Strips is an emerging sour candy brand and is available in a wide range of food distribution channels in the United States. The initial cash consideration paid for Sour Strips was deemed immaterial and consisted of cash on hand and short-term borrowings; however, the Company may be required to pay additional contingent consideration if certain defined targets are met over a multi-year period. Acquisition-related costs for the Sour Strips acquisition were immaterial.",
+      "material": false
+    },
+    {
+      "item_id": "HSY-F09",
+      "comparison_id": "HSY:yoy-10k",
+      "note": "Reviewer: Management notes about acquisitions and potential pitfalls but does not directly address any metric",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:risk_factors:0063",
+      "kind": "modified",
+      "section": "risk_factors",
+      "current_text": "Canada. The acquisition complements Hershey’s existing portfolio and increases manufacturing capacity. In 2024, we completed the acquisition of the Sour Strips brand from Actual Candy, LLC. Sour Strips is an emerging sour candy brand. In 2023, we completed the acquisition of certain assets that provide additional manufacturing capacity from Weaver Popcorn, a manufacturer of SkinnyPop popcorn, which helped us strengthen our supply chain capabilities. While we believe significant operating synergies can be obtained in connection with these acquisitions, achievement of these synergies will be driven by our ability to successfully leverage Hershey’s resources, expertise, capability-building, distribution locations and customer base. If we are unable to successfully couple Hershey’s scale and expertise in brand building with the existing operations of our acquired brands, it may impact our ability to expand our snacking footprint at our desired pace.",
+      "prior_text": "In 2024, we completed the acquisition of the Sour Strips brand from Actual Candy, LLC. Sour Strips is an emerging sour candy brand. In 2023, we completed the acquisition of certain assets that provide additional manufacturing capacity from Weaver Popcorn, a manufacturer of SkinnyPop popcorn, which helped us strengthen our supply chain capabilities. While we believe significant operating synergies can be obtained in connection with these acquisitions, achievement of these synergies will be driven by our ability to successfully leverage Hershey’s resources, expertise, capability-building, distribution locations and customer base. In addition, the acquisitions of Dot’s and Pretzels in",
+      "material": false
+    },
+    {
+      "item_id": "HSY-F10",
+      "comparison_id": "HSY:seq-10q",
+      "note": "Reviewer: Date changes associated with different fiscal years but contains otherwise identical content",
+      "change_id": "HSY:seq-10q:modified:0001628280-26-050900:financial_notes:0161",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The earnings per share calculations for the three months ended June 28, 2026 and June 29, 2025 excluded 14 and 17 stock options (in thousands), respectively, that would have been antidilutive.",
+      "prior_text": "The earnings per share calculations for the three months ended March 29, 2026 and March 30, 2025 excluded 14 and 27 stock options (in thousands), respectively, that would have been antidilutive.",
+      "material": false
+    },
+    {
+      "item_id": "HSY-F11",
+      "comparison_id": "HSY:seq-10q",
+      "note": "Reviewer: Discusses accounting cash flow for payment of taxes but does not affect relevant metrics",
+      "change_id": "HSY:seq-10q:modified:0001628280-26-050900:mdna:0071",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "•The variance in operating cash flows related to income taxes reflects timing differences between actual tax expense and quarterly estimated tax payments. We paid cash of $207.0 million for income taxes during 2026, compared to $65.5 million in the same period of 2025.",
+      "prior_text": "•The variance in operating cash flows related to income taxes reflects timing differences between actual tax expense and quarterly estimated tax payments. We paid cash of $24.4 million for income taxes during 2026, compared to $38.9 million in the same period of 2025.",
+      "material": false
+    },
+    {
+      "item_id": "HSY-F12",
+      "comparison_id": "HSY:yoy-10q",
+      "note": "Reviewer: Talks about increase of net sales, as well as the drivers behind the increase in net sales year-over-year.",
+      "change_id": "HSY:yoy-10q:modified:0001628280-26-050900:mdna:0028",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Net sales were $5,891.5 million in the first six months of 2026 compared to $5,420.1 million during the same period of 2025, an increase of $471.4 million, or 8.7%. The net sales increase was driven by favorable price realization of approximately 11% within our North America Confectionery and International segments. Additionally, the 2025 acquisition of LesserEvil contributed approximately a 2% benefit. Further, there was a favorable foreign currency exchange impact of less than 1%. The net sales increase was partially offset by a volume decrease of approximately 5%, driven by volume declines in North America Confectionery and International segments, which more than offset the volume growth in the North America Salty Snacks segment.",
+      "prior_text": "Net sales were $5,420.1 million in the first six months of 2025 compared to $5,327.2 million during the same period of 2024, an increase of $92.9 million, or 1.7%. The net sales increase was driven by favorable price realization of approximately 3% across our reportable segments. The net sales increase was partially offset by a volume decrease of approximately 1%, primarily driven by the North America Confectionery segment, as well as unfavorable foreign currency exchange impact of approximately 1%.",
+      "material": true
+    },
+    {
+      "item_id": "HSY-F13",
+      "comparison_id": "HSY:seq-10q",
+      "note": "Reviewer: Talks about cash flow hedges for foreign exchange contracts that is not relevant to key metrics",
+      "change_id": "HSY:seq-10q:modified:0001628280-26-050900:financial_notes:0043",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "We are exposed to foreign currency exchange rate risk related to our international operations, including non-functional currency intercompany debt and other non-functional currency transactions of certain subsidiaries. Principal currencies hedged include the euro, Canadian dollar, Japanese yen, British pound, Brazilian real, Malaysian ringgit, Mexican peso and Swiss franc. We typically utilize foreign currency forward exchange contracts to hedge these exposures for periods ranging from 3 to 18 months. The contracts are either designated as cash flow hedges or are undesignated. The net notional amount of foreign exchange contracts accounted for as cash flow hedges was $83,907 at June 28, 2026 and $223,962 at December 31, 2025. The effective portion of the changes in fair value on these contracts is recorded in other comprehensive income and reclassified into earnings in the same period in which the hedged transactions affect earnings. The net notional amount of foreign exchange contracts that are not designated as accounting hedges was $61,888 at June 28, 2026 and $59,970 at December 31, 2025. The change in fair value on these instruments is recorded directly in cost of sales or selling, marketing and administrative (“SM&A”) expense, depending on the nature of the underlying exposure.",
+      "prior_text": "We are exposed to foreign currency exchange rate risk related to our international operations, including non-functional currency intercompany debt and other non-functional currency transactions of certain subsidiaries. Principal currencies hedged include the euro, Canadian dollar, Japanese yen, British pound, Brazilian real, Malaysian ringgit, Mexican peso and Swiss franc. We typically utilize foreign currency forward exchange contracts to hedge these exposures for periods ranging from 3 to 18 months. The contracts are either designated as cash flow hedges or are undesignated. The net notional amount of foreign exchange contracts accounted for as cash flow hedges was $157,838 at March 29, 2026 and $223,962 at December 31, 2025. The effective portion of the changes in fair value on these contracts is recorded in other comprehensive income and reclassified into earnings in the same period in which the hedged transactions affect earnings. The net notional amount of foreign exchange contracts that are not designated as accounting hedges was $63,653 at March 29, 2026 and $59,970 at December 31, 2025. The change in fair value on these instruments is recorded directly in cost of sales or selling, marketing and administrative (“SM&A”) expense, depending on the nature of the underlying exposure.",
+      "material": false
+    },
+    {
+      "item_id": "HSY-F14",
+      "comparison_id": "HSY:seq-10q",
+      "note": "Reviewer: Missing passage from 10-Q Q1 2026. Manual inspection shows that the passage exists on both sides and would otherwise comprise a Material change (decrease in net sales for the North America Confectionery segment quarter-over-quarter); however, since the paragraph is missing from the prior in this sample, the change should not be labeled as material.",
+      "change_id": "HSY:seq-10q:added:0001628280-26-050900:mdna:0045",
+      "kind": "added",
+      "section": "mdna",
+      "current_text": "Net sales of our North America Confectionery segment were $2,173.6 million in the second quarter of 2026 compared to $2,085.5 million in the same period of 2025, an increase of $88.1 million, or 4.2%. The increase was driven by favorable price realization of approximately 14%, primarily due to the pricing action announced in 2025. Volume declined approximately 10%, driven primarily by price elasticity. Additionally, there was no impact from foreign currency exchange rates.",
+      "material": false
+    }
+  ]
+}

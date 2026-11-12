@@ -1,0 +1,363 @@
+{
+  "retrieval": [],
+  "changes": [],
+  "causes": [],
+  "judge": [],
+  "sampled": [
+    {
+      "item_id": "HSY-F01",
+      "comparison_id": "HSY:yoy-10k",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:mdna:0031",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Net sales were $11,692.6 million in 2025 compared to $11,202.3 million in 2024, an increase of $490.3 million, or 4.4%. The net sales increase reflects a favorable price realization of approximately 6% primarily due to higher list prices across all three segments, as well as a benefit of approximately 1% from the 2024 acquisition of Sour Strips and the 2025 acquisition of LesserEvil. The increase was partially offset by a volume decrease of approximately 1%, primarily driven by price elasticity impacts within the North America Confectionery and International segments, partially offset by strong results in North America Salty Snacks. The increase was further offset by an unfavorable foreign currency exchange impact of less than 1%.",
+      "prior_text": "Net sales were $11,165.0 million in 2023 compared to $10,419.3 million in 2022, an increase of $745.7 million, or 7.2%. The net sales increase reflects a favorable price realization of 8.3% due to higher list prices across all segments and by a favorable impact from foreign currency exchange rates of 0.2%. The increase was slightly offset by a volume decrease of 1.3% due to a decrease in consumer demand primarily in everyday core U.S. confection brands."
+    },
+    {
+      "item_id": "HSY-F02",
+      "comparison_id": "HSY:yoy-10k",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:business:0039",
+      "kind": "modified",
+      "section": "business",
+      "current_text": "•Talent Acquisition, Development and Training. Hiring and developing our employees is critically important to our operations and we are focused on creating experiences and programs that foster growth and performance. We provide all employees the chance to learn, grow and own their work. We have partnered with leading online content experts and increased internal learning development to expand our catalog of online and classroom courses. Additionally, we co-created a culture of development with the enthusiastic support of our employees. Through individual development plans, learning opportunities, feedback and coaching, employees can build careers at The Hershey Company, as evidenced by our fill rate for director and above roles where greater than 70% have been promoted internally over the past three years.",
+      "prior_text": "•Talent Acquisition, Development and Training. Hiring and developing our employees is critically important to our operations and we are focused on creating experiences and programs that foster growth and performance. We provide all employees the chance to learn, grow and own their work. We have partnered with leading online content experts and increased internal learning development to expand our catalog of online and classroom courses. Additionally, we co-created a culture of development with the enthusiastic support of our employees. Through individual development plans, learning opportunities, feedback and coaching, employees can build careers at The Hershey Company, as evidenced by the fact that the majority of our executive officers were promoted from within the organization (see Information about Our Executive Officers)."
+    },
+    {
+      "item_id": "HSY-F03",
+      "comparison_id": "HSY:yoy-10k",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:financial_notes:0157",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "Since inception through December 31, 2025, we recognized total costs associated with the AAA Initiative of $176,937. These charges predominantly included employee severance and related separation benefits related to workforce reductions and third-party costs supporting the design and implementation of the new organizational structure, as well as technology capability costs. The costs and related benefits of the AAA Initiative predominantly relates to the North America Confectionery segment and Corporate. However, segment operating results do not include these business realignment expenses because we evaluate segment performance excluding such costs.",
+      "prior_text": "Since inception through December 31, 2024, we recognized total costs associated with the AAA Initiative of $117,536. These charges predominantly included employee severance and related separation benefits related to workforce reductions and third-party costs supporting the design and implementation of the new organizational structure, as well as technology capability costs. The costs and related benefits of the AAA Initiative predominantly relates to the North America Confectionery segment and Corporate. However, segment operating results do not include these business realignment expenses because we evaluate segment performance excluding such costs."
+    },
+    {
+      "item_id": "HSY-F04",
+      "comparison_id": "HSY:seq-10q",
+      "change_id": "HSY:seq-10q:modified:0001628280-26-050900:mdna:0049",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "The North America Salty Snacks segment is responsible for our grocery and snacks market positions, including our salty snacking products. North America Salty Snacks results, which accounted for 13.9% and 12.1% of our net sales for the three months ended June 28, 2026 and June 29, 2025, respectively, were as follows:",
+      "prior_text": "The North America Salty Snacks segment is responsible for our grocery and snacks market positions, including our salty snacking products. North America Salty Snacks results, which accounted for 11.3% and 9.9% of our net sales for the three months ended March 29, 2026 and March 30, 2025, respectively, were as follows:"
+    },
+    {
+      "item_id": "HSY-F05",
+      "comparison_id": "HSY:yoy-10k",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:mdna:0040",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "SM&A expenses were $2,373.6 million in 2024 compared to $2,436.5 million in 2023, a decrease of $62.9 million, or 2.6%. The decrease was driven by lower corporate expenses. Total advertising and related consumer marketing expenses declined 0.1% driven by North America Confectionery, significantly offset by increased spending in North America Salty Snacks. SM&A expenses, excluding advertising and related consumer marketing, decreased approximately 3.8% in 2024 driven by lower compensation and benefit costs across segments.",
+      "prior_text": "Selling, marketing and administrative (“SM&A”) expenses were $2,373.6 million in 2024 compared to $2,436.5 million in 2023, a decrease of $62.9 million, or 2.6%. The decrease was driven by lower corporate expenses. Total advertising and related consumer marketing expenses declined 0.1%% driven by North America Confectionery, significantly offset by increased spending in North America Salty Snacks. SM&A expenses, excluding advertising and related consumer marketing, decreased approximately 3.8% in 2024 driven by lower compensation and benefit costs across segments."
+    },
+    {
+      "item_id": "HSY-F06",
+      "comparison_id": "HSY:yoy-10k",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:financial_notes:0079",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The acquisition has been accounted for as a business combination and, accordingly, Sour Strips has been included within the North America Confectionery segment from the date of acquisition. The purchase consideration, inclusive of the acquisition date fair value of the contingent consideration, was allocated to minimal net assets acquired, goodwill and other intangible assets. The purchase price allocation was finalized as of the second quarter of 2025 and included an immaterial amount of measurement period adjustments. The measurement period adjustments to the initial allocation were based on more detailed information obtained about the specific assets acquired and liabilities assumed, specifically, post-closing adjustments to the working capital acquired.",
+      "prior_text": "The acquisition has been accounted for as a business combination and, accordingly, Sour Strips has been included within the North America Confectionery segment from the date of acquisition. The purchase consideration, inclusive of the acquisition date fair value of the contingent consideration, was allocated to minimal net assets acquired, goodwill and other intangible assets. The purchase price allocation is preliminary as we are in the process of evaluating additional information necessary to finalize the valuation of assets acquired and liabilities assumed as of the acquisition date including, but not limited to, post-closing adjustments to the working capital acquired. The final fair value determination is not expected to result in material adjustments to our preliminary purchase price allocation, including other intangible assets and goodwill. We expect to finalize the purchase price allocation by mid-2025."
+    },
+    {
+      "item_id": "HSY-F07",
+      "comparison_id": "HSY:yoy-10q",
+      "change_id": "HSY:yoy-10q:modified:0001628280-26-050900:mdna:0059",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Net sales of our International segment were $490.1 million in the first six months of 2026 compared to $441.2 million in the same period of 2025, an increase of $48.9 million, or 11.1%. The increase was driven by a favorable price realization of approximately 11%, primarily due to strategic pricing actions across key markets. The increase was further due to a favorable impact from foreign currency exchange rates of approximately 5%. The increase was partially offset by volume declines of approximately 5% across certain key markets.",
+      "prior_text": "Net sales of our International segment were $441.2 million in the first six months of 2025 compared to $475.1 million the same period of 2024, a decrease of $33.9 million, or 7.1%. The decrease was due to an unfavorable impact from foreign currency exchange rates of approximately 7%, driven by Mexico, Brazil and Latin America, and volume declines of approximately 1%, primarily attributable to APAC and India and Mexico, Brazil and Latin America. The decrease was partially offset by a favorable price realization of approximately 1%, driven by Mexico, Brazil and Latin America."
+    },
+    {
+      "item_id": "HSY-F08",
+      "comparison_id": "HSY:yoy-10q",
+      "change_id": "HSY:yoy-10q:modified:0001628280-26-050900:financial_notes:0024",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "On November 8, 2024, we completed the acquisition of the Sour Strips brand from Actual Candy, LLC. Sour Strips is an emerging sour candy brand and is available in a wide range of food distribution channels in the United States. The initial cash consideration paid for Sour Strips was deemed immaterial and consisted of cash on hand and short-term borrowings; however, the Company may be required to pay additional contingent consideration if certain defined targets are met over a multi-year period. We paid a portion of contingent consideration in April 2026. Acquisition-related costs for the Sour Strips acquisition were immaterial.",
+      "prior_text": "On November 8, 2024, we completed the acquisition of the Sour Strips brand from Actual Candy, LLC. Sour Strips is an emerging sour candy brand and is available in a wide range of food distribution channels in the United States. The initial cash consideration paid for Sour Strips was deemed immaterial and consisted of cash on hand and short-term borrowings; however, the Company may be required to pay additional contingent consideration if certain defined targets are met over a multi-year period. Acquisition-related costs for the Sour Strips acquisition were immaterial."
+    },
+    {
+      "item_id": "HSY-F09",
+      "comparison_id": "HSY:yoy-10k",
+      "change_id": "HSY:yoy-10k:modified:0001628280-26-008586:risk_factors:0063",
+      "kind": "modified",
+      "section": "risk_factors",
+      "current_text": "Canada. The acquisition complements Hershey’s existing portfolio and increases manufacturing capacity. In 2024, we completed the acquisition of the Sour Strips brand from Actual Candy, LLC. Sour Strips is an emerging sour candy brand. In 2023, we completed the acquisition of certain assets that provide additional manufacturing capacity from Weaver Popcorn, a manufacturer of SkinnyPop popcorn, which helped us strengthen our supply chain capabilities. While we believe significant operating synergies can be obtained in connection with these acquisitions, achievement of these synergies will be driven by our ability to successfully leverage Hershey’s resources, expertise, capability-building, distribution locations and customer base. If we are unable to successfully couple Hershey’s scale and expertise in brand building with the existing operations of our acquired brands, it may impact our ability to expand our snacking footprint at our desired pace.",
+      "prior_text": "In 2024, we completed the acquisition of the Sour Strips brand from Actual Candy, LLC. Sour Strips is an emerging sour candy brand. In 2023, we completed the acquisition of certain assets that provide additional manufacturing capacity from Weaver Popcorn, a manufacturer of SkinnyPop popcorn, which helped us strengthen our supply chain capabilities. While we believe significant operating synergies can be obtained in connection with these acquisitions, achievement of these synergies will be driven by our ability to successfully leverage Hershey’s resources, expertise, capability-building, distribution locations and customer base. In addition, the acquisitions of Dot’s and Pretzels in"
+    },
+    {
+      "item_id": "HSY-F10",
+      "comparison_id": "HSY:seq-10q",
+      "change_id": "HSY:seq-10q:modified:0001628280-26-050900:financial_notes:0161",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The earnings per share calculations for the three months ended June 28, 2026 and June 29, 2025 excluded 14 and 17 stock options (in thousands), respectively, that would have been antidilutive.",
+      "prior_text": "The earnings per share calculations for the three months ended March 29, 2026 and March 30, 2025 excluded 14 and 27 stock options (in thousands), respectively, that would have been antidilutive."
+    },
+    {
+      "item_id": "HSY-F11",
+      "comparison_id": "HSY:seq-10q",
+      "change_id": "HSY:seq-10q:modified:0001628280-26-050900:mdna:0071",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "•The variance in operating cash flows related to income taxes reflects timing differences between actual tax expense and quarterly estimated tax payments. We paid cash of $207.0 million for income taxes during 2026, compared to $65.5 million in the same period of 2025.",
+      "prior_text": "•The variance in operating cash flows related to income taxes reflects timing differences between actual tax expense and quarterly estimated tax payments. We paid cash of $24.4 million for income taxes during 2026, compared to $38.9 million in the same period of 2025."
+    },
+    {
+      "item_id": "HSY-F12",
+      "comparison_id": "HSY:yoy-10q",
+      "change_id": "HSY:yoy-10q:modified:0001628280-26-050900:mdna:0028",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Net sales were $5,891.5 million in the first six months of 2026 compared to $5,420.1 million during the same period of 2025, an increase of $471.4 million, or 8.7%. The net sales increase was driven by favorable price realization of approximately 11% within our North America Confectionery and International segments. Additionally, the 2025 acquisition of LesserEvil contributed approximately a 2% benefit. Further, there was a favorable foreign currency exchange impact of less than 1%. The net sales increase was partially offset by a volume decrease of approximately 5%, driven by volume declines in North America Confectionery and International segments, which more than offset the volume growth in the North America Salty Snacks segment.",
+      "prior_text": "Net sales were $5,420.1 million in the first six months of 2025 compared to $5,327.2 million during the same period of 2024, an increase of $92.9 million, or 1.7%. The net sales increase was driven by favorable price realization of approximately 3% across our reportable segments. The net sales increase was partially offset by a volume decrease of approximately 1%, primarily driven by the North America Confectionery segment, as well as unfavorable foreign currency exchange impact of approximately 1%."
+    },
+    {
+      "item_id": "HSY-F13",
+      "comparison_id": "HSY:seq-10q",
+      "change_id": "HSY:seq-10q:modified:0001628280-26-050900:financial_notes:0043",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "We are exposed to foreign currency exchange rate risk related to our international operations, including non-functional currency intercompany debt and other non-functional currency transactions of certain subsidiaries. Principal currencies hedged include the euro, Canadian dollar, Japanese yen, British pound, Brazilian real, Malaysian ringgit, Mexican peso and Swiss franc. We typically utilize foreign currency forward exchange contracts to hedge these exposures for periods ranging from 3 to 18 months. The contracts are either designated as cash flow hedges or are undesignated. The net notional amount of foreign exchange contracts accounted for as cash flow hedges was $83,907 at June 28, 2026 and $223,962 at December 31, 2025. The effective portion of the changes in fair value on these contracts is recorded in other comprehensive income and reclassified into earnings in the same period in which the hedged transactions affect earnings. The net notional amount of foreign exchange contracts that are not designated as accounting hedges was $61,888 at June 28, 2026 and $59,970 at December 31, 2025. The change in fair value on these instruments is recorded directly in cost of sales or selling, marketing and administrative (“SM&A”) expense, depending on the nature of the underlying exposure.",
+      "prior_text": "We are exposed to foreign currency exchange rate risk related to our international operations, including non-functional currency intercompany debt and other non-functional currency transactions of certain subsidiaries. Principal currencies hedged include the euro, Canadian dollar, Japanese yen, British pound, Brazilian real, Malaysian ringgit, Mexican peso and Swiss franc. We typically utilize foreign currency forward exchange contracts to hedge these exposures for periods ranging from 3 to 18 months. The contracts are either designated as cash flow hedges or are undesignated. The net notional amount of foreign exchange contracts accounted for as cash flow hedges was $157,838 at March 29, 2026 and $223,962 at December 31, 2025. The effective portion of the changes in fair value on these contracts is recorded in other comprehensive income and reclassified into earnings in the same period in which the hedged transactions affect earnings. The net notional amount of foreign exchange contracts that are not designated as accounting hedges was $63,653 at March 29, 2026 and $59,970 at December 31, 2025. The change in fair value on these instruments is recorded directly in cost of sales or selling, marketing and administrative (“SM&A”) expense, depending on the nature of the underlying exposure."
+    },
+    {
+      "item_id": "HSY-F14",
+      "comparison_id": "HSY:seq-10q",
+      "change_id": "HSY:seq-10q:added:0001628280-26-050900:mdna:0045",
+      "kind": "added",
+      "section": "mdna",
+      "current_text": "Net sales of our North America Confectionery segment were $2,173.6 million in the second quarter of 2026 compared to $2,085.5 million in the same period of 2025, an increase of $88.1 million, or 4.2%. The increase was driven by favorable price realization of approximately 14%, primarily due to the pricing action announced in 2025. Volume declined approximately 10%, driven primarily by price elasticity. Additionally, there was no impact from foreign currency exchange rates."
+    },
+    {
+      "item_id": "MAT-F01",
+      "comparison_id": "MAT:yoy-10k",
+      "change_id": "MAT:yoy-10k:removed:0001628280-25-007887:financial_notes:0236",
+      "kind": "removed",
+      "section": "financial_notes",
+      "prior_text": "Mattel records a reserve for unrecognized tax benefits for U.S. federal, state, local, and foreign tax positions related primarily to transfer pricing, tax credits claimed, tax nexus, and apportionment. For each reporting period, management applies a consistent methodology to measure unrecognized tax benefits, and all unrecognized tax benefits are reviewed periodically and adjusted as circumstances warrant. Mattel's measurement of its reserve for unrecognized tax benefits is based on management's assessment of all relevant information, including prior audit experience, the status of audits, conclusions of tax audits, lapsing of applicable statutes of limitations, identification of new issues, and any administrative guidance or developments."
+    },
+    {
+      "item_id": "MAT-F02",
+      "comparison_id": "MAT:yoy-10k",
+      "change_id": "MAT:yoy-10k:removed:0001628280-25-007887:mdna:0010",
+      "kind": "removed",
+      "section": "mdna",
+      "prior_text": "During 2024, Mattel executed $400.0 million of share repurchases and has a remaining authorization of $600.0 million as of December 31, 2024."
+    },
+    {
+      "item_id": "MAT-F03",
+      "comparison_id": "MAT:yoy-10k",
+      "change_id": "MAT:yoy-10k:modified:0001628280-26-010716:financial_notes:0086",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "Mattel periodically commissions a study of the plans' assets and liabilities to determine an asset allocation that would best match expected cash flows from the plans' assets to expected benefit payments. Mattel monitors the returns earned by the plans' assets and reallocates investments as needed. Mattel's overall investment strategy is to achieve an adequately diversified asset allocation mix of investments that provides for both near-term benefit payments and expected long-term pension liabilities. The assets are invested in a combination of indexed and actively managed funds, as well as government and corporate debt instruments. The U.S. equities are benchmarked against the S&P 500, and the non-U.S. equities are benchmarked against a combination of developed and emerging markets indices. Fixed income securities are long-duration bonds intended to closely match the duration of the liabilities and include U.S. government treasuries and agencies, corporate bonds from various industries, and mortgage-backed and asset-backed securities.",
+      "prior_text": "Mattel periodically commissions a study of the plans' assets and liabilities to determine an asset allocation that would best match expected cash flows from the plans' assets to expected benefit payments. Mattel monitors the returns earned by the plans' assets and reallocates investments as needed. Mattel's overall investment strategy is to achieve an adequately diversified asset allocation mix of investments that provides for both near-term benefit payments as well as long-term growth. The assets are invested in a combination of indexed and actively managed funds. The target allocations for Mattel's domestic plan assets, which comprise 79% of Mattel's total plan assets, are 42% in U.S. equities, 28% in non-U.S. equities, 20% in fixed income securities, and 10% in real estate securities. The U.S. equities are benchmarked against the S&P 500, and the non-U.S. equities are benchmarked against a combination of developed and emerging markets indices. Fixed income securities are long-duration bonds intended to closely match the duration of the liabilities and include U.S. government treasuries and agencies, corporate bonds from various industries, and mortgage-backed and asset-backed securities."
+    },
+    {
+      "item_id": "MAT-F04",
+      "comparison_id": "MAT:yoy-10k",
+      "change_id": "MAT:yoy-10k:added:0001628280-26-010716:business:0003",
+      "kind": "added",
+      "section": "business",
+      "current_text": "•Expand its direct-to-consumer and commercial reach through first party data, retail development, and new channels;"
+    },
+    {
+      "item_id": "MAT-F05",
+      "comparison_id": "MAT:yoy-10k",
+      "change_id": "MAT:yoy-10k:modified:0001628280-26-010716:financial_notes:0170",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The following tables present information about Mattel's financial assets and liabilities measured and reported in the financial statements at fair value on a recurring basis as of December 31, 2025 and 2024 and indicate the fair value hierarchy of the valuation techniques utilized to determine such fair value. The three levels of the fair value hierarchy are as follows:",
+      "prior_text": "The following tables present information about Mattel's assets and liabilities measured and reported in the financial statements at fair value on a recurring basis as of December 31, 2024 and 2023 and indicate the fair value hierarchy of the valuation techniques utilized to determine such fair value. The three levels of the fair value hierarchy are as follows:"
+    },
+    {
+      "item_id": "MAT-F06",
+      "comparison_id": "MAT:yoy-10k",
+      "change_id": "MAT:yoy-10k:modified:0001628280-26-010716:mdna:0043",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Cost of sales decreased by $31.0 million, or 2%, to $1.57 billion in 2025 from $1.60 billion in 2024, primarily due to a decrease in product and other costs of $34.8 million.",
+      "prior_text": "Cost of sales decreased by $121.1 million, or 7%, to $1.60 billion in 2024 from $1.72 billion in 2023, primarily due to a decrease in product and other costs of $115.8 million."
+    },
+    {
+      "item_id": "MAT-F07",
+      "comparison_id": "MAT:seq-10q",
+      "change_id": "MAT:seq-10q:modified:0001628280-26-054347:mdna:0085",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "North America segment income decreased by $50.4 million to $126.5 million in the first half of 2026, as compared to $176.9 million in the first half of 2025, primarily due to higher cost of sales of $49.2 million, higher advertising and promotion expenses of $32.5 million, and higher selling and administrative expenses of $16.0 million, partially offset by higher net sales of $47.3 million.",
+      "prior_text": "North America segment income was $34.5 million in the first quarter of 2026, as compared to $83.1 million in the first quarter of 2025, due to lower net sales of $16.2 million, higher other selling and administrative expenses of $12.2 million, higher cost of sales of $10.3 million, and higher advertising and promotion expenses of $9.9 million."
+    },
+    {
+      "item_id": "MAT-F08",
+      "comparison_id": "MAT:yoy-10q",
+      "change_id": "MAT:yoy-10q:modified:0001628280-26-054347:mdna:0068",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Gross margin decreased to 46.7% in the first half of 2026 from 50.2% in the first half of 2025. The decrease in gross margin was primarily due to gross incremental tariff costs of 200 basis points, cost inflation of 110 basis points, higher royalty expense of 100 basis points, and an unfavorable impact from foreign currency exchange of 100 basis points. Gross margin benefited from Mattel163's contribution of 90 basis points, and other factors including mitigating actions to offset tariffs, and realized savings from the OPG program, of 70 basis points.",
+      "prior_text": "Gross margin increased to 50.2% in the first half of 2025 from 48.7% in the first half of 2024. The increase in gross margin was primarily due to incremental realized savings from the OPG program of 120 basis points, lower inventory management costs of 90 basis points, driven by lower close-out sales and inventory obsolescence, and favorable mix and other factors of 40 basis points, partially offset by cost inflation of 100 basis points."
+    },
+    {
+      "item_id": "MAT-F09",
+      "comparison_id": "MAT:yoy-10k",
+      "change_id": "MAT:yoy-10k:modified:0001628280-26-010716:financial_notes:0145",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "As of December 31, 2025, total unrecognized compensation cost related to unvested share-based payments totaled $114.0 million and is expected to be recognized over a weighted-average period of 2.1 years.",
+      "prior_text": "As of December 31, 2024, total unrecognized compensation cost related to unvested share-based payments totaled $120.9 million and is expected to be recognized over a weighted-average period of 2.3 years."
+    },
+    {
+      "item_id": "MAT-F10",
+      "comparison_id": "MAT:yoy-10q",
+      "change_id": "MAT:yoy-10q:modified:0001628280-26-054347:financial_notes:0111",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "(a)Cost of sales included severance and other restructuring charges of less than $1 million and approximately $2 million for the three months ended June 30, 2026 and June 30, 2025, respectively, and approximately $1 million and $4 million for the six months ended June 30, 2026 and June 30, 2025, respectively, which were allocated to the North America and International segments.",
+      "prior_text": "(a)Cost of sales included severance and other restructuring charges of approximately $1 million which was allocated to the North America and International segments."
+    },
+    {
+      "item_id": "MAT-F11",
+      "comparison_id": "MAT:yoy-10k",
+      "change_id": "MAT:yoy-10k:modified:0001628280-26-010716:business:0020",
+      "kind": "modified",
+      "section": "business",
+      "current_text": "Mattel will continue to partner with Disney Pixar for Cars to drive innovation and celebrate the franchise's 20th anniversary in 2026, including fresh new product offerings to support key promotional events.",
+      "prior_text": "Mattel will continue to partner with Disney Pixar for Cars to drive innovation, including fresh new product offerings to support key promotional events in 2025."
+    },
+    {
+      "item_id": "MAT-F12",
+      "comparison_id": "MAT:seq-10q",
+      "change_id": "MAT:seq-10q:modified:0001628280-26-054347:financial_notes:0112",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The following table is a reconciliation of segment income to (loss) income before income taxes for the periods indicated:",
+      "prior_text": "The following table is a reconciliation of segment income to income (loss) before income taxes for the periods indicated:"
+    },
+    {
+      "item_id": "MAT-F13",
+      "comparison_id": "MAT:yoy-10q",
+      "change_id": "MAT:yoy-10q:modified:0001628280-26-054347:mdna:0093",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Sales adjustments increased to $178.9 million in the first half of 2026 from $158.1 million in the first half of 2025. Sales adjustments as a percentage of net sales were relatively consistent at 19.1% for the first half of 2026, as compared to 18.8% for the first half of 2025.",
+      "prior_text": "Sales adjustments increased to $158.1 million in the first half of 2025 from $142.0 million in the first half of 2024. Sales adjustments as a percentage of net sales increased to 18.8% for the first half of 2025, as compared to 17.6% for the first half of 2024. The increase in sales adjustments as a percentage of net sales was primarily due to higher promotional activities."
+    },
+    {
+      "item_id": "SWK-F01",
+      "comparison_id": "SWK:yoy-10k",
+      "change_id": "SWK:yoy-10k:modified:0000093556-26-000009:business:0025",
+      "kind": "modified",
+      "section": "business",
+      "current_text": "The Company’s products are manufactured using resins, ferrous and non-ferrous metals including, but not limited to, steel, zinc, copper, brass, aluminum and nickel. The Company also purchases components such as batteries, motors, engines, transmissions, and electronic components to use in manufacturing and assembly operations along with resin-based molded parts. The raw materials required are procured globally and generally available from multiple sources at competitive prices. As part of the Company's Enterprise Risk Management, the Company has implemented a supplier risk mitigation strategy in order to identify and address any potential supply disruption or material scarcity issues associated with commodities, components, finished goods and critical services. The Company does not anticipate difficulties in obtaining supplies for any raw materials used in its production processes and has maintained the proactive measures to secure global energy supply insulating the Company's production from supply constraints.",
+      "prior_text": "The Company’s products are manufactured using resins, ferrous and non-ferrous metals including, but not limited to, steel, zinc, copper, brass, aluminum and nickel. The Company also purchases components such as batteries, motors, engines, transmissions, and electronic components to use in manufacturing and assembly operations along with resin-based molded parts. The raw materials required are procured globally and generally available from multiple sources at competitive prices. As part of the Company's Enterprise Risk Management, the Company has implemented a supplier risk mitigation strategy in order to identify and address any potential supply disruption or material scarcity issues associated with commodities, components, finished goods and critical services. The Company does not anticipate difficulties in obtaining supplies for any raw materials used in its production processes and has maintained the proactive measures taken in 2022 to secure energy supply in its European factories to insulate the Company's production from supply constraints in the region."
+    },
+    {
+      "item_id": "SWK-F02",
+      "comparison_id": "SWK:yoy-10q",
+      "change_id": "SWK:yoy-10q:removed:0000093556-25-000143:mdna:0005",
+      "kind": "removed",
+      "section": "mdna",
+      "prior_text": "•Returning adjusted gross margins to historical 35%+ levels by accelerating the operations and supply chain transformation to improve fill rates and better match inventory with customer demand; and"
+    },
+    {
+      "item_id": "SWK-F03",
+      "comparison_id": "SWK:seq-10q",
+      "change_id": "SWK:seq-10q:modified:0000093556-26-000031:mdna:0008",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "In terms of capital allocation, the Company’s top priority is funding organic growth investments that drive long-term value. The Company also remains committed, over time, to maintaining a strong and growing dividend and opportunistically repurchasing shares. The Company deployed the vast majority of the net proceeds from the Consolidated Aerospace Manufacturing (\"CAM\") divestiture to reduce debt and repurchase shares in the second quarter of 2026.",
+      "prior_text": "In terms of capital allocation, the Company’s top priority is funding organic growth investments that drive long-term value. The Company also remains committed, over time, to maintaining a strong and growing dividend and opportunistically repurchasing shares. The Company has deployed the vast majority of the net proceeds from the Consolidated Aerospace Manufacturing (\"CAM\") divestiture to reduce debt in the second quarter of 2026. The Company is now positioned to pursue capital allocation that accelerates shareholder value creation, which it expects to take the form of share repurchases."
+    },
+    {
+      "item_id": "SWK-F04",
+      "comparison_id": "SWK:seq-10q",
+      "change_id": "SWK:seq-10q:modified:0000093556-26-000031:financial_notes:0060",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The Company uses the portfolio method for releasing the stranded tax effects from Accumulated other comprehensive loss. The reclassifications out of Accumulated other comprehensive loss for the three and six months ended July 4, 2026 and June 28, 2025 were as follows:",
+      "prior_text": "The Company uses the portfolio method for releasing the stranded tax effects from Accumulated other comprehensive loss. The reclassifications out of Accumulated other comprehensive loss for the three months ended April 4, 2026 and March 29, 2025 were as follows:"
+    },
+    {
+      "item_id": "SWK-F05",
+      "comparison_id": "SWK:yoy-10k",
+      "change_id": "SWK:yoy-10k:modified:0000093556-26-000009:risk_factors:0113",
+      "kind": "modified",
+      "section": "risk_factors",
+      "current_text": "The Company’s information systems and data may be vulnerable to cybersecurity threats and incidents which can include uncoordinated individual attempts to gain unauthorized access to information technology (\"IT\") systems, sophisticated and targeted measures known as advanced persistent threats, breaches due to human error, malfeasance, or other cybersecurity incidents directed at the Company, its products, services and technologies, including those leveraging “Internet of Things,” robotics or generative artificial intelligence capabilities, its customers and/or its third-party service providers, including cloud providers. New vulnerabilities may be introduced as cybersecurity threats continue to evolve and if the Company or its third-party vendors increase their use of, or reliance on, emerging technologies, such as generative artificial intelligence and machine learning. The Company deploys measures which it believes leverage industry accepted frameworks to deter, prevent, detect, respond to, and mitigate cybersecurity threats. The Company has invested and continues to invest in risk management and information security and data protection measures it believes are appropriate to protect its systems and data, including employee and critical service provider training, organizational investments, incident response plans, tabletop exercises, technical defenses and defensive product software designs. The cost and operational consequences of implementing, maintaining and enhancing these measures could increase significantly to overcome increasingly intense, complex, and sophisticated cybersecurity threats.",
+      "prior_text": "The Company’s information systems and data may be vulnerable to cybersecurity threats and incidents which can include uncoordinated individual attempts to gain unauthorized access to information technology (\"IT\") systems, sophisticated and targeted measures known as advanced persistent threats, breaches due to human error, malfeasance, or other cybersecurity incidents directed at the Company, its products, services and technologies, including those leveraging “Internet of Things” or generative artificial intelligence capabilities, its customers and/or its third-party service providers, including cloud providers. New vulnerabilities may be introduced as cybersecurity threats continue to evolve and if the Company or its third-party vendors increase their use of, or reliance on, emerging technologies, such as generative artificial intelligence and machine learning. The Company deploys measures which it believes leverage industry accepted frameworks to deter, prevent, detect, respond to, and mitigate cybersecurity threats. The Company has invested and continues to invest in risk management and information security and data privacy measures it believes are appropriate to protect its systems and data, including employee and critical service provider training, organizational investments, incident response plans, tabletop exercises, technical defenses and defensive product software designs. The cost and operational consequences of implementing, maintaining and enhancing these measures could increase significantly to overcome increasingly intense, complex, and sophisticated cybersecurity threats."
+    },
+    {
+      "item_id": "SWK-F06",
+      "comparison_id": "SWK:yoy-10q",
+      "change_id": "SWK:yoy-10q:modified:0000093556-26-000031:mdna:0047",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "For the three and six months ended June 28, 2025, the Company recognized an income tax benefit of $75.2 million and $38.0 million, respectively, resulting in effective tax rates of (281.6)% and (24.6)%, respectively. Excluding the tax effect on Non-GAAP adjustments for the three and six months ended June 28, 2025, the Company recognized an income tax benefit of $53.4 million and $8.7 million, respectively, resulting in effective tax rates of (48.7)% and (3.2)%, respectively. These effective tax rates for the three and six months ended June 28, 2025 differ from the U.S. statutory tax rate of 21% primarily due to the remeasurement of uncertain tax positions, partially offset by non-deductible expenses.",
+      "prior_text": "Income Taxes: For the three and six months ended June 28, 2025, the Company recognized an income tax benefit of $75.2 million and $38.0 million, respectively, resulting in effective tax rates of (281.6)% and (24.6)%, respectively. Excluding the tax effect on Non-GAAP adjustments, for the three and six months ended June 28, 2025, the Company recognized an income tax benefit of $53.4 million and $8.7 million, respectively, resulting in effective tax rates of (48.7)% and (3.2)%, respectively. These effective tax rates for the three and six months ended June 28, 2025 differ from the U.S. statutory tax rate of 21% primarily due to the remeasurement of uncertain tax positions, partially offset by non-deductible expenses."
+    },
+    {
+      "item_id": "SWK-F07",
+      "comparison_id": "SWK:yoy-10q",
+      "change_id": "SWK:yoy-10q:modified:0000093556-26-000031:financial_notes:0097",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "The Company is committed to upholding the highest standards of corporate governance and is continuously focused on ensuring the effectiveness of its policies, procedures, and controls.",
+      "prior_text": "The Company is committed to upholding the highest standards of corporate governance and is continuously focused on ensuring the effectiveness of its policies, procedures, and controls. The Company is in the process, with the assistance of professional advisors, of reviewing and further enhancing relevant policies, procedures, and controls."
+    },
+    {
+      "item_id": "SWK-F08",
+      "comparison_id": "SWK:yoy-10k",
+      "change_id": "SWK:yoy-10k:modified:0000093556-26-000009:financial_notes:0248",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "As of January 3, 2026, the Company has approximately $1.6 billion and $3.8 billion of net operating loss carryforwards available to reduce future tax obligations in certain U.S. state and foreign jurisdictions, respectively. The Company’s foreign net operating loss carryforwards primarily relate to its subsidiaries’ operations in Luxembourg ($2.3 billion), United Kingdom ($905.1 million), France ($203.5 million), Germany ($126.0 million), Brazil ($78.2 million), and other foreign jurisdictions ($184.4 million). The net operating loss carryforwards have various expiration dates beginning in 2026 with certain jurisdictions having indefinite carryforward periods. The foreign capital loss carryforwards of $20.9 million as of January 3, 2026 have indefinite carryforward periods.",
+      "prior_text": "As of December 28, 2024, the Company has approximately $1.6 billion and $3.8 billion of net operating loss carryforwards available to reduce future tax obligations in certain U.S. state and foreign jurisdictions, respectively. The Company’s foreign net operating loss carryforwards primarily relate to its subsidiaries’ operations in Luxembourg ($2.3 billion), United Kingdom ($947.3 million), France ($187.3 million), Germany ($108.9 million), Brazil ($76.8 million), and other foreign jurisdictions ($169.5 million). The net operating loss carryforwards have various expiration dates beginning in 2025 with certain jurisdictions having indefinite carryforward periods. The foreign capital loss carryforwards of $19.4 million as of December 28, 2024 have indefinite carryforward periods."
+    },
+    {
+      "item_id": "SWK-F09",
+      "comparison_id": "SWK:seq-10q",
+      "change_id": "SWK:seq-10q:modified:0000093556-26-000031:mdna:0031",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "1 Footprint Rationalization costs in 2026 primarily relate to accelerated depreciation of manufacturing equipment driven by plants closed in the second quarter of 2026, as well as site transformation and re-configuration costs. Footprint Rationalization costs in 2025 primarily relate to site transformation and re-configuration costs. Facility exit costs related to site closures are reported in Restructuring charges. 2 In June 2025, the Company implemented a voluntary retirement program (“VRP”) to right-size the Company’s corporate and support functions to align with a more focused portfolio following recent divestitures and more streamlined operations as part of the supply chain transformation. The costs associated with the VRP relate to separation benefits provided to eligible employees who voluntarily retired from the Company. 3 Complexity Reduction & Operational Excellence costs in 2025 primarily related to third-party consulting fees to provide expertise in identifying business model changes and quantifying related cost savings opportunities within the Company’s Engineered Fastening business, developing a detailed program and related governance, and assisting the Company with the implementation of actions necessary to achieve the identified objectives. 4 Includes an $8.1 million gain on sale of a distribution center in the second quarter of 2025 as part of the supply chain transformation. 5 Asset impairment charges in 2026 relate to the write-down of assets associated with the exit of a Tools and Outdoor product line and related plant closure. 6 Refer to \"Restructuring Activities\" below for further discussion.",
+      "prior_text": "1 Footprint Rationalization costs in 2026 and 2025 primarily relate to site transformation and re-configuration costs. Facility exit costs related to site closures are reported in Restructuring charges. 2 Complexity Reduction & Operational Excellence costs in 2025 primarily related to third-party consulting fees to provide expertise in identifying business model changes and quantifying related cost savings opportunities within the Company’s Engineered Fastening business, developing a detailed program and related governance, and assisting the Company with the implementation of actions necessary to achieve the identified objectives. 3 Asset impairment charges in 2026 relate to the write-down of assets associated with the exit of a Tools and Outdoor product line and related plant closure. 4 Refer to \"Restructuring Activities\" below for further discussion."
+    },
+    {
+      "item_id": "SWK-F10",
+      "comparison_id": "SWK:seq-10q",
+      "change_id": "SWK:seq-10q:modified:0000093556-26-000031:mdna:0085",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "The difference between the guidance for 2026 diluted earnings per share on a GAAP basis and diluted earnings per share excluding Non-GAAP adjustments is approximately $0.35 to $0.60, consisting primarily of charges related to footprint actions and other cost actions, largely offset by the gain on the sale of the CAM business.",
+      "prior_text": "The difference between the guidance for 2026 diluted earnings per share on a GAAP basis and diluted earnings per share excluding Non-GAAP adjustments is approximately $0.35 to $0.75, consisting primarily of charges related to footprint actions and other cost actions, largely offset by the estimated gain on the recently closed sale of the CAM business."
+    },
+    {
+      "item_id": "SWK-F11",
+      "comparison_id": "SWK:yoy-10k",
+      "change_id": "SWK:yoy-10k:modified:0000093556-26-000009:mdna:0032",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "Management continues to invest in these core franchises to drive growth and returns. Priorities include product innovation, brand and commercial activation, and continued transformation of operations and supply chain capabilities to improve service levels, align inventory with demand, and enhance global cost competitiveness.",
+      "prior_text": "Management recognizes that these core franchises are important foundations that have a proven track record of providing strong cash flow and growth prospects. Management is committed to growing these businesses through accelerating investments into innovative product development, brand support, commercial activation, and accelerating the operations and supply chain transformation to improve fill rates and better match inventory with customer demand, while improving global cost competitiveness."
+    },
+    {
+      "item_id": "SWK-F12",
+      "comparison_id": "SWK:yoy-10k",
+      "change_id": "SWK:yoy-10k:modified:0000093556-26-000009:mdna:0138",
+      "kind": "modified",
+      "section": "mdna",
+      "current_text": "The Company’s primary exposure to interest rate risk comes from its commercial paper program in which the pricing is partially based on short-term U.S. interest rates. The Company has a $3.5 billion commercial paper program which includes Euro denominated borrowings in addition to U.S. Dollars. The impact of a hypothetical 10% increase in the average interest rate of the Company’s average commercial paper borrowings outstanding during 2025 would have been an incremental pre-tax loss of approximately $4 million. As of January 3, 2026, the Company had $605.6 million of commercial paper borrowings outstanding.",
+      "prior_text": "The Company’s primary exposure to interest rate risk comes from its commercial paper program in which the pricing is partially based on short-term U.S. interest rates. The impact of a hypothetical 10% increase in the average interest rate of the Company’s average commercial paper borrowings outstanding during 2024 would have been an incremental pre-tax loss of approximately $5 million. The Company had no outstanding commercial paper borrowings at December 28, 2024."
+    },
+    {
+      "item_id": "SWK-F13",
+      "comparison_id": "SWK:yoy-10q",
+      "change_id": "SWK:yoy-10q:modified:0000093556-26-000031:financial_notes:0079",
+      "kind": "modified",
+      "section": "financial_notes",
+      "current_text": "Segments: The $60.0 million of net restructuring charges for the six months ended July 4, 2026 includes: $50.0 million in the Tools & Outdoor segment; $6.5 million in the Engineered Fastening segment; and $3.5 million in Corporate.",
+      "prior_text": "Segments: The $20.0 million of net restructuring charges for the six months ended June 28, 2025 includes: $9.3 million in the Tools & Outdoor segment; $1.6 million in the Engineered Fastening segment; and $9.1 million in Corporate."
+    }
+  ]
+}

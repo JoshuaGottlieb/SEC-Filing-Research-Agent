@@ -1,0 +1,603 @@
+{
+  "retrieval": [
+    {
+      "item_id": "SWK-R01",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "mdna",
+      "question": "what drove the change in consolidated gross margin for the latest fiscal year",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Gross profit, defined as sales less cost of sales, was $4.588 billion, or 30.3% of net sales, in 2025 compared to $4.514 billion, or 29.4% of net sales, in 2024.",
+          "chunk_id": "0000093556-26-000009:mdna:0059:0"
+        },
+        {
+          "side": "current",
+          "text": "The year-over-year changes in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily due to benefits from pricing strategies and supply chain cost transformation efficiencies partially offset by tariffs, lower volume and inflation.",
+          "chunk_id": "0000093556-26-000009:mdna:0061:0"
+        },
+        {
+          "side": "prior",
+          "text": "Excluding these adjustments, gross profit was 30.0% of net sales in 2024 compared to 26.0% of net sales in 2023, primarily driven by the supply chain transformation efficiencies and lower inventory destocking costs.",
+          "chunk_id": "0000093556-25-000007:mdna:0062:0"
+        }
+      ],
+      "note": "In the FY2025 10-K the gross profit paragraph is split across two chunks (the margin figures in one, the drivers in the next), so both are listed. In the FY2024 10-K the latest-year paragraph is in chunk 0062, and its last sentence (the one quoted, which holds both figures and drivers) repeats in 0065, so one quote covers it. The FY2024 filing also explains the 2023 vs 2022 margin; that paragraph is left out because it answers a different year. Segment profit drivers are left out too: they explain segment margin, not consolidated gross margin."
+    },
+    {
+      "item_id": "SWK-R02",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "risk_factors",
+      "question": "China export restrictions on rare earth minerals and supply risk",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "For example, in April 2025, China restricted export of certain rare earth minerals and may in the future continue to restrict, expand restrictions, or stop exporting these or other materials.",
+          "chunk_id": "0000093556-26-000009:risk_factors:0002:0"
+        },
+        {
+          "side": "current",
+          "text": "For example, in April 2025, China imposed export restrictions on certain rare earth minerals that are used in certain components of the Company’s products, which resulted in delays and shortages of certain components.",
+          "chunk_id": "0000093556-26-000009:risk_factors:0008:0"
+        },
+        {
+          "side": "current",
+          "text": "China’s limitations on exports of rare earth minerals) and exchange controls or new barriers to entry",
+          "chunk_id": "0000093556-26-000009:risk_factors:0011:0"
+        },
+        {
+          "side": "current",
+          "text": "For example, rare earth minerals are critical to the design of the Company's products and some countries from which these materials are sourced have experienced severe weather.",
+          "chunk_id": "0000093556-26-000009:risk_factors:0048:0"
+        }
+      ],
+      "note": "Absent-topic question: the FY2024 10-K never mentions rare earth minerals, in any section. The FY2025 risk factors mention them in four places (sourcing, trade policy, trade agreements, and business disruption from severe weather); all four are listed. The FY2025 MD&A cautionary statement also mentions rare earth controls, but it is outside the risk_factors filter."
+    },
+    {
+      "item_id": "SWK-R03",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "financial_notes",
+      "question": "environmental reserve balance for the Centredale Superfund site at year end",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "As of January 3, 2026, the Company has reserved $156.5 million for this site.",
+          "chunk_id": "0000093556-26-000009:financial_notes:0283:0"
+        },
+        {
+          "side": "prior",
+          "text": "As of December 28, 2024, the Company has reserved $161.8 million for this site.",
+          "chunk_id": "0000093556-25-000007:financial_notes:0287:0"
+        },
+        {
+          "side": "prior",
+          "text": "which includes the cost estimate for the Centredale Manor Restoration Project Superfund Site (Centredale Site) in the amount of $161.8 million",
+          "chunk_id": "0000093556-25-000007:financial_notes:0024:0"
+        }
+      ],
+      "note": "The FY2024 filing states the balance twice: in Note R and in the auditor's critical audit matter, which the index files under financial_notes. The FY2025 filing has no Centredale critical audit matter. Passages that give only the $142.3 million 2024 reserve increase (the Other, net note in both filings) are left out: they do not give the year-end balance. Note R's background on the site is also left out."
+    },
+    {
+      "item_id": "SWK-R04",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "business",
+      "question": "total employee headcount and number of countries",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "As of January 3, 2026, the Company had approximately 43,500 employees in 59 countries.",
+          "chunk_id": "0000093556-26-000009:business:0035:0"
+        },
+        {
+          "side": "prior",
+          "text": "As of December 28, 2024, the Company had approximately 48,500 employees in 60 countries.",
+          "chunk_id": "0000093556-25-000007:business:0031:0"
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R05",
+      "comparison_id": "SWK:yoy-10q",
+      "section": "mdna",
+      "question": "reasons for the change in second-quarter gross margin versus the prior year",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The year-over-year change in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily driven by operational cost improvement and favorable product mix, in addition to a benefit of approximately 250 basis points related to the net impact of tariff refunds realized as described above.",
+          "chunk_id": "0000093556-26-000031:mdna:0035:0"
+        },
+        {
+          "side": "prior",
+          "text": "The year-over-year change in gross profit as a percent of sales and adjusted gross profit as a percent of sales was primarily due to a 3 point gross impact from tariffs and lower volume partially offset by the supply chain efficiencies and the initial benefits from price actions taken during the second quarter of 2025.",
+          "chunk_id": "0000093556-25-000143:mdna:0038:0"
+        }
+      ],
+      "note": "Each quote ends the quarter's gross profit paragraph, which also gives the margin figures (33.0% vs 27.0% in 2026, 27.0% vs 28.4% in 2025) in the same chunk. The first-half paragraphs, which say only \"driven by the same factors\", are left out as answering year to date. So are the segment profit drivers."
+    },
+    {
+      "item_id": "SWK-R06",
+      "comparison_id": "SWK:yoy-10q",
+      "section": "risk_factors",
+      "question": "risk that the share repurchase program is not completed or does not add shareholder value",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "Although the Company has adopted a share repurchase program, it is not obligated to repurchase a specified number or dollar value of shares under this share repurchase program or at all",
+          "chunk_id": "0000093556-26-000031:risk_factors:0008:0"
+        }
+      ],
+      "note": "Absent-topic question: the Q2 2025 10-Q's risk factor update covers only sourcing/inventory and global trade. Its MD&A does mention repurchases as a capital allocation preference, but that is outside the risk_factors filter. In the Q2 2026 filing the risk factor's heading appears in two overlapping chunks (0005, 0008); the body is in 0008."
+    },
+    {
+      "item_id": "SWK-R07",
+      "comparison_id": "SWK:yoy-10q",
+      "section": "mdna",
+      "question": "current senior unsecured debt credit ratings from S&P, Fitch and Moody's",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The Company maintains investment grade credit ratings from the major U.S. rating agencies on its senior unsecured debt (S&P BBB+, Fitch BBB+, Moody's Baa3)",
+          "chunk_id": "0000093556-26-000031:mdna:0091:0"
+        },
+        {
+          "side": "prior",
+          "text": "The Company maintains investment grade credit ratings from the major U.S. rating agencies on its senior unsecured debt (S&P A-, Fitch BBB+, Moody's Baa3)",
+          "chunk_id": "0000093556-25-000143:mdna:0089:0"
+        }
+      ],
+      "note": "S&P is BBB+ in Q2 2026 and A- in Q2 2025. The 10-Qs do not explain the change: the downgrade (Q3 2025) is stated only in the FY2025 10-K."
+    },
+    {
+      "item_id": "SWK-R08",
+      "comparison_id": "SWK:seq-10q",
+      "section": "mdna",
+      "question": "updated full-year 2026 EPS and free cash flow guidance",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "The Company is updating its guidance for 2026 diluted earnings per share on a GAAP basis to be in the range of $4.60 to $5.45, revised from $4.15 to $5.35.",
+          "chunk_id": "0000093556-26-000031:mdna:0075:1"
+        },
+        {
+          "side": "current",
+          "text": "The Company is now targeting free cash flow to be in the range of $600 to $800 million, revised from $500 to $700 million",
+          "chunk_id": "0000093556-26-000031:mdna:0083:0"
+        },
+        {
+          "side": "prior",
+          "text": "The Company is updating its guidance for 2026 diluted earnings per share on a GAAP basis to be in the range of $4.15 to $5.35, which is higher than prior guidance factoring in the expected gain on the recently closed CAM divestiture.",
+          "chunk_id": "0000093556-26-000015:mdna:0062:0"
+        },
+        {
+          "side": "prior",
+          "text": "Excluding such payments, free cash flow is expected to be in the range of $700 to $900 million, consistent with prior guidance.",
+          "chunk_id": "0000093556-26-000015:mdna:0070:0"
+        }
+      ],
+      "note": "In each filing the guidance paragraph is split across two chunks: EPS in the first (Q2 0075:1, Q1 0062:0), free cash flow in the second (Q2 0083:0, Q1 0070:0). In Q1, the $500 to $700 million free cash flow sentence falls in the overlap, so the second Q1 quote is the sentence found only in 0070:0. The guidance assumption paragraphs (tariff tailwind against inflation) are left out because they give no figures. So are the GAAP-to-adjusted EPS difference sentences."
+    },
+    {
+      "item_id": "SWK-R09",
+      "comparison_id": "SWK:seq-10q",
+      "section": "mdna",
+      "question": "IEEPA tariff refund claims and amount of refunds recognized",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "During the three months ended July 4, 2026, the Company recognized a pre-tax gain of $118 million in cost of sales related to Phase 1 IEEPA tariff refunds realized",
+          "chunk_id": "0000093556-26-000031:mdna:0075:0"
+        },
+        {
+          "side": "prior",
+          "text": "Given these uncertainties, the Company has not recognized any benefit or asset related to potential IEEPA tariff refunds as of April 4, 2026.",
+          "chunk_id": "0000093556-26-000015:mdna:0058:0"
+        }
+      ],
+      "note": "Q2 2026 also cites the refunds for their effects elsewhere: gross margin (about 250 bp), Tools & Outdoor and Engineered Fastening segment profit (about 150 and 50 bp), SG&A, corporate overhead, and the free cash flow guidance. Those passages give neither the claim status nor the refund amount, so they are left out; a reviewer may count them. The Q1 sentence sits in overlapping chunks 0058/0062."
+    },
+    {
+      "item_id": "SWK-R10",
+      "comparison_id": "SWK:seq-10q",
+      "section": "financial_notes",
+      "question": "pre-tax gain on the sale of the CAM aerospace business",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "On April 6, 2026, the Company completed the sale of its CAM business and received proceeds of approximately $1.8 billion in cash and recognized a pre-tax gain of $276.7 million.",
+          "chunk_id": "0000093556-26-000031:financial_notes:0126:0"
+        },
+        {
+          "side": "prior",
+          "text": "The estimated pre-tax gain on sale to be recognized during the second quarter of 2026 is approximately $260 million to $280 million.",
+          "chunk_id": "0000093556-26-000015:financial_notes:0117:0"
+        }
+      ],
+      "note": "Q1 gives an estimated range (the sale closed after quarter end); Q2 gives the recognized gain. The Q2 goodwill note says only that the goodwill was \"included ... in determining the gain on sale\", with no amount, so it is left out. The gain also appears in the notes' tables, which are not gold."
+    }
+  ],
+  "changes": [
+    {
+      "item_id": "SWK-C01",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "S&P downgraded Stanley's senior unsecured debt rating from A- to BBB+ in Q3 2025. The FY2024 10-K had reported no rating changes during 2024.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "The Company maintains investment grade credit ratings from the major U.S. rating agencies on its senior unsecured debt (S&P A-, Fitch BBB+, Moody's Baa3)",
+          "chunk_id": "0000093556-25-000007:mdna:0107:0"
+        },
+        {
+          "side": "prior",
+          "text": "There were no changes to any of the Company's credit ratings during 2024.",
+          "chunk_id": "0000093556-25-000007:mdna:0107:0"
+        },
+        {
+          "side": "current",
+          "text": "In the third quarter of 2025, S&P downgraded the Company's senior unsecured debt credit rating from A- to BBB+.",
+          "chunk_id": "0000093556-26-000009:mdna:0102:0"
+        }
+      ],
+      "note": "Material because a lower rating raises funding cost, and the company names a \"solid investment grade credit rating\" among its financial targets. The same rating difference shows in the yoy-10q comparison (SWK-R07)."
+    },
+    {
+      "item_id": "SWK-C02",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "risk_factors",
+      "kind": "added",
+      "criterion": "new_or_removed_risk",
+      "summary": "New risk factor language on China's April 2025 export restrictions on rare earth minerals, which have already caused component delays and shortages, and on dependence on few or concentrated suppliers for rare-earth and cobalt components.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "For example, in April 2025, China restricted export of certain rare earth minerals and may in the future continue to restrict, expand restrictions, or stop exporting these or other materials.",
+          "chunk_id": "0000093556-26-000009:risk_factors:0002:0"
+        },
+        {
+          "side": "current",
+          "text": "For example, in April 2025, China imposed export restrictions on certain rare earth minerals that are used in certain components of the Company’s products, which resulted in delays and shortages of certain components.",
+          "chunk_id": "0000093556-26-000009:risk_factors:0008:0"
+        }
+      ],
+      "note": "The FY2024 10-K has no mention of rare earth minerals (see SWK-R02). The new text says the restriction has already caused delays and shortages, so it is a risk that has occurred, not only a hypothetical one."
+    },
+    {
+      "item_id": "SWK-C03",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "risk_factors",
+      "kind": "removed",
+      "criterion": "new_or_removed_risk",
+      "summary": "The FY2025 10-K drops the risk factor on sales to government customers: budget cycles, procurement rules, termination for convenience, and audits that could lead to debarment.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "The Company’s sales to government customers exposes it to business volatility and risks, including government budgeting cycles and appropriations, procurement regulations, governmental policy shifts, early termination of contracts, audits, investigations, sanctions and penalties.",
+          "chunk_id": "0000093556-25-000007:risk_factors:0134:0"
+        },
+        {
+          "side": "prior",
+          "text": "The Company derives a portion of its revenues from contracts with the U.S. government, state and local governments and foreign governments.",
+          "chunk_id": "0000093556-25-000007:risk_factors:0134:0"
+        }
+      ],
+      "note": "No \"government customers\" or government-contract risk text remains in the FY2025 risk factors. The filing gives no reason. The removal coincides with the pending sale of the CAM aerospace business, but the filing does not link the two; treat any such link as unconfirmed."
+    },
+    {
+      "item_id": "SWK-C04",
+      "comparison_id": "SWK:yoy-10q",
+      "section": "financial_notes",
+      "kind": "added",
+      "criterion": "metric_linked_shift",
+      "summary": "The CAM aerospace business was sold on April 6, 2026 for about $1.8 billion in cash, with a $276.7 million pre-tax gain. The divestiture took 3 points off Q2 net sales and 21 points off Engineered Fastening sales.",
+      "quotes": [
+        {
+          "side": "current",
+          "text": "On April 6, 2026, the Company completed the sale of its CAM business and received proceeds of approximately $1.8 billion in cash and recognized a pre-tax gain of $276.7 million.",
+          "chunk_id": "0000093556-26-000031:financial_notes:0126:0"
+        },
+        {
+          "side": "current",
+          "text": "On April 6, 2026, the Company completed the previously announced sale of its Consolidated Aerospace Manufacturing (\"CAM\") business.",
+          "chunk_id": "0000093556-26-000031:financial_notes:0011:0"
+        }
+      ],
+      "note": "The Q2 2025 10-Q has no mention of CAM; the sale agreement was announced in December 2025. It is linked to metrics: in MD&A the divestiture is a named driver of the Q2 net sales comparison (-3%) and of Engineered Fastening sales (-21%), and the gain is in Q2 pre-tax earnings."
+    },
+    {
+      "item_id": "SWK-C05",
+      "comparison_id": "SWK:yoy-10q",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "Capital allocation moved from debt reduction to buybacks. In Q2 2025 the company planned to put cash beyond the dividend toward debt reduction; by Q2 2026 a new $500 million repurchase program was in place and about $250 million (3.24 million shares) had been bought in the quarter.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "In the near term, the Company intends to direct any capital in excess of the quarterly dividend on its common stock toward debt reduction and internal growth investments.",
+          "chunk_id": "0000093556-25-000143:mdna:0000:0"
+        },
+        {
+          "side": "current",
+          "text": "approved a new share repurchase program of up to $500 million in purchase price of shares of the Company's common stock",
+          "chunk_id": "0000093556-26-000031:mdna:0008:0"
+        },
+        {
+          "side": "current",
+          "text": "During the second quarter of 2026, the Company executed open market share repurchases for a total of 3,239,690 shares of common stock for approximately $250.0 million.",
+          "chunk_id": "0000093556-26-000031:mdna:0010:0"
+        }
+      ],
+      "note": "The Q2 2026 filing also reports a $125 million partial settlement of the 2015 forward share purchase contract, and it adds a share repurchase risk factor (SWK-R06)."
+    },
+    {
+      "item_id": "SWK-C06",
+      "comparison_id": "SWK:seq-10q",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "metric_linked_shift",
+      "summary": "IEEPA tariff refunds went from not recognized at all at Q1 end to a $118 million pre-tax gain in Q2 cost of sales. The gain was partly offset by about $83 million of related incentive compensation and growth investments.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "Given these uncertainties, the Company has not recognized any benefit or asset related to potential IEEPA tariff refunds as of April 4, 2026.",
+          "chunk_id": "0000093556-26-000015:mdna:0058:0"
+        },
+        {
+          "side": "current",
+          "text": "During the three months ended July 4, 2026, the Company recognized a pre-tax gain of $118 million in cost of sales related to Phase 1 IEEPA tariff refunds realized",
+          "chunk_id": "0000093556-26-000031:mdna:0075:0"
+        }
+      ],
+      "note": "Linked to metrics: the Q2 MD&A credits the refunds' net impact with about 250 bp of the year-over-year gross margin increase and with part of the SG&A increase. The Q2 notes give the offset as $83.4 million."
+    },
+    {
+      "item_id": "SWK-C07",
+      "comparison_id": "SWK:seq-10q",
+      "section": "mdna",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "Full-year 2026 guidance was raised: GAAP EPS to $4.60 to $5.45 (from $4.15 to $5.35), adjusted EPS to $5.20 to $5.80 (from $4.90 to $5.70), and free cash flow to $600 to $800 million (from $500 to $700 million).",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "The Company is updating its guidance for 2026 diluted earnings per share on a GAAP basis to be in the range of $4.15 to $5.35, which is higher than prior guidance factoring in the expected gain on the recently closed CAM divestiture.",
+          "chunk_id": "0000093556-26-000015:mdna:0062:0"
+        },
+        {
+          "side": "prior",
+          "text": "The Company continues to expect diluted earnings per share excluding Non-GAAP adjustments to be in the range of $4.90 to $5.70.",
+          "chunk_id": "0000093556-26-000015:mdna:0062:0"
+        },
+        {
+          "side": "current",
+          "text": "The Company is updating its guidance for 2026 diluted earnings per share on a GAAP basis to be in the range of $4.60 to $5.45, revised from $4.15 to $5.35.",
+          "chunk_id": "0000093556-26-000031:mdna:0075:1"
+        },
+        {
+          "side": "current",
+          "text": "The Company is also updating its guidance for diluted earnings per share excluding Non-GAAP adjustments to be in the range of $5.20 to $5.80, revised from $4.90 to $5.70.",
+          "chunk_id": "0000093556-26-000031:mdna:0075:1"
+        }
+      ],
+      "note": "The free cash flow raise is in the next chunk of each filing (see SWK-R08). The guidance assumptions also changed: Q1 named the Middle East conflict as an inflation source, while Q2 names battery metals, tungsten and oil derivatives and assumes the Section 301 tariffs."
+    },
+    {
+      "item_id": "SWK-C08",
+      "comparison_id": "SWK:seq-10q",
+      "section": "financial_notes",
+      "kind": "modified",
+      "criterion": "changed_quantity",
+      "summary": "In June 2026 committed credit capacity was cut: the five-year facility from $2.25 billion to $2.0 billion, and the 364-day facility from $1.25 billion to $1.0 billion.",
+      "quotes": [
+        {
+          "side": "prior",
+          "text": "In June 2024, the Company amended and restated its existing five-year $2.5 billion committed credit facility with the concurrent execution of a new five-year $2.25 billion committed credit facility",
+          "chunk_id": "0000093556-26-000015:financial_notes:0026:0"
+        },
+        {
+          "side": "prior",
+          "text": "Contemporaneously, the Company entered into a new $1.25 billion syndicated 364-Day Credit Agreement",
+          "chunk_id": "0000093556-26-000015:financial_notes:0026:0"
+        },
+        {
+          "side": "current",
+          "text": "In June 2026, the Company amended and restated its existing five-year $2.25 billion committed credit facility with the concurrent execution of a new five-year $2.0 billion committed credit facility",
+          "chunk_id": "0000093556-26-000031:financial_notes:0029:0"
+        },
+        {
+          "side": "current",
+          "text": "Contemporaneously, the Company entered into a new $1.0 billion syndicated 364-Day Credit Agreement",
+          "chunk_id": "0000093556-26-000031:financial_notes:0031:0"
+        }
+      ],
+      "note": "Both facilities back the $3.5 billion commercial paper program, which had nothing outstanding at Q2 end after CAM proceeds repaid it. Committed back-stop liquidity falls by $0.5 billion in total. The same text appears in MD&A."
+    }
+  ],
+  "causes": [
+    {
+      "item_id": "SWK-S01",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "mdna",
+      "change": "Gross margin rose to 30.3% in 2025 from 29.4% in 2024 (adjusted: 30.7% from 30.0%).",
+      "metric": "gross_margin",
+      "direction": "up",
+      "causes": [
+        "benefits from pricing strategies",
+        "supply chain cost transformation efficiencies"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year changes in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily due to benefits from pricing strategies and supply chain cost transformation efficiencies partially offset by tariffs, lower volume and inflation.",
+        "chunk_id": "0000093556-26-000009:mdna:0061:0"
+      },
+      "distractors": [
+        "favorable product mix",
+        "lower freight and logistics costs",
+        "higher sales volume"
+      ],
+      "note": "The move is about 90 bp, modest next to the Q2 2026 moves, but it is the only full-year margin change whose cause is stated in so many words. Tariffs, lower volume and inflation are named offsets, not causes. \"Higher sales volume\" is contradicted rather than merely unstated: volume fell 4% and lower volume is named as an offset. Product mix and freight are not mentioned for consolidated gross margin."
+    },
+    {
+      "item_id": "SWK-S02",
+      "comparison_id": "SWK:yoy-10q",
+      "section": "mdna",
+      "change": "Second-quarter gross margin rose to 33.0% in 2026 from 27.0% in 2025, about 600 basis points (adjusted: 33.7% from 27.5%).",
+      "metric": "gross_margin",
+      "direction": "up",
+      "causes": [
+        "operational cost improvement",
+        "favorable product mix",
+        "net impact of tariff refunds realized (about 250 basis points)"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year change in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily driven by operational cost improvement and favorable product mix, in addition to a benefit of approximately 250 basis points related to the net impact of tariff refunds realized as described above.",
+        "chunk_id": "0000093556-26-000031:mdna:0035:0"
+      },
+      "distractors": [
+        "price increases",
+        "lower commodity and raw material costs",
+        "the divestiture of the CAM aerospace business"
+      ],
+      "note": "None of the distractors is given as a margin driver. Consolidated Q2 net sales show no price contribution (only Engineered Fastening had +1% price). The CAM divestiture is named only as a net sales driver. The guidance paragraph expects higher inflation (battery metals, tungsten, oil derivatives) for the year, so lower material costs is at best unstated for the quarter."
+    },
+    {
+      "item_id": "SWK-S03",
+      "comparison_id": "SWK:yoy-10q",
+      "section": "mdna",
+      "change": "Second-quarter SG&A rose to $947.9 million, 23.9% of net sales, in 2026 from $873.1 million, 22.1%, in 2025 (adjusted: 23.9% from 20.8%).",
+      "metric": "sga_ratio",
+      "direction": "up",
+      "causes": [
+        "incremental variable incentive compensation costs directly attributable to the tariff refunds",
+        "growth investments directly attributable to the tariff refunds"
+      ],
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year change in SG&A as a percent of sales and adjusted SG&A as a percent of sales were primarily driven by incremental variable incentive compensation costs and growth investments directly attributable to the tariff refunds realized.",
+        "chunk_id": "0000093556-26-000031:mdna:0037:0"
+      },
+      "distractors": [
+        "higher voluntary retirement program costs",
+        "higher distribution center costs",
+        "higher research and development spending"
+      ],
+      "note": "\"Higher voluntary retirement program costs\" is contradicted: the VRP charges were in Q2 2025 (part of that quarter's $52.6 million SG&A Non-GAAP adjustments, against $3.0 million in Q2 2026). Distribution center costs did rise ($131.1 million to $140.5 million), but the filing never cites them as a cause, so that distractor is unstated rather than false. Research and development is not mentioned."
+    }
+  ],
+  "judge": [
+    {
+      "item_id": "SWK-J01",
+      "comparison_id": "SWK:yoy-10k",
+      "cause_id": "SWK-S01",
+      "claim": "Benefits from pricing strategies helped raise Stanley's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year changes in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily due to benefits from pricing strategies and supply chain cost transformation efficiencies partially offset by tariffs, lower volume and inflation.",
+        "chunk_id": "0000093556-26-000009:mdna:0061:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "SWK-J02",
+      "comparison_id": "SWK:yoy-10k",
+      "cause_id": "SWK-S01",
+      "claim": "Manufacturing footprint rationalization lifted Stanley's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year changes in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily due to benefits from pricing strategies and supply chain cost transformation efficiencies partially offset by tariffs, lower volume and inflation.",
+        "chunk_id": "0000093556-26-000009:mdna:0061:0"
+      },
+      "verdict": "implies",
+      "note": "The quote names supply chain cost transformation efficiencies. That is broader than footprint rationalization, which the filing lists as one of the transformation's four value streams; footprint rationalization itself is not named."
+    },
+    {
+      "item_id": "SWK-J03",
+      "comparison_id": "SWK:yoy-10k",
+      "cause_id": "SWK-S01",
+      "claim": "Pricing strategies and supply chain efficiencies raised Stanley's gross margin in 2025.",
+      "quote": {
+        "side": "current",
+        "text": "The Company’s weighted-average discount rates used to determine benefit obligations at January 3, 2026 for the United States and international pension plans were 5.27% and 5.11%, respectively.",
+        "chunk_id": "0000093556-26-000009:mdna:0153:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "SWK-J04",
+      "comparison_id": "SWK:yoy-10q",
+      "cause_id": "SWK-S02",
+      "claim": "Tariff refunds contributed to the increase in Stanley's second-quarter 2026 gross margin.",
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year change in gross profit as a percent of sales and adjusted gross profit as a percent of sales were primarily driven by operational cost improvement and favorable product mix, in addition to a benefit of approximately 250 basis points related to the net impact of tariff refunds realized as described above.",
+        "chunk_id": "0000093556-26-000031:mdna:0035:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "SWK-J05",
+      "comparison_id": "SWK:yoy-10q",
+      "cause_id": "SWK-S02",
+      "claim": "Phase 1 IEEPA tariff refunds recognized in cost of sales lifted Stanley's second-quarter 2026 gross margin.",
+      "quote": {
+        "side": "current",
+        "text": "During the three months ended July 4, 2026, the Company recognized a pre-tax gain of $118 million in cost of sales related to Phase 1 IEEPA tariff refunds realized",
+        "chunk_id": "0000093556-26-000031:mdna:0075:0"
+      },
+      "verdict": "implies",
+      "note": "The quote reports a gain in cost of sales, which supports the claim, but it says nothing about gross margin and names no cause of the margin change."
+    },
+    {
+      "item_id": "SWK-J06",
+      "comparison_id": "SWK:yoy-10q",
+      "cause_id": "SWK-S02",
+      "claim": "Operational cost improvement and favorable product mix lifted Stanley's second-quarter 2026 gross margin.",
+      "quote": {
+        "side": "current",
+        "text": "In March 2026, the Company redeemed its $500 million 3.40% notes, at maturity.",
+        "chunk_id": "0000093556-26-000031:mdna:0095:0"
+      },
+      "verdict": "unrelated"
+    },
+    {
+      "item_id": "SWK-J07",
+      "comparison_id": "SWK:yoy-10q",
+      "cause_id": "SWK-S03",
+      "claim": "Incremental variable incentive compensation tied to the tariff refunds increased Stanley's SG&A as a percentage of sales in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year change in SG&A as a percent of sales and adjusted SG&A as a percent of sales were primarily driven by incremental variable incentive compensation costs and growth investments directly attributable to the tariff refunds realized.",
+        "chunk_id": "0000093556-26-000031:mdna:0037:0"
+      },
+      "verdict": "states_cause"
+    },
+    {
+      "item_id": "SWK-J08",
+      "comparison_id": "SWK:yoy-10q",
+      "cause_id": "SWK-S03",
+      "claim": "Higher brand marketing and advertising spending increased Stanley's SG&A as a percentage of sales in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "The year-over-year change in SG&A as a percent of sales and adjusted SG&A as a percent of sales were primarily driven by incremental variable incentive compensation costs and growth investments directly attributable to the tariff refunds realized.",
+        "chunk_id": "0000093556-26-000031:mdna:0037:0"
+      },
+      "verdict": "implies",
+      "note": "The quote names \"growth investments\", which is broader than marketing and advertising; marketing spend is not named anywhere in the quarter's SG&A discussion."
+    },
+    {
+      "item_id": "SWK-J09",
+      "comparison_id": "SWK:yoy-10q",
+      "cause_id": "SWK-S03",
+      "claim": "Incentive compensation and growth investments tied to the tariff refunds increased Stanley's SG&A as a percentage of sales in the second quarter of 2026.",
+      "quote": {
+        "side": "current",
+        "text": "Cash and cash equivalents totaled $592.4 million as of July 4, 2026, of which approximately 60% was held in foreign jurisdictions.",
+        "chunk_id": "0000093556-26-000031:mdna:0095:0"
+      },
+      "verdict": "unrelated"
+    }
+  ]
+}
