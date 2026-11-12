@@ -15,6 +15,11 @@ Entailment (T5.2): code cannot tell whether a quote states a cause or only hints
 so a separate model call classifies it. It is the one check here that uses a model, and it is
 kept apart from everything that produced the claim: it sees only the claim's text and one quote,
 never the reasoning, the critic's rating or the search, so it cannot be argued into agreeing.
+
+Rationale figures: a change's materiality rationale (T3.3) is model-written text that the brief
+prints as why the change was flagged and the generator reads as why it matters. Its figures are
+checked against the change's own text and metrics with the same rules as a claim's figures (see
+`untraced_rationale_figures`), so an invented or miscomputed number does not reach either.
 """
 
 from __future__ import annotations
@@ -34,6 +39,7 @@ from sec_agent.contracts import ChunkLookup, FactLookup, MetricLookup
 from sec_agent.ingest.table_facts import SCALE_CAPTION, SCALE_FILLER, _scale_caption
 from sec_agent.llm.client import LLMClient, LLMError, Role
 from sec_agent.schemas import (
+    Change,
     Chunk,
     Citation,
     Claim,
@@ -708,6 +714,14 @@ def _quote_figures(quote: str, chunk: Chunk, facts: FactLookup) -> _QuoteEvidenc
     return evidence
 
 
+def _is_backed(figure: _Figure, evidence: list[_Figure], unscaled: list[_Figure]) -> bool:
+    """Whether evidence backs the figure. A table number with no known scale backs only a figure
+    with no scale word, because a scale word would assert what nothing states."""
+    if any(_matches(figure, candidate) for candidate in evidence):
+        return True
+    return figure.word_scale == 1.0 and any(_matches(figure, number) for number in unscaled)
+
+
 def _check_figures(
     claim: Claim, chunks: ChunkLookup, metrics: Collection[MetricValue], facts: FactLookup
 ) -> tuple[list[CitationFailure], list[str]]:
@@ -737,9 +751,7 @@ def _check_figures(
 
     failures: list[CitationFailure] = []
     for figure in figures:
-        if any(_matches(figure, candidate) for candidate in evidence):
-            continue
-        if figure.word_scale == 1.0 and any(_matches(figure, number) for number in unscaled):
+        if _is_backed(figure, evidence, unscaled):
             continue
         if figure.kind is _FigureKind.UNREADABLE:
             kind = CitationFailureKind.UNTRACED_FIGURE
@@ -762,6 +774,66 @@ def _check_figures(
             detail = f"no metric or cited quote backs the figure {figure.text!r}"
         failures.append(CitationFailure(kind=kind, detail=detail))
     return failures, fact_ids
+
+
+def untraced_rationale_figures(
+    rationale: str,
+    change: Change,
+    *,
+    metrics: Collection[MetricValue],
+    chunks: ChunkLookup,
+    facts: FactLookup,
+) -> tuple[str, ...]:
+    """The figures in a change's materiality rationale that nothing backs. Empty means it passes.
+
+    Lane 1 calls this once per ranked change (T3.3) and drops a rationale that fails, because the
+    brief would print it as why the change was flagged and the generator and the tree's root
+    would read it as why the change matters. Nothing else checks it: the critic and the judge
+    check explanations, not the premise.
+
+    The evidence is what the materiality model was shown:
+    - the change's own earlier and later text, each read as a quote of the chunks that hold it,
+      so a table's stated scale counts. Text that no chunk holds word for word (116 of 5,847 real
+      passages, mostly page breaks joined) is read as prose, which states its figures in full;
+    - `metrics`, the values the model saw. For a numeric change that is the metric in both
+      periods, which backs both levels, the move in points and the relative move, so "+593 bps"
+      and "+10.5%" pass at the precision written.
+
+    The rules are the claim check's: each figure on its own, at its written precision, as a
+    magnitude, and only a value stated or computed here counts. So a correctly derived figure
+    that neither text states fails too (two amounts do not back their difference), and the rubric
+    should ask for figures as written. Words ("nearly halved") and counts with no unit ("200
+    stores") are not read, and a misreading of real figures is not caught. The figures come back
+    as written in the casefolded rationale ("$563.0m"), for the audit.
+    """
+    figures = {
+        figure.text: figure for figure in _parse_figures(_normalize_quote(rationale))
+    }.values()
+    if not figures:
+        return ()
+    evidence = _computed_figures(metrics)
+    unscaled: list[_Figure] = []
+    sides = (
+        (change.current_text, change.current_chunk_ids),
+        (change.prior_text, change.prior_chunk_ids),
+    )
+    for text, chunk_ids in sides:
+        if not text:
+            continue
+        quote = _normalize_quote(text)
+        holders = [
+            chunk
+            for chunk_id in chunk_ids
+            if (chunk := chunks.get_chunk(chunk_id)) is not None
+            and _appears_in(quote, _normalize_quote(chunk.text))
+        ]
+        if not holders:
+            evidence += _parse_figures(quote)
+        for chunk in holders:
+            found = _quote_figures(quote, chunk, facts)
+            evidence += found.figures
+            unscaled += found.unscaled
+    return tuple(figure.text for figure in figures if not _is_backed(figure, evidence, unscaled))
 
 
 def check_citations(
