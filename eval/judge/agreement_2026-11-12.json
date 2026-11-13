@@ -1,0 +1,351 @@
+{
+  "model": "claude-opus-5-5",
+  "date": "2026-11-12",
+  "tune_HSY": {
+    "first_run": {
+      "agree": 6,
+      "of": 9,
+      "rows": [
+        {
+          "item_id": "HSY-J01",
+          "cause_id": "HSY-S01",
+          "expected": "states_cause",
+          "got": "implies",
+          "agree": false,
+          "reason": "The quote says a decrease was driven by higher tariff costs, among other factors, but it never says what decreased. On its own it does not tie the cause to gross margin, so the weaker verdict applies.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J02",
+          "cause_id": "HSY-S01",
+          "expected": "implies",
+          "got": "implies",
+          "agree": true,
+          "reason": "The quote names only the broader cause \"higher commodity costs\", not cocoa specifically. It ties that cause to an unspecified \"increase\" rather than explicitly to a gross margin decline, so it points toward the claim without stating it.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J03",
+          "cause_id": "HSY-S01",
+          "expected": "unrelated",
+          "got": "unrelated",
+          "agree": true,
+          "reason": "The quote concerns a pension plan asset return assumption. It says nothing about commodity or tariff costs or about gross margin.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J04",
+          "cause_id": "HSY-S02",
+          "expected": "states_cause",
+          "got": "states_cause",
+          "agree": true,
+          "reason": "The quote says the gross margin increase in Q2 2026 \"was driven by\" net savings related to the AAA Initiative, among other factors. That explicitly links the claim's cause to the claim's change in the same direction.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J05",
+          "cause_id": "HSY-S02",
+          "expected": "implies",
+          "got": "unrelated",
+          "agree": false,
+          "reason": "The quote ties pricing actions to the increase in net sales, not to gross margin. It never mentions gross margin or its expansion, so it is about a different change than the claim.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J06",
+          "cause_id": "HSY-S02",
+          "expected": "unrelated",
+          "got": "unrelated",
+          "agree": true,
+          "reason": "The quote discusses only an increase in net interest expense and does not mention net price realization or gross margin.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J07",
+          "cause_id": "HSY-S03",
+          "expected": "states_cause",
+          "got": "implies",
+          "agree": false,
+          "reason": "The quote says \"the increase was driven by higher compensation and benefit costs\", but it never names what increased, so it does not itself link the cause to SM&A expenses. The mention of advertising and marketing only suggests SM&A, so the weaker verdict applies.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J08",
+          "cause_id": "HSY-S03",
+          "expected": "implies",
+          "got": "implies",
+          "agree": true,
+          "reason": "The quote attributes the SM&A increase to \"higher compensation costs\". That is a broader cause than the claim's incentive compensation, and the quote does not specify incentive compensation, so it only points to the claim's cause.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J09",
+          "cause_id": "HSY-S03",
+          "expected": "unrelated",
+          "got": "unrelated",
+          "agree": true,
+          "reason": "The quote only reports the range of U.S. peanut prices during 2025. It says nothing about advertising or consumer marketing investments or about SM&A expenses.",
+          "failure": null
+        }
+      ]
+    },
+    "after_label_fixes": {
+      "agree": 8,
+      "of": 9,
+      "note": "HSY-J01 and HSY-J07 re-judged after their quotes were fixed (review_log.json label_fixes); the other 7 rows are from the first run.",
+      "rows": [
+        {
+          "item_id": "HSY-J01",
+          "cause_id": "HSY-S01",
+          "expected": "states_cause",
+          "got": "states_cause",
+          "agree": true,
+          "reason": "The quote says the gross margin decrease \"was driven by higher commodity and tariff costs,\" which directly links higher tariff costs to the margin decline as one of several named causes, in the same direction as the claim.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J02",
+          "cause_id": "HSY-S01",
+          "expected": "implies",
+          "got": "implies",
+          "agree": true,
+          "reason": "The quote names only the broader cause \"higher commodity costs\", not cocoa specifically. It ties that cause to an unspecified \"increase\" rather than explicitly to a gross margin decline, so it points toward the claim without stating it.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J03",
+          "cause_id": "HSY-S01",
+          "expected": "unrelated",
+          "got": "unrelated",
+          "agree": true,
+          "reason": "The quote concerns a pension plan asset return assumption. It says nothing about commodity or tariff costs or about gross margin.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J04",
+          "cause_id": "HSY-S02",
+          "expected": "states_cause",
+          "got": "states_cause",
+          "agree": true,
+          "reason": "The quote says the gross margin increase in Q2 2026 \"was driven by\" net savings related to the AAA Initiative, among other factors. That explicitly links the claim's cause to the claim's change in the same direction.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J05",
+          "cause_id": "HSY-S02",
+          "expected": "implies",
+          "got": "unrelated",
+          "agree": false,
+          "reason": "The quote ties pricing actions to the increase in net sales, not to gross margin. It never mentions gross margin or its expansion, so it is about a different change than the claim.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J06",
+          "cause_id": "HSY-S02",
+          "expected": "unrelated",
+          "got": "unrelated",
+          "agree": true,
+          "reason": "The quote discusses only an increase in net interest expense and does not mention net price realization or gross margin.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J07",
+          "cause_id": "HSY-S03",
+          "expected": "states_cause",
+          "got": "states_cause",
+          "agree": true,
+          "reason": "The quote says the SM&A expense increase \"was driven by higher compensation and benefit costs,\" which links the claim's cause to the increase in the same direction. The other cause it names, advertising investment, does not change this.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J08",
+          "cause_id": "HSY-S03",
+          "expected": "implies",
+          "got": "implies",
+          "agree": true,
+          "reason": "The quote attributes the SM&A increase to \"higher compensation costs\". That is a broader cause than the claim's incentive compensation, and the quote does not specify incentive compensation, so it only points to the claim's cause.",
+          "failure": null
+        },
+        {
+          "item_id": "HSY-J09",
+          "cause_id": "HSY-S03",
+          "expected": "unrelated",
+          "got": "unrelated",
+          "agree": true,
+          "reason": "The quote only reports the range of U.S. peanut prices during 2025. It says nothing about advertising or consumer marketing investments or about SM&A expenses.",
+          "failure": null
+        }
+      ]
+    }
+  },
+  "test_MAT_SWK": {
+    "agree": 15,
+    "of": 18,
+    "note": "Run once, after the HSY label fixes, with no change to the judge. Not to be used for tuning.",
+    "rows": [
+      {
+        "item_id": "MAT-J01",
+        "cause_id": "MAT-S01",
+        "expected": "states_cause",
+        "got": "states_cause",
+        "agree": true,
+        "reason": "The quote explicitly says the decrease in gross margin was due in part to unfavorable foreign currency exchange of 60 basis points, which links the claim's cause to the claim's change in the same direction.",
+        "failure": null
+      },
+      {
+        "item_id": "MAT-J02",
+        "cause_id": "MAT-S01",
+        "expected": "implies",
+        "got": "implies",
+        "agree": true,
+        "reason": "The quote reports that royalty expense rose in 2025, which is the claim's cause. It never mentions gross margin or links the increase to any margin decline.",
+        "failure": null
+      },
+      {
+        "item_id": "MAT-J03",
+        "cause_id": "MAT-S01",
+        "expected": "unrelated",
+        "got": "unrelated",
+        "agree": true,
+        "reason": "The quote only reports interest expense being flat year over year; it says nothing about cost inflation or gross margin.",
+        "failure": null
+      },
+      {
+        "item_id": "MAT-J04",
+        "cause_id": "MAT-S02",
+        "expected": "states_cause",
+        "got": "states_cause",
+        "agree": true,
+        "reason": "The quote explicitly says the decrease in gross margin was primarily due to, among other things, gross incremental tariff costs of 170 basis points. That links the claim's cause to the decline in the same direction. The quote does not name the period, but code checks that separately.",
+        "failure": null
+      },
+      {
+        "item_id": "MAT-J05",
+        "cause_id": "MAT-S02",
+        "expected": "implies",
+        "got": "implies",
+        "agree": true,
+        "reason": "The quote explicitly attributes the gross margin decline to the incremental cost of tariffs in general, but it never mentions Section 122 tariffs. It names a broader cause that includes the claim's specific one, which supports only an implied link.",
+        "failure": null
+      },
+      {
+        "item_id": "MAT-J06",
+        "cause_id": "MAT-S02",
+        "expected": "unrelated",
+        "got": "unrelated",
+        "agree": true,
+        "reason": "The quote only reports share repurchases and says nothing about royalty expense or gross margin, so it does not bear on the claim.",
+        "failure": null
+      },
+      {
+        "item_id": "MAT-J07",
+        "cause_id": "MAT-S03",
+        "expected": "states_cause",
+        "got": "states_cause",
+        "agree": true,
+        "reason": "The quote explicitly says the increase in other selling and administrative expenses was due in part to higher employee compensation expenses of $8.1 million, which directly links the claim's cause to the claimed increase in the same direction.",
+        "failure": null
+      },
+      {
+        "item_id": "MAT-J08",
+        "cause_id": "MAT-S03",
+        "expected": "implies",
+        "got": "implies",
+        "agree": true,
+        "reason": "The quote says acquisition-related expenses, including professional fees, were recognized within other selling and administrative expenses. It does not name Mattel163 as the acquisition, and it does not say these fees increased the expense line compared with any period, so the link to the claimed change is only implied.",
+        "failure": null
+      },
+      {
+        "item_id": "MAT-J09",
+        "cause_id": "MAT-S03",
+        "expected": "unrelated",
+        "got": "unrelated",
+        "agree": true,
+        "reason": "The quote discusses a decrease in inventories due to higher net sales and foreign currency translation; it says nothing about investments or other selling and administrative expenses.",
+        "failure": null
+      },
+      {
+        "item_id": "SWK-J01",
+        "cause_id": "SWK-S01",
+        "expected": "states_cause",
+        "got": "implies",
+        "agree": false,
+        "reason": "The quote attributes the year-over-year changes in gross profit as a percent of sales primarily to benefits from pricing strategies. However, it calls them only \"changes\" and never says the margin rose, so the increase is inferred from \"benefits... partially offset by\" rather than stated.",
+        "failure": null
+      },
+      {
+        "item_id": "SWK-J02",
+        "cause_id": "SWK-S01",
+        "expected": "implies",
+        "got": "implies",
+        "agree": true,
+        "reason": "The quote credits the gross margin change partly to benefits from \"supply chain cost transformation efficiencies.\" That is a broader cause which could include manufacturing footprint rationalization, but the quote never names footprint rationalization itself.",
+        "failure": null
+      },
+      {
+        "item_id": "SWK-J03",
+        "cause_id": "SWK-S01",
+        "expected": "unrelated",
+        "got": "unrelated",
+        "agree": true,
+        "reason": "The quote only reports pension plan discount rates. It says nothing about pricing, supply chain efficiencies, or gross margin.",
+        "failure": null
+      },
+      {
+        "item_id": "SWK-J04",
+        "cause_id": "SWK-S02",
+        "expected": "states_cause",
+        "got": "states_cause",
+        "agree": true,
+        "reason": "The quote says the year-over-year change in gross profit as a percent of sales was driven by several factors, \"in addition to a benefit of approximately 250 basis points related to the net impact of tariff refunds.\" This explicitly links tariff refunds to a favorable effect on gross margin.",
+        "failure": null
+      },
+      {
+        "item_id": "SWK-J05",
+        "cause_id": "SWK-S02",
+        "expected": "implies",
+        "got": "implies",
+        "agree": true,
+        "reason": "The quote reports a $118 million gain in cost of sales from Phase 1 IEEPA tariff refunds, which points to the claim's cause. It never mentions gross margin or says the gain lifted it, so the link to the change is not stated in so many words.",
+        "failure": null
+      },
+      {
+        "item_id": "SWK-J06",
+        "cause_id": "SWK-S02",
+        "expected": "unrelated",
+        "got": "unrelated",
+        "agree": true,
+        "reason": "The quote only reports the redemption of notes at maturity and says nothing about operational cost improvement, product mix, or gross margin.",
+        "failure": null
+      },
+      {
+        "item_id": "SWK-J07",
+        "cause_id": "SWK-S03",
+        "expected": "states_cause",
+        "got": "implies",
+        "agree": false,
+        "reason": "The quote explicitly attributes the year-over-year change in SG&A as a percent of sales to incremental variable incentive compensation tied to the tariff refunds. However, it calls this only a \"change\" and never says the ratio increased, so the claim's direction is inferred rather than stated.",
+        "failure": null
+      },
+      {
+        "item_id": "SWK-J08",
+        "cause_id": "SWK-S03",
+        "expected": "implies",
+        "got": "unrelated",
+        "agree": false,
+        "reason": "The quote attributes the SG&A-as-a-percent-of-sales change to incremental variable incentive compensation and growth investments tied to tariff refunds, not to brand marketing or advertising spending. It never mentions marketing or advertising.",
+        "failure": null
+      },
+      {
+        "item_id": "SWK-J09",
+        "cause_id": "SWK-S03",
+        "expected": "unrelated",
+        "got": "unrelated",
+        "agree": true,
+        "reason": "The quote only reports the cash balance and the share held in foreign jurisdictions. It says nothing about SG&A, incentive compensation, growth investments or tariff refunds.",
+        "failure": null
+      }
+    ]
+  },
+  "spent_usd": 0.1277
+}

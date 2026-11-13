@@ -120,3 +120,13 @@ year-over-year statements about different periods. The filings hold no quarter-o
 figure for these items. Treating such a pair as a sequential change is a gap in the evidence,
 which falls to retrieval and change analysis, not to alignment. This matches the finding that
 10-Qs state no causes for sequential moves.
+
+#### Label fixes after the judge agreement check (2026-11-12)
+
+The first T5.2 agreement run on Hershey disagreed with two `states_cause` labels, `HSY-J01` and
+`HSY-J07`. Each quote began "The decrease (increase) was driven by…" without naming what changed;
+the subject was in the sentence before. Read alone, such a quote only implies the claim's cause,
+and the judge said so. With the user's approval, each quote now starts with the preceding sentence
+from the same chunk (gross margin for `J01`, SM&A for `J07`). Claims and verdicts are unchanged.
+`review_log.json` records both under `label_fixes`, and `freeze.py` applies and checks them. No test
+quote had this problem: every Mattel and Stanley `states_cause` quote names the metric it explains.
