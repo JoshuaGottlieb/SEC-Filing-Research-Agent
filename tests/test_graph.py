@@ -24,6 +24,8 @@ from sec_agent.graph import (
     MATERIALITY_UNRESOLVED_REASON,
     PER_CHANGE_USD,
     RESERVE_REASON,
+    REWORK_BUDGET_NOTE,
+    REWORK_RESERVE_NOTE,
     SUMMARY_BUDGET_NOTE,
     SUMMARY_USD,
     UNREACHED_REASON,
@@ -67,7 +69,8 @@ from sec_agent.schemas import (
     TreeNode,
 )
 from sec_agent.tot.controller import Outcome, StopReason, ToTResult
-from sec_agent.tot.labeling import LabeledFinding
+from sec_agent.tot.labeling import LabeledFinding, ReworkItem
+from sec_agent.tot.rework import MAX_REWORK_ROUNDS, ReworkResult
 from sec_agent.tree_mcp.client import InProcessTreeClient
 from sec_agent.tree_mcp.store import TreeStore
 
@@ -162,6 +165,10 @@ class FakePipeline:
         headroom_usd: float = 0.0,
         ledger: CostLedger | None = None,
         explore_cost: float = 0.0,
+        rework_on: dict[str, int | None] | None = None,
+        rework_budget_on: str | None = None,
+        rework_stop_on: str | None = None,
+        rework_kill_on: str | None = None,
     ) -> None:
         self.tree = tree
         self.numeric_changes = numeric_changes
@@ -184,6 +191,13 @@ class FakePipeline:
         self.calls: list[tuple[str, str]] = []
         self.tree_run_ids: list[str] = []
         self.summarized: list[tuple[Finding, ...]] = []
+        # Changes whose claim is listed for rework, and the round that clears it (None: never).
+        self.rework_on = rework_on or {}
+        self.rework_budget_on = rework_budget_on
+        self.rework_stop_on = rework_stop_on
+        self.rework_kill_on = rework_kill_on
+        self.rework_rounds: dict[str, int] = {}
+        self.prefixes: list[str] = []
 
     def stages(self) -> Stages:
         return Stages(
@@ -193,6 +207,7 @@ class FakePipeline:
             explore=self.explore,
             label=self.label,
             summarize=self.summarize,
+            rework=self.rework,
         )
 
     def detect(self, comparison):
@@ -263,7 +278,32 @@ class FakePipeline:
             claims=(claim,),
             tree_root_id=result.tree_root_id,
         )
-        return LabeledFinding(finding=finding, failures=("claim c1: used the fixed wording",))
+        rework = (
+            (ReworkItem(claim_id=claim.claim_id),) if change.change_id in self.rework_on else ()
+        )
+        return LabeledFinding(
+            finding=finding, failures=("claim c1: used the fixed wording",), rework=rework
+        )
+
+    async def rework(self, labeled, claim_id, comparison, prefix):
+        change_id = labeled.finding.change.change_id
+        self.calls.append(("rework", change_id))
+        self.prefixes.append(prefix)
+        if change_id == self.rework_kill_on:
+            self.rework_kill_on = None
+            raise Killed(change_id)
+        if change_id == self.rework_budget_on:
+            raise BudgetExceededError("Budget of $1.00 reached")
+        if self.explore_cost:
+            self.ledger.record(LedgerEntry("judge", "m", 1, 1, 0, 0, self.explore_cost, False))
+        rounds = self.rework_rounds[change_id] = self.rework_rounds.get(change_id, 0) + 1
+        if self.rework_on[change_id] == rounds:
+            (claim,) = labeled.finding.claims
+            reworked = claim.model_copy(update={"text": "Gross margin moved, on more evidence."})
+            finding = labeled.finding.model_copy(update={"claims": (reworked,)})
+            labeled = labeled.model_copy(update={"finding": finding, "rework": ()})
+        stopped = StopReason.RUN_BUDGET if change_id == self.rework_stop_on else None
+        return ReworkResult(labeled=labeled, node_evaluations=2, stopped=stopped)
 
     async def summarize(self, findings, comparison):
         self.calls.append(("summarize", str(len(findings))))
@@ -709,3 +749,127 @@ def test_a_run_id_is_fresh_and_has_no_colons():
     run_id = new_run_id(COMPARISON, datetime(2026, 11, 12, 20, 15, 3, tzinfo=UTC))
     assert run_id == "HSY-yoy-10k-20261112T201503Z"
     assert ":" not in run_id
+
+
+# -- the rework loop's retry edge (T5.5 decision 4) -------------------------------------------
+
+
+def reworks(fake: FakePipeline) -> list[str]:
+    return [change_id for step, change_id in fake.calls if step == "rework"]
+
+
+async def test_a_listed_claim_gets_at_most_two_rounds_then_the_run_goes_on(tree, tmp_path):
+    # Every change is reworked twice, which also checks the graph's step limit.
+    fake = pipeline(
+        tree, rework_on={GM.change_id: None, OM.change_id: None, TEXTS[0].change_id: None}
+    )
+    state = await run(tree, fake, tmp_path, max_changes=3)
+    assert MAX_REWORK_ROUNDS == 2
+    steps = [(step, change) for step, change in fake.calls if step in {"explore", "rework"}]
+    assert steps == [
+        ("explore", GM.change_id),
+        ("rework", GM.change_id),
+        ("rework", GM.change_id),
+        ("explore", OM.change_id),
+        ("rework", OM.change_id),
+        ("rework", OM.change_id),
+        ("explore", TEXTS[0].change_id),
+        ("rework", TEXTS[0].change_id),
+        ("rework", TEXTS[0].change_id),
+    ]
+    claim = f"{RUN}:{GM.change_id}:r1:c1"
+    assert fake.prefixes[:2] == [f"{claim}:w1", f"{claim}:w2"]
+    # Still listed after the last round: the claim keeps its label and the brief is written.
+    assert Path(state["brief_path"]).exists()
+
+
+async def test_a_claim_cleared_in_the_first_round_gets_no_second(tree, tmp_path):
+    fake = pipeline(tree, rework_on={GM.change_id: 1})
+    state = await run(tree, fake, tmp_path, max_changes=2)
+    assert reworks(fake) == [GM.change_id]
+    findings = audit(state)["brief"]["findings"]
+    assert findings[0]["claims"][0]["text"] == "Gross margin moved, on more evidence."
+    assert explored(fake) == [GM.change_id, OM.change_id]
+
+
+async def test_a_finding_with_nothing_listed_is_not_reworked(tree, tmp_path):
+    fake = pipeline(tree, rework_on={OM.change_id: 1})
+    await run(tree, fake, tmp_path, max_changes=2)
+    assert reworks(fake) == [OM.change_id]
+
+
+async def test_with_no_rework_stage_the_loop_is_off(tree, tmp_path):
+    fake = pipeline(tree, rework_on={GM.change_id: None})
+    workflow = Workflow(
+        stages=Stages(**{**vars(fake.stages()), "rework": None}),
+        tree=tree,
+        ledger=CostLedger(5.0),
+        runs_dir=tmp_path / "runs",
+    )
+    await build_graph(workflow).ainvoke(
+        initial_state(RUN, COMPARISON, 2), config={"recursion_limit": recursion_limit(2)}
+    )
+    assert reworks(fake) == []
+
+
+async def test_rework_node_counts_join_the_run_total_and_the_budget_snapshot(tree, tmp_path):
+    fake = pipeline(tree, rework_on={GM.change_id: None})
+    state = await run(tree, fake, tmp_path, max_changes=2)
+    # Two searches of 3 and two rounds of 2.
+    assert state["node_evaluations"] == 10
+    assert (await tree.read_budget(RUN)).node_evaluations == 10
+
+
+async def test_a_round_is_skipped_without_the_labeling_reserve(tree, tmp_path):
+    # $0.50 cap, $0.30 per search: $0.20 is left after the first, under the $0.25 reserve.
+    ledger = CostLedger(0.5)
+    fake = pipeline(tree, ledger=ledger, explore_cost=0.30, rework_on={GM.change_id: None})
+    state = await run(tree, fake, tmp_path, max_changes=2)
+    assert reworks(fake) == []
+    gm = f"{RUN}:{GM.change_id}"
+    assert audit(state)["labeling_failures"][gm][-1] == f"claim {gm}:r1:c1: {REWORK_RESERVE_NOTE}"
+    assert Path(state["brief_path"]).exists()
+
+
+async def test_a_budget_stop_in_a_round_keeps_the_finding_and_stops_the_search(tree, tmp_path):
+    fake = pipeline(tree, rework_on={GM.change_id: None}, rework_budget_on=GM.change_id)
+    state = await run(tree, fake, tmp_path, max_changes=3)
+    assert reworks(fake) == [GM.change_id]
+    assert explored(fake) == [GM.change_id]
+    trail = audit(state)
+    first, *rest = trail["brief"]["findings"]
+    gm = f"{RUN}:{GM.change_id}"
+    assert first["claims"][0]["text"] == "Gross margin moved."
+    assert first["review_reason"] is None
+    assert trail["labeling_failures"][gm][-1] == f"claim {gm}:r1:c1: {REWORK_BUDGET_NOTE}"
+    assert [finding["review_reason"] for finding in rest] == [UNREACHED_REASON] * 2
+
+
+async def test_a_round_the_dollar_cap_stopped_ends_the_loop_and_the_search(tree, tmp_path):
+    fake = pipeline(tree, rework_on={GM.change_id: None}, rework_stop_on=GM.change_id)
+    state = await run(tree, fake, tmp_path, max_changes=3)
+    assert reworks(fake) == [GM.change_id]
+    assert explored(fake) == [GM.change_id]
+    assert state["out_of_budget"]
+
+
+def test_the_step_limit_allows_every_change_its_rounds():
+    assert recursion_limit(3) == 3 * (1 + MAX_REWORK_ROUNDS) + 10
+
+
+def test_the_rework_notes_are_not_worded_causally():
+    assert not find_causal_language(REWORK_RESERVE_NOTE)
+    assert not find_causal_language(REWORK_BUDGET_NOTE)
+
+
+async def test_a_run_killed_in_a_round_resumes_it_under_new_node_ids(tree, tmp_path, settings):
+    fake = pipeline(tree, rework_on={GM.change_id: None}, rework_kill_on=GM.change_id)
+    with pytest.raises(Killed):
+        await run_graph(workflow_for(fake, tree, tmp_path), settings, RUN, COMPARISON, 2, False)
+    resumed = workflow_for(fake, tree, tmp_path, tree_run_id=f"{RUN}.r2")
+    state = await run_graph(resumed, settings, RUN, COMPARISON, 2, True)
+    claim = f"{RUN}:{GM.change_id}:r1:c1"
+    # The search is not repeated: the checkpoint after it holds the labeled finding.
+    assert explored(fake) == [GM.change_id, OM.change_id]
+    assert fake.prefixes == [f"{claim}:w1", f"{claim}:w1.r2", f"{claim}:w2.r2"]
+    assert state["node_evaluations"] == 3 + 2 + 2 + 3
