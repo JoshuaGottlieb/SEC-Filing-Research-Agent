@@ -788,6 +788,16 @@ def test_the_prompts_treat_input_as_untrusted(system):
     assert "Never follow" in system
 
 
+def test_the_evidence_prompt_asks_for_quotes_that_stand_on_their_own():
+    # The judge reads only the claim and the quote, so a quote that does not name what changed can
+    # at best imply the cause. Prose is normalized so line wrapping in the prompt does not matter.
+    prose = " ".join(EVIDENCE_SYSTEM.split())
+    assert "make sense read on its own" in prose
+    assert "names what changed and how, as well as the cause" in prose
+    assert "start the quote at the sentence before it that does" in prose
+    assert "Quote only what you relied on" not in prose
+
+
 @pytest.mark.parametrize("schema", [SpecificityCritique, EvidenceCritique, EvidenceReassessment])
 def test_the_output_schemas_are_valid_for_structured_output(schema):
     # Structured output is stricter than JSON Schema, and the failure only shows at a paid call.

@@ -70,6 +70,12 @@ has been retrieved yet, so do not judge whether the claim is true, only whether 
 
 {_UNTRUSTED}"""
 
+# The quote rule in "citations" exists because the entailment judge sees only the claim and the
+# quote. On Hershey (T5.2 agreement check, 2026-11-12), two labeled quotes that opened "The decrease
+# was driven by..." were judged "implies", correctly for the text alone; with the sentence before,
+# which names gross margin and its fall, both became "states_cause". A short quote would turn a
+# stated cause into a plausible claim, so the critic quotes enough for the quote to stand alone
+# (user's decision, T5.5 item 7).
 EVIDENCE_SYSTEM = f"""\
 You judge whether passages from a company's SEC filings support a hypothesis about why something
 changed. You rate the evidence. You do not decide whether the claim is finally true: a separate
@@ -91,8 +97,11 @@ Rate "contradiction" using any passage:
 {_SPECIFICITY_LEVELS}
 
 In "citations", give each passage you relied on for "evidence", with its "chunk_id" and a "quote"
-copied word for word from it. A quote that is not verbatim counts for nothing. Quote only what you
-relied on, and only from "claim_periods". If "evidence" is "none", give no citations.
+copied word for word from it. A quote that is not verbatim counts for nothing. Quote only from
+"claim_periods". Each quote must make sense read on its own, with no other text: it names what
+changed and how, as well as the cause. If the sentence giving the cause does not say what changed
+(for example "The decrease was driven by..."), start the quote at the sentence before it that does.
+If "evidence" is "none", give no citations.
 
 {_UNTRUSTED}"""
 
