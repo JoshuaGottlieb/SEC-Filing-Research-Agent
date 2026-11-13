@@ -16,6 +16,10 @@ What the review changes:
 - The reviewer's note is appended to the item's note, marked "Reviewer:".
 - Retrieval quotes in `QUOTE_SWAPS` are replaced by the sentence the reviewer named. The scored
   unit is the chunk, which the swap keeps (it is checked), so only the anchor text changes.
+
+After freezing, a label changes only through the log's `label_fixes`, each approved by the user
+with its reason. A fix replaces one judge example's quote with a longer one from the same chunk
+that still contains the old quote; both are checked here.
 """
 
 from __future__ import annotations
@@ -28,6 +32,7 @@ from pathlib import Path
 from sec_agent.benchmark import (
     Benchmark,
     Item,
+    JudgeExample,
     Quote,
     RetrievalQuestion,
     SampledChange,
@@ -107,8 +112,19 @@ def swap_quote(question: RetrievalQuestion, chunk_id: str, text: str) -> Retriev
     return question.model_copy(update={"quotes": quotes})
 
 
+def fix_judge_quote(example: JudgeExample, fix: dict) -> JudgeExample:
+    old = example.quote
+    if old.chunk_id != fix["chunk_id"] or old.text != fix["old_quote"]:
+        raise SystemExit(f"{example.item_id}: label fix does not match the frozen quote")
+    if old.text not in fix["new_quote"]:
+        raise SystemExit(f"{example.item_id}: a fixed quote must contain the old one")
+    new = Quote(side=old.side, text=fix["new_quote"], chunk_id=old.chunk_id)
+    return example.model_copy(update={"quote": new})
+
+
 def apply(drafts: Benchmark, log: dict) -> Benchmark:
     decisions = {entry["item_id"]: entry for entry in log["decisions"]}
+    fixes = {fix["item_id"]: fix for fix in log.get("label_fixes", [])}
     ids = {item.item_id for item in drafts.items()}
     if ids != set(decisions):
         missing, unknown = sorted(ids - set(decisions)), sorted(set(decisions) - ids)
@@ -125,12 +141,17 @@ def apply(drafts: Benchmark, log: dict) -> Benchmark:
             item = item.model_copy(update=update)
             if item.item_id in QUOTE_SWAPS:
                 item = swap_quote(item, *QUOTE_SWAPS[item.item_id])
+            if item.item_id in fixes:
+                item = fix_judge_quote(item, fixes.pop(item.item_id))
             frozen[kind].append(item)
+    if fixes:
+        raise SystemExit(f"label fixes for unknown or rejected items {sorted(fixes)}")
     return Benchmark(**frozen)
 
 
-def check_swaps(benchmark: Benchmark) -> None:
-    """Each swapped sentence must locate exactly the chunk the reviewer accepted."""
+def check_swaps(benchmark: Benchmark, log: dict) -> None:
+    """Each swapped sentence must locate exactly the chunk the reviewer accepted, and each fixed
+    judge quote must still be found in its own chunk."""
     corpus = Corpus.load(REPO_ROOT / "config" / "corpus.yaml")
     comparisons = {c.comparison_id: c for co in corpus.companies for c in co.comparisons()}
     questions = {q.item_id: q for q in benchmark.retrieval}
@@ -143,6 +164,12 @@ def check_swaps(benchmark: Benchmark) -> None:
             )
             if found != (chunk_id,):
                 raise SystemExit(f"{item_id}: swapped quote locates {found}, not {chunk_id}")
+        examples = {j.item_id: j for j in benchmark.judge}
+        for fix in log.get("label_fixes", []):
+            example = examples[fix["item_id"]]
+            found = resolve_quote(example.quote, comparisons[example.comparison_id], store.chunks)
+            if fix["chunk_id"] not in found:
+                raise SystemExit(f"{example.item_id}: fixed quote is not in {fix['chunk_id']}")
 
 
 def split(benchmark: Benchmark, which: Split) -> Benchmark:
@@ -157,7 +184,7 @@ def split(benchmark: Benchmark, which: Split) -> Benchmark:
 def main() -> int:
     log = json.loads((HERE / "review_log.json").read_text())
     frozen = apply(load_drafts(log), log)
-    check_swaps(frozen)
+    check_swaps(frozen, log)
     for name, which in (("HSY.json", Split.TUNE), ("test.json", Split.TEST)):
         part = split(frozen, which)
         save_benchmark(part, HERE / name)

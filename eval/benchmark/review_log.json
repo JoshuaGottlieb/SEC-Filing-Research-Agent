@@ -891,5 +891,25 @@
       "superseded_by": "MAT:seq-10q:modified:0001628280-26-054347:mdna:0073",
       "reason": "Sample redrawn on 2026-11-12 after PR #45 corrected seq-10q pairing; this slot now draws a different change."
     }
+  ],
+  "label_fixes": [
+    {
+      "item_id": "HSY-J01",
+      "kind": "judge",
+      "chunk_id": "0001628280-26-008586:mdna:0034:0",
+      "old_quote": "The decrease was driven by higher commodity and tariff costs, unfavorable mark-to-market activity on our commodity derivative instruments and lower volume, which more than offset the benefits from net price realization",
+      "new_quote": "Gross margin was 33.5% in 2025 compared with 47.3% in 2024, a decrease of approximately 1,380 basis points. The decrease was driven by higher commodity and tariff costs, unfavorable mark-to-market activity on our commodity derivative instruments and lower volume, which more than offset the benefits from net price realization",
+      "fixed_on": "2026-11-12",
+      "reason": "Approved by the user on 2026-11-12 after the T5.2 agreement check. The frozen quote began \"The decrease/increase was driven by\" without naming what changed; the subject is in the sentence before, in the same chunk. On the quote alone the judge answered implies, which is right for that text, so the quote did not test what the label says. The fix prepends that sentence. Verdict and claim unchanged."
+    },
+    {
+      "item_id": "HSY-J07",
+      "kind": "judge",
+      "chunk_id": "0001628280-26-008586:mdna:0037:0",
+      "old_quote": "The increase was driven by higher compensation and benefit costs and investments in advertising and related consumer marketing expenses.",
+      "new_quote": "SM&A expenses were $2,460.6 million in 2025 compared to $2,373.6 million in 2024, an increase of $87.0 million, or 3.7%. The increase was driven by higher compensation and benefit costs and investments in advertising and related consumer marketing expenses.",
+      "fixed_on": "2026-11-12",
+      "reason": "Approved by the user on 2026-11-12 after the T5.2 agreement check. The frozen quote began \"The decrease/increase was driven by\" without naming what changed; the subject is in the sentence before, in the same chunk. On the quote alone the judge answered implies, which is right for that text, so the quote did not test what the label says. The fix prepends that sentence. Verdict and claim unchanged."
+    }
   ]
 }
