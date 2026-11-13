@@ -47,6 +47,31 @@ class CostLedger:
         self._reserved = 0.0
         self._entries: list[LedgerEntry] = []
 
+    @classmethod
+    def resume(cls, max_usd: float, path: Path) -> CostLedger:
+        """A ledger that continues a run's log: every call it already holds counts as spent.
+
+        A restarted process would otherwise start at $0, so the cap and the brief's cost would
+        miss what the run paid before it stopped (T5.5 resume). New calls append to the same file.
+        A last line cut off by a crash is skipped; any other unreadable line is an error.
+        """
+        ledger = cls(max_usd, path)
+        lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+        for number, line in enumerate(lines, start=1):
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                if number == len(lines):
+                    break
+                raise
+            row.pop("at", None)
+            entry = LedgerEntry(**row)
+            ledger._spent += entry.cost_usd
+            ledger._entries.append(entry)
+        return ledger
+
     @property
     def spent_usd(self) -> float:
         with self._lock:

@@ -197,18 +197,26 @@ def analyze(  # noqa: PLR0913 -- one argument per option
         bool,
         typer.Option("--yes", "-y", help="Print the cost estimate and go ahead without asking."),
     ] = False,
+    resume: Annotated[
+        str | None,
+        typer.Option("--resume", help="Continue the stopped run with this id from its checkpoint."),
+    ] = None,
 ) -> None:
     """Compare two filings and write a cited brief to the runs folder.
 
     Shows a cost estimate and asks before spending anything, unless `--yes` is given. Exits 1
     with no brief if the estimate is declined, the budget cannot cover the materiality step, the
-    materiality step hits the budget, or the brief breaks a rule.
+    materiality step hits the budget, the brief breaks a rule, or a run cannot be resumed. A
+    stopped run continues from its last finished step with `--resume RUN_ID`.
     """
+    if resume is not None and run_id is not None:
+        raise typer.BadParameter("give --resume or --run-id, not both")
     # Imported here: the workflow loads torch and the search models, which other commands
     # (doctor, search-facts) do not need.
     from sec_agent.graph import (
         DEFAULT_MAX_CHANGES,
         CostEstimate,
+        ResumeError,
         RunDeclined,
         describe_estimate,
         run_analysis,
@@ -221,6 +229,16 @@ def analyze(  # noqa: PLR0913 -- one argument per option
             typer.echo(line)
         return yes or typer.confirm("Go ahead?", default=False)
 
+    started: list[str] = []
+
+    def announce(new_run_id: str) -> None:
+        started.append(new_run_id)
+        typer.echo(f"Run {new_run_id}")
+
+    def resume_hint() -> str:
+        name = started[0] if started else "RUN_ID"
+        return f"sec-agent analyze {ticker.upper()} --comparison {comparison.value} --resume {name}"
+
     settings = get_settings()
     settings.ensure_dirs()
     try:
@@ -231,12 +249,25 @@ def analyze(  # noqa: PLR0913 -- one argument per option
                 comparison,
                 max_changes=max_changes or DEFAULT_MAX_CHANGES,
                 max_usd=max_usd,
-                run_id=run_id,
+                run_id=resume or run_id,
                 corpus_path=corpus_path,
                 confirm=confirm,
+                resume=resume is not None,
+                announce=announce,
             )
         )
-    except (BudgetExceededError, BriefError, RunDeclined) as error:
+    except KeyboardInterrupt as error:
+        typer.echo(f"Stopped. Continue from the last finished step with: {resume_hint()}")
+        raise typer.Exit(code=130) from error
+    except BudgetExceededError as error:
+        typer.echo(f"No brief written: {error}")
+        typer.echo(f"To continue with a higher --max-usd: {resume_hint()} --max-usd AMOUNT")
+        raise typer.Exit(code=1) from error
+    except ResumeError as error:
+        # Nothing ran, and a finished run's brief is already there, so "no brief" would mislead.
+        typer.echo(f"Not run: {error}")
+        raise typer.Exit(code=1) from error
+    except (BriefError, RunDeclined) as error:
         typer.echo(f"No brief written: {error}")
         raise typer.Exit(code=1) from error
     typer.echo(f"Brief: {report.brief}")

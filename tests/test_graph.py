@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, date, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -27,15 +28,20 @@ from sec_agent.graph import (
     SUMMARY_USD,
     UNREACHED_REASON,
     CostEstimate,
+    ResumeError,
     RunDeclined,
     Stages,
     Workflow,
+    attempt_id,
     build_graph,
+    check_resumable,
+    checkpoint_serializer,
     describe_estimate,
     estimate_cost,
     initial_state,
     new_run_id,
     recursion_limit,
+    run_graph,
     select_changes,
 )
 from sec_agent.llm.ledger import BudgetExceededError, CostLedger, LedgerEntry
@@ -132,6 +138,10 @@ def decision(change: Change, importance: int, untraced: tuple[str, ...] = ()):
     )
 
 
+class Killed(Exception):  # noqa: N818 -- a stand-in for the process being killed
+    """Raised mid-search to stand in for a killed process."""
+
+
 class FakePipeline:
     """Every stage, scripted, with a log of what each was called with."""
 
@@ -145,6 +155,7 @@ class FakePipeline:
         unresolved: tuple[Unresolved, ...] = (),
         untraced: dict[str, tuple[str, ...]] | None = None,
         run_budget_on: str | None = None,
+        kill_on: str | None = None,
         label_budget_on: str | None = None,
         summary_budget: bool = False,
         claim_text: str = "Gross margin moved.",
@@ -162,6 +173,8 @@ class FakePipeline:
         self.label_budget_on = label_budget_on
         self.summary_budget = summary_budget
         self.claim_text = claim_text
+        # The change whose first search is cut off, as if the process were killed there.
+        self.kill_on = kill_on
         # What the materiality step would hold at once, and how often the graph asked.
         self.headroom_usd = headroom_usd
         self.headroom_checks = 0
@@ -169,6 +182,7 @@ class FakePipeline:
         self.ledger = ledger
         self.explore_cost = explore_cost
         self.calls: list[tuple[str, str]] = []
+        self.tree_run_ids: list[str] = []
         self.summarized: list[tuple[Finding, ...]] = []
 
     def stages(self) -> Stages:
@@ -209,6 +223,7 @@ class FakePipeline:
 
     async def explore(self, change, comparison, run_id):
         self.calls.append(("explore", change.change_id))
+        self.tree_run_ids.append(run_id)
         root = TreeNode(
             node_id=f"{run_id}:{change.change_id}:root",
             run_id=run_id,
@@ -217,6 +232,9 @@ class FakePipeline:
             thought="what changed",
         )
         await self.tree.create_tree(root)
+        if change.change_id == self.kill_on:
+            self.kill_on = None
+            raise Killed(change.change_id)
         if self.explore_cost:
             self.ledger.record(LedgerEntry("generator", "m", 1, 1, 0, 0, self.explore_cost, False))
         stopped = StopReason.RUN_BUDGET if change.change_id == self.run_budget_on else None
@@ -570,6 +588,103 @@ async def test_a_cap_too_small_for_materiality_is_refused_before_the_estimate_is
     with pytest.raises(BudgetExceededError):
         await run(tree, fake, tmp_path, ledger=CostLedger(0.50), confirm=answer)
     assert answer.shown == []
+
+
+# Resume (T5.5 decision 3)
+
+
+def workflow_for(fake: FakePipeline, tree, tmp_path, *, tree_run_id: str | None = None) -> Workflow:
+    return Workflow(
+        stages=fake.stages(),
+        tree=tree,
+        ledger=CostLedger(5.0),
+        runs_dir=tmp_path / "runs",
+        clock=lambda: datetime(2026, 11, 13, 12, 0, tzinfo=UTC),
+        tree_run_id=tree_run_id,
+    )
+
+
+async def test_a_killed_run_resumes_from_its_last_finished_change(tree, tmp_path, settings):
+    fake = pipeline(tree, kill_on=OM.change_id)
+    with pytest.raises(Killed):
+        await run_graph(workflow_for(fake, tree, tmp_path), settings, RUN, COMPARISON, 3, False)
+    assert not (tmp_path / "runs" / RUN).exists()
+    # A new process: a new workflow and a new connection to the same checkpoint file.
+    attempt = f"{RUN}.r2"
+    resumed = workflow_for(fake, tree, tmp_path, tree_run_id=attempt)
+    state = await run_graph(resumed, settings, RUN, COMPARISON, 3, True)
+    steps = [step for step, _ in fake.calls]
+    # Detection and ranking are not repeated; the finished change is not searched again.
+    assert steps.count("detect") == 1 and steps.count("rank") == 1
+    assert explored(fake) == [GM.change_id, OM.change_id, OM.change_id, TEXTS[0].change_id]
+    assert [change for step, change in fake.calls if step == "label"] == [
+        GM.change_id,
+        OM.change_id,
+        TEXTS[0].change_id,
+    ]
+    # The cut-off change runs again under the attempt id; its finding keeps the run's id.
+    assert fake.tree_run_ids == [RUN, RUN, attempt, attempt]
+    findings = audit(state)["brief"]["findings"]
+    assert [finding["finding_id"] for finding in findings] == [
+        f"{RUN}:{GM.change_id}",
+        f"{RUN}:{OM.change_id}",
+        f"{RUN}:{TEXTS[0].change_id}",
+    ]
+    assert findings[1]["tree_root_id"] == f"{attempt}:{OM.change_id}:root"
+    # The cut-off attempt's node count was never saved, so only finished searches count.
+    assert state["node_evaluations"] == 9
+    assert Path(state["brief_path"]).exists()
+
+
+async def test_a_run_id_with_a_checkpoint_is_not_started_again(tree, tmp_path, settings):
+    fake = pipeline(tree)
+    await run_graph(workflow_for(fake, tree, tmp_path), settings, RUN, COMPARISON, 3, False)
+    with pytest.raises(ResumeError, match="resume it with --resume"):
+        await run_graph(workflow_for(fake, tree, tmp_path), settings, RUN, COMPARISON, 3, False)
+    with pytest.raises(ResumeError, match="already finished"):
+        await run_graph(workflow_for(fake, tree, tmp_path), settings, RUN, COMPARISON, 3, True)
+
+
+async def test_only_a_saved_run_can_be_resumed(tree, tmp_path, settings):
+    fake = pipeline(tree)
+    with pytest.raises(ResumeError, match="no checkpoint"):
+        await run_graph(
+            workflow_for(fake, tree, tmp_path), settings, "never-ran", COMPARISON, 3, True
+        )
+    assert fake.calls == []
+
+
+def test_a_resume_must_be_of_the_same_comparison():
+    other = COMPARISON.model_copy(update={"comparison_id": "HSY:yoy-10q"})
+    saved = SimpleNamespace(values={"comparison": COMPARISON}, next=("explore",))
+    check_resumable(saved, RUN, COMPARISON)
+    with pytest.raises(ResumeError, match="analyzes"):
+        check_resumable(saved, RUN, other)
+
+
+def test_an_attempt_id_has_no_colon_and_names_its_run():
+    made = attempt_id(RUN, datetime(2026, 11, 13, 18, 5, 9, tzinfo=UTC))
+    assert made == f"{RUN}.r20261113T180509Z"
+    assert ":" not in made
+
+
+def test_the_checkpoint_restores_records_as_records(monkeypatch):
+    # LangGraph turns a class it is not allowed to restore into plain data, which the graph's
+    # nodes could not read on a resume. Its default still restores unlisted classes, with a
+    # warning that a future version will block them; strict mode is that future default.
+    from langgraph.checkpoint.serde import _msgpack
+
+    monkeypatch.setattr(_msgpack, "STRICT_MSGPACK_ENABLED", True)
+    serde = checkpoint_serializer()
+    finding = LabeledFinding(
+        finding=Finding(finding_id=f"{RUN}:x", change=GM, review_reason="r"),
+        failures=("note",),
+    )
+    state = {"findings": (finding,), "comparison": COMPARISON, "estimate": None}
+    restored = serde.loads_typed(serde.dumps_typed(state))
+    assert restored["findings"][0] == finding
+    assert isinstance(restored["findings"][0].finding.change.kind, ChangeKind)
+    assert restored["comparison"] == COMPARISON
 
 
 def test_selecting_needs_a_positive_cap():
