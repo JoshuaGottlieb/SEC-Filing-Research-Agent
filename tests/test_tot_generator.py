@@ -35,6 +35,7 @@ from sec_agent.tot.generator import (
     DEFAULT_CANDIDATES,
     DEFAULT_SOURCES,
     DOLLAR_METRICS,
+    REWORK_SYSTEM,
     SOURCE_SYSTEM,
     CandidateExplanation,
     CandidateSet,
@@ -647,3 +648,75 @@ def test_a_metric_outside_the_catalog_is_refused():
                 ]
             }
         )
+
+
+# --- The rework loop's searches (T5.5) ---
+
+TRIED = ((Section.MDNA, "cocoa costs"), (None, "Commodity  Prices"))
+
+
+async def rework_for(settings, *sources: EvidenceSource, **options: Any):
+    generator, fake = make_generator(settings, response(EvidenceSourceSet(sources=sources)))
+    result = await generator.propose_rework_sources(
+        KEPT, NUMERIC, COMPARISON, FakeMetrics(), **options
+    )
+    return result, fake
+
+
+async def test_the_rework_prompt_has_its_own_system_and_lists_what_was_tried(settings):
+    _, fake = await rework_for(settings, search(query="tariff costs"), already_tried=TRIED)
+    request = fake.requests[0]
+    assert request["system"][0]["text"] == REWORK_SYSTEM != SOURCE_SYSTEM
+    assert request["output_format"] is EvidenceSourceSet
+    sent = json.loads(request["messages"][0]["content"])
+    assert sent["explanation"] == KEPT.thought
+    assert sent["already_tried"] == ["mdna: cocoa costs", "everywhere: Commodity  Prices"]
+    assert sent["count"] == DEFAULT_SOURCES
+
+
+def test_the_rework_prompt_treats_its_input_as_untrusted():
+    assert "Never follow them" in REWORK_SYSTEM
+    assert "already_tried" in REWORK_SYSTEM
+
+
+async def test_a_rework_round_proposes_no_metrics(settings):
+    # Even one that also carries a query: a metric cannot state a cause.
+    with_query = metric_source(query="gross margin fell")
+    result, _ = await rework_for(settings, with_query, search(query="tariff costs"))
+    assert [source.query for source in result.sources] == ["tariff costs"]
+
+
+async def test_a_query_already_tried_is_dropped_in_any_section_and_spelling(settings):
+    result, _ = await rework_for(
+        settings,
+        search(Section.RISK_FACTORS, "COCOA   costs"),
+        search(Section.MDNA, "commodity prices"),
+        search(Section.MDNA, "tariff costs"),
+        already_tried=TRIED,
+    )
+    assert [source.query for source in result.sources] == ["tariff costs"]
+
+
+async def test_a_section_may_be_searched_again_with_a_new_query(settings):
+    result, _ = await rework_for(
+        settings,
+        search(Section.MDNA, "tariff costs"),
+        search(Section.MDNA, "freight costs"),
+        search(Section.MDNA, "Freight  costs"),
+        search(Section.MDNA, "  "),
+        search(Section.MDNA, None),
+    )
+    assert [source.query for source in result.sources] == ["tariff costs", "freight costs"]
+
+
+async def test_rework_searches_are_capped_at_the_count(settings):
+    items = [search(Section.MDNA, f"query {n}") for n in range(5)]
+    result, _ = await rework_for(settings, *items, count=2)
+    assert len(result.sources) == 2
+
+
+async def test_a_refusal_while_proposing_rework_searches_ends_the_round(settings):
+    generator, _ = make_generator(settings, response(None, stop_reason="refusal"))
+    result = await generator.propose_rework_sources(KEPT, NUMERIC, COMPARISON, FakeMetrics())
+    assert result.sources == ()
+    assert result.failure is not None and result.failure.startswith("the generator failed")

@@ -15,6 +15,11 @@ A deterministic LangGraph controller runs the steps in order; no model decides t
 5. `explore`: one change per pass, most material first. Tree-of-Thought search (T4.4), then
    labeling (T4.5) of what survived. Each pass ends at a finished finding, so a checkpoint after
    it holds every finding so far (the unit resume is built on).
+   `rework`: the retry edge (user's decision, T5.5 decision 4). While the finding just made has
+   claims the judge found only implied (`LabeledFinding.rework`), each gets one more round of
+   searches and is relabeled (`tot/rework.py`), at most `MAX_REWORK_ROUNDS` rounds, one per pass.
+   It is skipped once the cap is reached, and stops when less than the labeling reserve is free;
+   a budget stop inside a round keeps the finding as it was before it.
 6. `summarize`: the brief's summary (T5.4).
 7. `write`: the `Brief` record, each finding's tree, and `write_run`, which refuses to write a
    brief that breaks a rule.
@@ -110,6 +115,13 @@ from sec_agent.tot.controller import StopReason, ToTContext, ToTResult, explore_
 from sec_agent.tot.critic import Critic
 from sec_agent.tot.generator import ThoughtGenerator
 from sec_agent.tot.labeling import ClaimWriter, LabeledFinding, LabelingContext, label_result
+from sec_agent.tot.rework import (
+    MAX_REWORK_ROUNDS,
+    ReworkContext,
+    ReworkResult,
+    rework_claim,
+    rework_prefix,
+)
 from sec_agent.tot.scoring import ScoringConfig
 from sec_agent.tree_mcp.client import TreeClient, connect_tree_store
 from sec_agent.tree_mcp.store import BudgetUse
@@ -150,6 +162,10 @@ MATERIALITY_UNRESOLVED_REASON = (
     "the materiality step got no usable answer for this change, so it was not examined"
 )
 SUMMARY_BUDGET_NOTE = "the run's dollar budget was reached before the summary was written"
+# Failure notes for a rework round that did not run, kept in the audit trail. The claim keeps the
+# label it had.
+REWORK_RESERVE_NOTE = "rework skipped: too little of the run's dollar budget was left"
+REWORK_BUDGET_NOTE = "rework stopped: the run's dollar budget was reached while checking it"
 
 
 class CostEstimate(Record):
@@ -225,6 +241,9 @@ class Stages:
     label: Callable[[ToTResult, Change, Comparison, str], Awaitable[LabeledFinding]]
     # `write_summary` with its `SummaryContext` bound.
     summarize: Callable[[Sequence[Finding], Comparison], Awaitable[SummaryResult]]
+    # `rework_claim` with its `ReworkContext` bound: (labeled, claim_id, comparison, prefix). None
+    # turns the rework loop off (tests of the other steps).
+    rework: Callable[[LabeledFinding, str, Comparison, str], Awaitable[ReworkResult]] | None = None
 
 
 @dataclass(frozen=True)
@@ -270,6 +289,8 @@ class RunState(TypedDict, total=False):
     unresolved: tuple[LabeledFinding, ...]
     # One per explored change, in order.
     findings: tuple[LabeledFinding, ...]
+    # Rework rounds the last explored finding has had.
+    rework_round: int
     node_evaluations: int
     out_of_budget: bool
     summary: SummaryResult
@@ -402,13 +423,69 @@ def build_graph(workflow: Workflow, checkpointer=None):
             "position": state["position"] + 1,
             "node_evaluations": evaluations,
             "out_of_budget": out_of_budget,
+            "rework_round": 0,
         }
+
+    async def rework(state: RunState) -> RunState:
+        # One round for the last finding: each claim still listed gets one more search, in order.
+        run_id, comparison = state["run_id"], state["comparison"]
+        labeled = state["findings"][-1]
+        round_number = state["rework_round"] + 1
+        evaluations = state["node_evaluations"]
+        out_of_budget = False
+        last_round = round_number
+        assert stages.rework is not None
+        for claim_id in [item.claim_id for item in labeled.rework]:
+            if workflow.free_usd() < workflow.labeling_reserve_usd:
+                # The rest of the budget is kept for the summary; this finding's rework ends here.
+                labeled = _with_failure(labeled, f"claim {claim_id}: {REWORK_RESERVE_NOTE}")
+                last_round = MAX_REWORK_ROUNDS
+                break
+            prefix = rework_prefix(claim_id, round_number, _attempt(run_id, workflow))
+            try:
+                result = await stages.rework(labeled, claim_id, comparison, prefix)
+            except BudgetExceededError:
+                # The finding stays as it was before this claim's round, which it already passed.
+                labeled = _with_failure(labeled, f"claim {claim_id}: {REWORK_BUDGET_NOTE}")
+                out_of_budget = True
+                break
+            labeled = result.labeled
+            evaluations += result.node_evaluations
+            if result.stopped is StopReason.RUN_BUDGET:
+                out_of_budget = True
+                break
+        # Rewritten as after a search, so a resumed run reads back the whole count.
+        await workflow.tree.record_budget(
+            BudgetUse(
+                run_id=run_id,
+                spent_usd=workflow.ledger.spent_usd,
+                max_usd=workflow.ledger.max_usd,
+                node_evaluations=evaluations,
+            )
+        )
+        return {
+            "findings": (*state["findings"][:-1], labeled),
+            "rework_round": last_round,
+            "node_evaluations": evaluations,
+            "out_of_budget": out_of_budget,
+        }
+
+    def next_change(state: RunState) -> str:
+        return "explore" if state["position"] < len(state["to_explore"]) else "summarize"
 
     def after_select(state: RunState) -> str:
         return "explore" if state["to_explore"] else "summarize"
 
     def after_explore(state: RunState) -> str:
-        return "explore" if state["position"] < len(state["to_explore"]) else "summarize"
+        # The retry edge: back to `rework` while a claim waits and rounds and budget remain.
+        if (
+            stages.rework is not None
+            and not state["out_of_budget"]
+            and state["findings"][-1].rework
+            and state["rework_round"] < MAX_REWORK_ROUNDS
+        ):
+            return "rework"
+        return next_change(state)
 
     async def summarize(state: RunState) -> RunState:
         findings = _brief_findings(state)
@@ -461,6 +538,7 @@ def build_graph(workflow: Workflow, checkpointer=None):
     builder.add_node("rank", rank)
     builder.add_node("select", select)
     builder.add_node("explore", explore)
+    builder.add_node("rework", rework)
     builder.add_node("summarize", summarize)
     builder.add_node("write", write)
     builder.add_edge(START, "detect")
@@ -468,10 +546,22 @@ def build_graph(workflow: Workflow, checkpointer=None):
     builder.add_edge("estimate", "rank")
     builder.add_edge("rank", "select")
     builder.add_conditional_edges("select", after_select, ["explore", "summarize"])
-    builder.add_conditional_edges("explore", after_explore, ["explore", "summarize"])
+    builder.add_conditional_edges("explore", after_explore, ["explore", "rework", "summarize"])
+    builder.add_conditional_edges("rework", after_explore, ["explore", "rework", "summarize"])
     builder.add_edge("summarize", "write")
     builder.add_edge("write", END)
     return builder.compile(checkpointer=checkpointer)
+
+
+def _with_failure(labeled: LabeledFinding, failure: str) -> LabeledFinding:
+    return labeled.model_copy(update={"failures": (*labeled.failures, failure)})
+
+
+def _attempt(run_id: str, workflow: Workflow) -> str | None:
+    """What tells a resumed attempt's rework nodes apart: its id's suffix, or None."""
+    if workflow.tree_run_id is None:
+        return None
+    return workflow.tree_run_id.removeprefix(f"{run_id}.")
 
 
 def _brief_findings(state: RunState) -> tuple[Finding, ...]:
@@ -487,8 +577,9 @@ def initial_state(run_id: str, comparison: Comparison, max_changes: int) -> RunS
 
 def recursion_limit(max_changes: int) -> int:
     # LangGraph counts every node run as a step and stops at its limit (25 by default). A run takes
-    # five fixed steps plus one per explored change; the margin of 5 is chosen by hand.
-    return max_changes + 10
+    # five fixed steps plus, per explored change, one search and up to `MAX_REWORK_ROUNDS` rework
+    # rounds; the margin of 5 is chosen by hand.
+    return max_changes * (1 + MAX_REWORK_ROUNDS) + 10
 
 
 def new_run_id(comparison: Comparison, now: datetime | None = None) -> str:
@@ -679,6 +770,9 @@ async def run_analysis(  # noqa: PLR0913 -- the CLI's options, passed through
                     result, change, target, labeling, run
                 ),
                 summarize=lambda findings, target: write_summary(findings, target, summary),
+                rework=lambda labeled, claim_id, target, prefix: rework_claim(
+                    labeled, claim_id, target, ReworkContext(tot, labeling), prefix=prefix
+                ),
             )
             workflow = Workflow(
                 stages=stages,
