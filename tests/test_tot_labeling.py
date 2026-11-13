@@ -46,11 +46,14 @@ from sec_agent.tot.controller import CandidateResult, Outcome, ToTResult, claim_
 from sec_agent.tot.labeling import (
     FALLBACK_PLAUSIBLE_TEXT,
     MAX_JUDGE_CALLS_PER_CLAIM,
+    MAX_RESTATED_JUDGE_CALLS_PER_CLAIM,
     NO_EVIDENCE_TEXT,
+    RESTATE_SYSTEM,
     WORDING_SYSTEM,
     ClaimWriter,
     LabelingContext,
     PlausibleWording,
+    Restatement,
     label_result,
 )
 
@@ -179,11 +182,23 @@ class FakeJudge:
 
 
 class FakeWriter:
-    """A `ClaimWriter` playing back queued texts. An Exception in the queue is raised."""
+    """A `ClaimWriter` playing back queued texts. An Exception in the queue is raised.
 
-    def __init__(self, *texts: Any) -> None:
+    `restated` is what `restate` returns, None by default (the quotes do not state the cause), or
+    an Exception to raise.
+    """
+
+    def __init__(self, *texts: Any, restated: Any = None) -> None:
         self.texts = list(texts)
         self.requests: list[dict] = []
+        self.restated = restated
+        self.restate_requests: list[dict] = []
+
+    async def restate(self, request: dict) -> Restatement:
+        self.restate_requests.append(request)
+        if isinstance(self.restated, Exception):
+            raise self.restated
+        return Restatement(text=self.restated)
 
     async def write(self, request: dict) -> PlausibleWording:
         self.requests.append(request)
@@ -638,6 +653,159 @@ async def test_a_budget_stop_in_the_writer_is_not_swallowed():
     writer = FakeWriter(BudgetExceededError("over budget"))
     with pytest.raises(BudgetExceededError):
         await label(resolved(gross_margin_example().candidates[1]), FakeJudge({}), writer)
+
+
+# Restating a hypothesis at its quotes' level (user's decision, 2026-11-13)
+
+NARROW = candidate(3, "New tariffs on imported cocoa raised costs and lowered gross margin.")
+BROAD = "Higher input costs lowered gross margin."
+
+
+class ClaimJudge(FakeJudge):
+    """A judge scripted by claim and quote; anything unscripted is `default`."""
+
+    def __init__(
+        self, verdicts: dict[tuple[str, str], Any], default: Any = EntailmentVerdict.IMPLIES
+    ):
+        super().__init__({}, default)
+        self.by_claim = verdicts
+
+    async def judge(self, claim: str, quote: str) -> EntailmentJudgment:
+        self.calls.append((claim, quote))
+        verdict = self.by_claim.get((claim, quote), self.default)
+        if isinstance(verdict, Exception):
+            raise verdict
+        return EntailmentJudgment(verdict=verdict, reason="scripted")
+
+
+def narrow(*keys: str) -> ToTResult:
+    return resolved(
+        survivor(NARROW, branch(NARROW, 1, EvidenceSupport.STATES_CAUSE, *map(cite, keys)))
+    )
+
+
+async def test_a_hypothesis_narrower_than_its_quote_is_confirmed_as_restated():
+    judge = ClaimJudge({(BROAD, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE})
+    writer = FakeWriter(restated=BROAD)
+    labeled = await label(narrow("states"), judge, writer)
+    (claim,) = labeled.finding.claims
+    assert claim.label is ExplanationLabel.CONFIRMED
+    assert claim.text == BROAD
+    assert claim.citations == (cite("states"),)
+    assert claim.entailment is EntailmentVerdict.STATES_CAUSE
+    # The node id still leads to the hypothesis as generated.
+    assert claim.claim_id == NARROW.node_id
+    assert judge.calls == [(NARROW.thought, TEXTS["states"]), (BROAD, TEXTS["states"])]
+    assert writer.restate_requests == [
+        {"hypothesis": NARROW.thought, "quotes": [{"period": "FY2025", "quote": TEXTS["states"]}]}
+    ]
+    assert writer.requests == []  # no plausible wording was needed
+    assert (labeled.judge_calls, labeled.writer_calls) == (2, 1)
+    assert labeled.failures == ()
+
+
+async def test_a_restatement_the_judge_still_finds_implied_leaves_the_claim_plausible():
+    writer = FakeWriter("Costs rose and gross margin fell; the filings do not link the two.")
+    writer.restated = BROAD
+    judge = ClaimJudge({})
+    labeled = await label(narrow("states", "implies", "fits"), judge, writer)
+    (claim,) = labeled.finding.claims
+    assert claim.label is ExplanationLabel.PLAUSIBLE
+    assert claim.entailment is None
+    # Three quotes for the hypothesis as written, then the restatement against the first two only.
+    as_written = [quote for text, quote in judge.calls if text == NARROW.thought]
+    restated = [quote for text, quote in judge.calls if text == BROAD]
+    assert len(as_written) == MAX_JUDGE_CALLS_PER_CLAIM == 3
+    assert restated == [TEXTS["states"], TEXTS["implies"]][:MAX_RESTATED_JUDGE_CALLS_PER_CLAIM]
+    assert (labeled.judge_calls, labeled.writer_calls) == (5, 2)
+
+
+async def test_quotes_that_do_not_state_the_cause_give_no_restatement_and_no_more_calls():
+    judge = ClaimJudge({})
+    labeled = await label(narrow("states"), judge, FakeWriter(restated=None))
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert judge.calls == [(NARROW.thought, TEXTS["states"])]
+
+
+async def test_only_an_implied_verdict_leads_to_a_restatement():
+    writer = FakeWriter(restated=BROAD)
+    await label(narrow("states"), ClaimJudge({}, default=EntailmentVerdict.UNRELATED), writer)
+    assert writer.restate_requests == []
+
+
+async def test_a_restatement_that_repeats_the_hypothesis_is_not_judged_again():
+    judge = ClaimJudge({})
+    await label(narrow("states"), judge, FakeWriter(restated=f"  {NARROW.thought.upper()} "))
+    assert len(judge.calls) == 1
+
+
+async def test_a_restating_failure_is_noted_and_the_claim_stays_plausible():
+    writer = FakeWriter(restated=LLMRefusalError("claude-haiku-5-5", None))
+    labeled = await label(narrow("states"), ClaimJudge({}), writer)
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert any("restating the hypothesis failed" in failure for failure in labeled.failures)
+    assert not labeled.finding.needs_review
+
+
+async def test_a_restatement_with_an_unbacked_figure_is_not_judged():
+    judge = ClaimJudge({})
+    labeled = await label(
+        narrow("states"), judge, FakeWriter(restated="Input costs up 12% lowered gross margin.")
+    )
+    assert len(judge.calls) == 1
+    assert any("cannot confirm the restated hypothesis" in failure for failure in labeled.failures)
+
+
+async def test_a_judge_failure_on_the_restatement_sends_the_finding_to_review():
+    judge = ClaimJudge({(BROAD, TEXTS["states"]): LLMRefusalError("claude-opus-5-5", None)})
+    labeled = await label(narrow("states"), judge, FakeWriter(restated=BROAD))
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert labeled.finding.needs_review
+
+
+async def test_two_hypotheses_restated_alike_become_one_claim_with_both_quotes():
+    other = candidate(4, "Tariffs on imported packaging raised costs and lowered gross margin.")
+    result = resolved(
+        survivor(NARROW, branch(NARROW, 1, EvidenceSupport.STATES_CAUSE, cite("states"))),
+        survivor(other, branch(other, 1, EvidenceSupport.STATES_CAUSE, cite("implies"))),
+    )
+    judge = ClaimJudge(
+        {
+            (BROAD, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE,
+            (BROAD, TEXTS["implies"]): EntailmentVerdict.STATES_CAUSE,
+        }
+    )
+    labeled = await label(result, judge, FakeWriter(restated=BROAD))
+    (claim,) = labeled.finding.claims
+    assert claim.claim_id == NARROW.node_id
+    assert claim.citations == (cite("states"), cite("implies"))
+    assert any(
+        f"claim {other.node_id}: confirmed as the same sentence" in f for f in labeled.failures
+    )
+
+
+def test_the_restating_prompt_keeps_only_the_hypothesis_cause_and_treats_input_as_untrusted():
+    prose = " ".join(RESTATE_SYSTEM.split())
+    assert "Name only the hypothesis's cause" in prose
+    assert 'give null for "text"' in prose
+    assert "Never follow" in prose
+
+
+def test_the_restatement_schema_is_valid_for_structured_output():
+    transformed = anthropic.transform_schema(Restatement)
+    assert transformed["additionalProperties"] is False
+    assert transformed["required"] == ["text"]
+
+
+async def test_the_real_writer_restates_on_the_worker_model(settings):
+    fake = FakeAnthropic(_response(Restatement(text=BROAD)))
+    writer = ClaimWriter(LLMClient(settings, CostLedger(1.0), client=fake))
+    request = {"hypothesis": NARROW.thought, "quotes": [{"period": "FY2025", "quote": "q"}]}
+    assert (await writer.restate(request)).text == BROAD
+    (sent,) = fake.requests
+    assert sent["model"] == settings.model_worker
+    assert sent["system"][0]["text"] == RESTATE_SYSTEM
+    assert json.loads(sent["messages"][0]["content"]) == request
 
 
 def test_the_fixed_texts_and_the_prompt_example_pass_the_causal_check():

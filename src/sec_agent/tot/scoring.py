@@ -209,7 +209,7 @@ def prune_reason(
     which prunes on any wrong-period citation, so one careless pick cannot cost a good branch (the
     user's decision, 2026-11-06). `rating_withdrawn` means quotes were dropped and the critic found
     the verified ones left do not support the claim. `contradicts_change` means the branch expects
-    the changed metric, or one tied to it by arithmetic, to move the other way from how it moved.
+    the changed metric, or one that moves with it, to move the other way from how it moved.
     What is kept in the beam, ties and the retry for missing evidence are the controller's (T4.4).
     """
     if only_wrong_period:

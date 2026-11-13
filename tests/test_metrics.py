@@ -7,7 +7,7 @@ from datetime import date
 import pytest
 
 from sec_agent.config import REPO_ROOT, get_settings
-from sec_agent.contracts import MetricChecker, MetricLookup
+from sec_agent.contracts import MetricChecker, MetricLookup, MetricMoveLookup
 from sec_agent.edgar.corpus import Corpus, CorpusCompany, CorpusFiling
 from sec_agent.finance.fact_store import FactStore
 from sec_agent.finance.metrics import (
@@ -18,6 +18,7 @@ from sec_agent.finance.metrics import (
     MetricCatalog,
     MetricsConfig,
     NoMoveTolerance,
+    measured_in_points,
 )
 from sec_agent.schemas import (
     ComparisonType,
@@ -160,6 +161,7 @@ def expect(metric: MetricName, direction: Direction = Direction.UP) -> MetricExp
 def test_catalog_satisfies_both_interfaces(catalog):
     assert isinstance(catalog, MetricChecker)
     assert isinstance(catalog, MetricLookup)
+    assert isinstance(catalog, MetricMoveLookup)
 
 
 # --- Values, against arithmetic done by hand ---
@@ -428,6 +430,80 @@ def test_each_cited_metric_resolves_and_gives_the_change(facts, catalog):
     now, before = (catalog.get_metric(metric_id) for metric_id in outcome.metric_ids)
     assert now.value - before.value == pytest.approx(-0.02)
     assert (now.name, now.duration) == (before.name, before.duration)
+
+
+# --- The move a numeric change is told (`get_move`) ---
+
+
+@pytest.mark.parametrize("name", list(MetricName))
+def test_ratios_move_in_points_and_dollars_and_growth_relative(name):
+    relative = name is MetricName.REVENUE_GROWTH or name in DOLLAR_ITEMS
+    assert measured_in_points(name) is not relative
+
+
+def test_revenue_growth_without_data_is_still_a_relative_move(facts, catalog):
+    from sec_agent.finance.scan import MoveKind, ScanThresholds, scan_metric
+
+    facts.statement(Q2_26)
+    move = scan_metric(catalog, YOY_10Q, MetricName.REVENUE_GROWTH, ScanThresholds())
+    assert (move.kind, move.move) == (MoveKind.RELATIVE, None)
+
+
+def test_a_ratio_moves_in_points_from_the_earlier_value_to_the_later(facts, catalog):
+    facts.statement(Q2_26, gross_profit=375.0)
+    facts.statement(Q2_25, gross_profit=395.0)
+    moved = catalog.get_move(YOY_10Q, "AAA:gross_margin:Q2 2026:3m")
+    assert (moved.kind, moved.move) == ("points", pytest.approx(-0.02))
+    assert (moved.earlier.value, moved.later.value) == (pytest.approx(0.395), pytest.approx(0.375))
+    assert moved.earlier.metric_id == "AAA:gross_margin:Q2 2025:3m"
+
+
+def test_a_dollar_figure_moves_relative_to_its_earlier_value(facts, catalog):
+    facts.statement(Q2_26, sga=220.0)
+    facts.statement(Q2_25, sga=200.0)
+    moved = catalog.get_move(YOY_10Q, "AAA:sga:Q2 2026:3m")
+    assert (moved.kind, moved.move) == ("relative", pytest.approx(0.10))
+
+
+def test_revenue_growth_is_its_own_move_with_no_earlier_value(facts, catalog):
+    facts.statement(Q2_26, revenue=1100.0)
+    facts.statement(Q2_25, revenue=1000.0)
+    moved = catalog.get_move(YOY_10Q, "AAA:revenue_growth:Q2 2026:3m:vs-Q2 2025")
+    assert moved.earlier is None
+    assert (moved.kind, moved.move) == ("relative", pytest.approx(0.10))
+
+
+def test_a_relative_move_from_a_loss_has_no_size(facts, catalog):
+    facts.statement(Q2_26, net=50.0)
+    facts.statement(Q2_25, net=-20.0)
+    moved = catalog.get_move(YOY_10Q, "AAA:net_income:Q2 2026:3m")
+    assert moved.move is None
+    assert moved.earlier.value == -20.0
+
+
+def test_a_metric_of_other_periods_gets_no_move(facts, catalog):
+    # A change built for another comparison must not be told this one's move.
+    for filing in (Q2_26, Q2_25, Q1_26):
+        facts.statement(filing)
+    assert catalog.get_move(YOY_10Q, "AAA:gross_margin:Q2 2025:3m") is None
+    assert catalog.get_move(SEQ_10Q, "AAA:gross_margin:Q2 2026:3m") is not None
+    assert catalog.get_move(YOY_10Q, "AAA:gross_margin:Q1 2026:3m") is None
+    assert catalog.get_move(YOY_10Q, "not an id") is None
+
+
+def test_a_move_without_both_periods_is_none(facts, catalog):
+    facts.statement(Q2_26)
+    assert catalog.get_move(YOY_10Q, "AAA:gross_margin:Q2 2026:3m") is None
+
+
+def test_the_move_agrees_with_the_check(facts, catalog):
+    # The generator is told the move; the critic's gate checks expectations with `check`.
+    facts.statement(Q2_26, gross_profit=375.0, sga=230.0)
+    facts.statement(Q2_25, gross_profit=395.0, sga=200.0)
+    for name in (MetricName.GROSS_MARGIN, MetricName.SGA):
+        moved = catalog.compare(YOY_10Q, name)
+        told = Direction.UP if moved.move > 0 else Direction.DOWN
+        assert catalog.check(YOY_10Q, [expect(name, told)]).check is NumericCheck.AGREE
 
 
 def test_a_sequential_comparison_uses_consecutive_quarters(facts, catalog):
@@ -870,6 +946,28 @@ def test_real_values_match_hand_arithmetic(real, ticker, label, name, expected):
     value = catalog.get_metric(f"{ticker}:{name.value}:{label}:{duration}")
     assert value is not None
     assert value.value == pytest.approx(expected, abs=1e-6)
+
+
+@pytest.mark.corpus
+def test_the_move_hershey_changes_are_told_is_the_scans_and_the_checks(real):
+    # Hershey only (the tuning set). Every scanned move with a metric is the move `get_move`
+    # gives, and its direction is the one the critic's check agrees with.
+    from sec_agent.finance.scan import scan_comparison
+
+    catalog, corpus = real
+    told = 0
+    for kind in ComparisonType:
+        comparison = corpus.comparison("HSY", kind)
+        for move in scan_comparison(catalog, comparison).moves:
+            if move.metric_id is None or move.move is None:
+                continue
+            moved = catalog.get_move(comparison, move.metric_id)
+            assert (moved.kind, moved.move) == (move.kind.value, move.move)
+            direction = Direction.UP if move.move > 0 else Direction.DOWN
+            outcome = catalog.check(comparison, [expect(move.metric, direction)]).outcomes[0]
+            assert outcome.check in (NumericCheck.AGREE, NumericCheck.NOT_APPLICABLE)
+            told += 1
+    assert told >= 15
 
 
 @pytest.mark.corpus

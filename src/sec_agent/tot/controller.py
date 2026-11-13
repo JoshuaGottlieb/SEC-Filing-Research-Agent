@@ -30,7 +30,7 @@ from enum import StrEnum
 
 from pydantic import model_validator
 
-from sec_agent.contracts import MetricChecker, MetricLookup, Retriever
+from sec_agent.contracts import MetricChecker, MetricLookup, MetricMoveLookup, Retriever
 from sec_agent.llm.ledger import BudgetExceededError, CostLedger
 from sec_agent.schemas import (
     Change,
@@ -149,7 +149,7 @@ class ToTContext:
 
     retriever: Retriever
     checker: MetricChecker
-    metrics: MetricLookup
+    metrics: MetricMoveLookup
     generator: ThoughtGenerator
     critic: Critic
     tree: TreeClient
@@ -613,8 +613,8 @@ class _Exploration:
             # Agreement with it is set aside as free (`critic.without_free_agreement`), so whether
             # or not it had data, this source could never support the claim.
             return (
-                "no evidence: the metric is the change being explained, or moves with it by "
-                "arithmetic, so it cannot support the claim"
+                "no evidence: the metric is the change being explained, or moves with it, so it "
+                "cannot support the claim"
             )
         evaluation = branch.evaluation
         if (

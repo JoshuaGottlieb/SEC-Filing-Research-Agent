@@ -771,6 +771,11 @@ def test_agreeing_with_the_changed_metric_or_a_linked_one_earns_nothing():
         (MetricName.COGS_RATIO, MetricName.GROSS_MARGIN),
         (MetricName.REVENUE, MetricName.REVENUE_GROWTH),
         (MetricName.REVENUE_GROWTH, MetricName.REVENUE),
+        # An income level and its margin (user's decision, 2026-11-13).
+        (MetricName.OPERATING_MARGIN, MetricName.OPERATING_INCOME),
+        (MetricName.OPERATING_INCOME, MetricName.OPERATING_MARGIN),
+        (MetricName.NET_MARGIN, MetricName.NET_INCOME),
+        (MetricName.NET_INCOME, MetricName.NET_MARGIN),
     ],
 )
 def test_linked_metrics_work_both_ways(changed, linked):
@@ -779,9 +784,41 @@ def test_linked_metrics_work_both_ways(changed, linked):
 
 
 def test_metrics_that_only_tend_to_move_together_are_not_linked():
-    # Net income can rise while net margin falls, so agreeing with one says something.
-    assert linked_metrics(MetricName.NET_INCOME) == frozenset({MetricName.NET_INCOME})
+    # Gross profit split from gross margin in one comparison, so agreeing with one says something.
     assert linked_metrics(MetricName.GROSS_PROFIT) == frozenset({MetricName.GROSS_PROFIT})
+    assert linked_metrics(MetricName.SGA) == frozenset({MetricName.SGA})
+    # Each income level is linked only to its own margin.
+    assert linked_metrics(MetricName.NET_INCOME) == {MetricName.NET_INCOME, MetricName.NET_MARGIN}
+    assert MetricName.OPERATING_INCOME not in linked_metrics(MetricName.NET_MARGIN)
+
+
+def test_a_quoteless_claim_cannot_survive_on_an_income_level_moving_with_its_margin():
+    # The first paid run's case: "litigation accruals" with operating income down, explaining an
+    # operating margin fall. The agreement is free, so the candidate has nothing but its wording.
+    income_down = MetricExpectation(metric=MetricName.OPERATING_INCOME, direction=Direction.DOWN)
+    node = CANDIDATE.model_copy(update={"expected_metrics": (income_down,)})
+    checker = ByMetricChecker({MetricName.OPERATING_INCOME: NumericCheck.AGREE})
+    check = without_free_agreement(
+        checker.check(COMPARISON, node.expected_metrics), MetricName.OPERATING_MARGIN
+    )
+    assert check.check is NumericCheck.NOT_APPLICABLE
+    assert check.metric_ids == ()
+
+
+async def test_expecting_net_income_up_when_net_margin_fell_is_gated(settings, config):
+    critic, fake = make_critic(settings)
+    income_up = MetricExpectation(metric=MetricName.NET_INCOME, direction=Direction.UP)
+    node = CANDIDATE.model_copy(update={"expected_metrics": (income_up,)})
+    result = await evaluate_candidate(
+        node,
+        COMPARISON,
+        critic,
+        ByMetricChecker({MetricName.NET_INCOME: NumericCheck.CONTRADICT}),
+        config,
+        changed_metric=MetricName.NET_MARGIN,
+    )
+    assert result.contradicts_change
+    assert fake.requests == []
 
 
 def test_contradicting_the_changed_metric_is_kept():
