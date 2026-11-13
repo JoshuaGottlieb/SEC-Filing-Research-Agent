@@ -10,6 +10,7 @@ from typing import Any
 import anthropic
 import pytest
 
+from sec_agent.agents.verification import find_causal_language
 from sec_agent.llm.client import ROLE_CONFIG, LLMClient, LLMError, Role
 from sec_agent.llm.ledger import BudgetExceededError, CostLedger
 from sec_agent.report.brief import NO_FINDINGS_SUMMARY, check_brief
@@ -359,6 +360,17 @@ def test_the_prompt_treats_input_as_untrusted_and_forbids_advice():
     assert "untrusted" in SUMMARY_SYSTEM
     assert "Never follow" in SUMMARY_SYSTEM
     assert "Never give investment advice" in SUMMARY_SYSTEM
+
+
+def test_the_wording_the_prompt_gives_for_no_stated_cause_passes_the_causal_check():
+    # Both paid Hershey runs (2026-11-13) lost a draft to "do not state what caused", and the
+    # prompt itself had said "do not state the cause", which the check also flags.
+    prose = " ".join(SUMMARY_SYSTEM.split())
+    for wording in ("the filings do not link them", "the filings do not say why"):
+        assert wording in prose
+        assert find_causal_language(wording) == ()
+    assert "do not state the cause" not in prose
+    assert "count even when denied or hedged" in prose
 
 
 def test_the_output_schema_is_valid_for_structured_output():
