@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from sec_agent.schemas import NumericCheck, TreeNode
+from sec_agent.schemas import MetricCheckResult, MetricName, MetricOutcome, NumericCheck, TreeNode
 from sec_agent.tot.scoring import (
     Contradiction,
     EvidenceSupport,
@@ -13,6 +13,7 @@ from sec_agent.tot.scoring import (
     Specificity,
     Weights,
     branch_score,
+    numeric_consistency,
     prescreen_score,
     prune_reason,
 )
@@ -41,7 +42,7 @@ def test_a_text_only_candidate_is_not_pruned_at_depth_1(config):
     # could reach at most 0.25, below the threshold, so every one of them would be pruned.
     score = prescreen_score(NOT_APPLICABLE, Specificity.SPECIFIC, config)
     assert score == pytest.approx(1.0)
-    assert prune_reason(score, NOT_APPLICABLE, config) is None
+    assert prune_reason(score, config) is None
 
 
 def test_a_text_only_candidate_is_judged_on_specificity_alone(config):
@@ -49,7 +50,7 @@ def test_a_text_only_candidate_is_judged_on_specificity_alone(config):
     assert prescreen_score(NOT_APPLICABLE, Specificity.PARTIAL, config) == pytest.approx(0.5)
     vague = prescreen_score(NOT_APPLICABLE, Specificity.VAGUE, config)
     assert vague == 0.0
-    assert "below" in prune_reason(vague, NOT_APPLICABLE, config)
+    assert "below" in prune_reason(vague, config)
 
 
 @pytest.mark.parametrize(
@@ -150,7 +151,7 @@ def test_the_score_alone_does_not_catch_a_branch_with_no_evidence(config):
     score = branch_score(
         NOT_APPLICABLE, EvidenceSupport.NONE, Contradiction.NONE, Specificity.SPECIFIC, config
     )
-    assert prune_reason(score, NOT_APPLICABLE, config) is None
+    assert prune_reason(score, config) is None
 
 
 def test_every_score_fits_a_tree_node(config):
@@ -171,27 +172,29 @@ def test_every_score_fits_a_tree_node(config):
                     )
 
 
-def test_a_numeric_contradiction_is_pruned_regardless_of_score(config):
+def test_contradicting_the_change_itself_is_pruned_regardless_of_score(config):
     score = branch_score(
         CONTRADICT, EvidenceSupport.STATES_CAUSE, Contradiction.NONE, Specificity.SPECIFIC, config
     )
     assert score > config.threshold
-    assert "metrics contradict" in prune_reason(score, CONTRADICT, config)
+    assert "hard gate" in prune_reason(score, config, contradicts_change=True)
+    # Any other contradiction only lowered the score, which here still clears the threshold.
+    assert prune_reason(score, config) is None
 
 
 def test_a_branch_left_with_only_wrong_period_evidence_is_pruned_regardless_of_score(config):
-    assert "wrong period" in prune_reason(1.0, NOT_APPLICABLE, config, only_wrong_period=True)
+    assert "wrong period" in prune_reason(1.0, config, only_wrong_period=True)
 
 
 def test_a_branch_at_the_threshold_stays(config):
     # The design prunes branches "below" 0.30.
-    assert prune_reason(0.30, AGREE, config) is None
-    assert "below" in prune_reason(0.29, AGREE, config)
+    assert prune_reason(0.30, config) is None
+    assert "below" in prune_reason(0.29, config)
 
 
 def test_prune_reasons_are_what_a_tree_node_requires(config):
     # A pruned TreeNode must record why, so a reason must never be empty.
-    assert prune_reason(0.0, AGREE, config)
+    assert prune_reason(0.0, config)
 
 
 def test_weights_must_sum_to_one():
@@ -222,3 +225,44 @@ def test_a_level_value_outside_0_to_1_is_an_error(config):
 def test_an_unknown_config_field_is_an_error(config):
     with pytest.raises(ValidationError):
         ScoringConfig.model_validate({**_raw(config), "beam": 4})
+
+
+def outcomes(*checks: NumericCheck) -> MetricCheckResult:
+    metrics = list(MetricName)
+    return MetricCheckResult(
+        outcomes=tuple(
+            MetricOutcome(
+                metric=metrics[n],
+                check=check,
+                metric_ids=() if check is NOT_APPLICABLE else (f"m{n}",),
+            )
+            for n, check in enumerate(checks)
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("checks", "expected"),
+    [
+        ((AGREE,), 1.0),
+        ((CONTRADICT,), 0.0),
+        ((AGREE, CONTRADICT), 0.5),
+        ((AGREE, AGREE, CONTRADICT), 2 / 3),
+        # Not applicable is left out of the share, not counted against it.
+        ((AGREE, NOT_APPLICABLE), 1.0),
+        ((NOT_APPLICABLE,), None),
+        ((), None),
+    ],
+)
+def test_numerical_consistency_is_the_share_of_checked_metrics_that_agree(checks, expected):
+    value = numeric_consistency(outcomes(*checks))
+    assert value == (None if expected is None else pytest.approx(expected))
+
+
+def test_a_share_scores_between_agreeing_and_contradicting(config):
+    # One right and one wrong metric: halfway between, on both rubrics.
+    half = prescreen_score(0.5, Specificity.SPECIFIC, config)
+    assert half == pytest.approx(0.75 * 0.5 + 0.25)
+    assert prescreen_score(AGREE, Specificity.SPECIFIC, config) > half
+    assert half > prescreen_score(CONTRADICT, Specificity.SPECIFIC, config)
+    assert half > config.threshold

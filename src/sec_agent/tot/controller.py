@@ -550,12 +550,13 @@ class _Exploration:
         evaluation = branch.evaluation
         assert evaluation is not None
         # A metric has nothing to search again, a refusal is not missing evidence, a contradiction
-        # prunes whatever else is found, and a search that already covered everywhere can only
-        # return the same passages again. The rest get one reformulated search, of everywhere.
+        # of the change itself prunes whatever else is found, and a search that already covered
+        # everywhere can only return the same passages again. The rest get one reformulated
+        # search, of everywhere.
         branch.waiting_for_retry = (
             not evaluation.has_evidence
             and evaluation.failure is None
-            and evaluation.numeric_check is not NumericCheck.CONTRADICT
+            and not evaluation.contradicts_change
             and branch.node.source.metric is None
             and branch.node.source.section is not None
             and bool((branch.node.query_plan or "").strip())
@@ -615,6 +616,15 @@ class _Exploration:
                 "no evidence: the metric is the change being explained, or moves with it by "
                 "arithmetic, so it cannot support the claim"
             )
+        evaluation = branch.evaluation
+        if (
+            metric is not None
+            and evaluation is not None
+            and evaluation.numeric_check is NumericCheck.CONTRADICT
+        ):
+            # Only a contradiction of the change itself is a hard gate; this one is not, but a
+            # metric that moved the other way is no support either.
+            return "no evidence: the metric moved the other way from what the claim expects"
         if metric is not None:
             return "no evidence: the metric has no data to compare in either period"
         if not (branch.node.query_plan or "").strip():

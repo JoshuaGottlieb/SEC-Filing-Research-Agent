@@ -6,6 +6,16 @@ is in the ToT design and its numbers are in config/scoring.yaml.
 Numerical consistency has three states (gap 1). Not applicable removes the criterion and rescales
 the rest, because the design as first written had a bug: a text-only explanation, such as a new
 risk factor, scored at most 0.25 at depth 1, below the 0.30 threshold, so all of them were pruned.
+
+When it applies, numerical consistency is the share of a branch's checked metrics that agree
+(`numeric_consistency`), not all or nothing. The generator sometimes adds a metric that moved the
+other way to an otherwise true cause, and with all or nothing one wrong metric set the criterion
+to 0, which caps a depth 1 score at 0.25, under the threshold. On Hershey (T6.4, 2026-11-12) that
+pruned two stated causes: "lower sales volume" with [revenue down, gross margin down] while revenue
+rose, and "higher compensation" with [SG&A up, SG&A ratio up] while the ratio fell. As a share,
+each is 0.5. The hard gate on metrics now covers only a contradiction of the change being
+explained (see `critic.contradicts_change`); any other contradiction lowers the score (user's
+decision, T5.5).
 """
 
 from __future__ import annotations
@@ -18,7 +28,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from sec_agent.config import REPO_ROOT
-from sec_agent.schemas import EvidenceSupport, NumericCheck
+from sec_agent.schemas import EvidenceSupport, MetricCheckResult, NumericCheck
 
 SCORING_CONFIG_PATH = REPO_ROOT / "config" / "scoring.yaml"
 
@@ -111,9 +121,31 @@ class ScoringConfig(BaseModel):
         return cls.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
 
 
-def _numeric_value(check: NumericCheck) -> float | None:
-    """A check's value on the rubric. Not applicable is None, which removes the criterion."""
-    return {NumericCheck.AGREE: 1.0, NumericCheck.CONTRADICT: 0.0}.get(check)
+def numeric_consistency(check: MetricCheckResult) -> float | None:
+    """The share of checked metrics that agree, or None if none could be checked.
+
+    Not applicable outcomes (no data, or agreement set aside as free) are left out of the share, so
+    one agreeing metric and one with no data score 1.0.
+    """
+    decided = [
+        outcome.check
+        for outcome in check.outcomes
+        if outcome.check in (NumericCheck.AGREE, NumericCheck.CONTRADICT)
+    ]
+    if not decided:
+        return None
+    return decided.count(NumericCheck.AGREE) / len(decided)
+
+
+def _numeric_value(numeric: NumericCheck | float | None) -> float | None:
+    """Numerical consistency on the rubric. Not applicable is None, which removes the criterion.
+
+    A share from `numeric_consistency` is used as it is. A bare verdict counts as all metrics
+    agreeing (1.0) or all contradicting (0.0).
+    """
+    if numeric is None or isinstance(numeric, float):
+        return numeric
+    return {NumericCheck.AGREE: 1.0, NumericCheck.CONTRADICT: 0.0}.get(numeric)
 
 
 def _weighted(values: dict[str, float | None], weights: Weights) -> float:
@@ -126,7 +158,9 @@ def _weighted(values: dict[str, float | None], weights: Weights) -> float:
     return min(score, 1.0)
 
 
-def prescreen_score(check: NumericCheck, specificity: Specificity, config: ScoringConfig) -> float:
+def prescreen_score(
+    check: NumericCheck | float | None, specificity: Specificity, config: ScoringConfig
+) -> float:
     """A depth 1 candidate's score: numerical consistency and specificity only.
 
     With numerical consistency not applicable, specificity is all that remains, so its weight
@@ -142,7 +176,7 @@ def prescreen_score(check: NumericCheck, specificity: Specificity, config: Scori
 
 
 def branch_score(
-    check: NumericCheck,
+    check: NumericCheck | float | None,
     evidence: EvidenceSupport,
     contradiction: Contradiction,
     specificity: Specificity,
@@ -162,9 +196,9 @@ def branch_score(
 
 def prune_reason(
     score: float,
-    check: NumericCheck,
     config: ScoringConfig,
     *,
+    contradicts_change: bool = False,
     only_wrong_period: bool = False,
     rating_withdrawn: bool = False,
 ) -> str | None:
@@ -174,15 +208,16 @@ def prune_reason(
     the branch's wrong-period citations left it with no evidence. This softens the ToT design,
     which prunes on any wrong-period citation, so one careless pick cannot cost a good branch (the
     user's decision, 2026-11-06). `rating_withdrawn` means quotes were dropped and the critic found
-    the verified ones left do not support the claim. What is kept in the beam, ties and the retry
-    for missing evidence are the controller's (T4.4).
+    the verified ones left do not support the claim. `contradicts_change` means the branch expects
+    the changed metric, or one tied to it by arithmetic, to move the other way from how it moved.
+    What is kept in the beam, ties and the retry for missing evidence are the controller's (T4.4).
     """
     if only_wrong_period:
         return "hard gate: its only cited evidence is from the wrong period"
     if rating_withdrawn:
         return "no evidence: the quotes left after dropping failed ones do not support the claim"
-    if check is NumericCheck.CONTRADICT:
-        return "hard gate: computed metrics contradict the claim"
+    if contradicts_change:
+        return "hard gate: computed metrics contradict the change being explained"
     if score < config.threshold:
         return f"score {score:.2f} is below the {config.threshold:.2f} threshold"
     return None

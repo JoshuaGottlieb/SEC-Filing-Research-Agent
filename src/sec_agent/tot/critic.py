@@ -46,6 +46,7 @@ from sec_agent.tot.scoring import (
     ScoringConfig,
     Specificity,
     branch_score,
+    numeric_consistency,
     prescreen_score,
     prune_reason,
 )
@@ -229,6 +230,8 @@ class CandidateEvaluation(Record):
     score: float | None
     numeric_check: NumericCheck
     metric_ids: tuple[str, ...] = ()
+    # The hard gate's condition (`contradicts_change`). Other contradictions only lower the score.
+    contradicts_change: bool = False
     # None when the critic failed or was not asked.
     specificity: Specificity | None = None
     # Why this branch must be pruned. None means it may stay, subject to the beam.
@@ -243,6 +246,8 @@ class EvidenceEvaluation(Record):
     score: float | None
     numeric_check: NumericCheck
     metric_ids: tuple[str, ...] = ()
+    # The hard gate's condition (`contradicts_change`). Other contradictions only lower the score.
+    contradicts_change: bool = False
     # After the citation checker: a level with no verified quote behind it counts as NONE.
     evidence: EvidenceSupport = EvidenceSupport.NONE
     contradiction: Contradiction | None = None
@@ -310,6 +315,25 @@ def without_free_agreement(
     )
 
 
+def contradicts_change(check: MetricCheckResult, changed_metric: MetricName | None) -> bool:
+    """Whether a branch expects the change being explained to have gone the other way.
+
+    That is a contradiction of the changed metric, or of one tied to it by arithmetic
+    (`linked_metrics`): with gross margin down, "cost of sales ratio down" says margin rose. Only
+    this is a hard gate, because the change itself is a fact. A contradiction of any other metric
+    lowers the score instead (`scoring.numeric_consistency`): the generator sometimes adds a wrong
+    extra metric to a true cause, and on Hershey that pruned two stated causes (T6.4, 2026-11-12).
+    A text change has no changed metric, so nothing gates it (user's decision, T5.5).
+    """
+    if changed_metric is None:
+        return False
+    tied = linked_metrics(changed_metric)
+    return any(
+        outcome.metric in tied and outcome.check is NumericCheck.CONTRADICT
+        for outcome in check.outcomes
+    )
+
+
 async def evaluate_candidate(
     node: TreeNode,
     comparison: Comparison,
@@ -325,15 +349,17 @@ async def evaluate_candidate(
     `without_free_agreement`.
     """
     check = without_free_agreement(checker.check(comparison, node.expected_metrics), changed_metric)
-    if check.check is NumericCheck.CONTRADICT:
+    numeric = numeric_consistency(check)
+    if contradicts_change(check, changed_metric):
         # The hard gate prunes it whatever the critic says, so that call would be wasted money.
         # The lowest specificity is recorded in the score because it was never rated.
-        score = prescreen_score(check.check, Specificity.VAGUE, config)
+        score = prescreen_score(numeric, Specificity.VAGUE, config)
         return CandidateEvaluation(
             score=score,
             numeric_check=check.check,
             metric_ids=check.metric_ids,
-            prune_reason=prune_reason(score, check.check, config),
+            contradicts_change=True,
+            prune_reason=prune_reason(score, config, contradicts_change=True),
         )
     try:
         specificity = (await critic.rate_specificity(node)).specificity
@@ -344,13 +370,13 @@ async def evaluate_candidate(
             metric_ids=check.metric_ids,
             failure=f"the critic failed: {error}",
         )
-    score = prescreen_score(check.check, specificity, config)
+    score = prescreen_score(numeric, specificity, config)
     return CandidateEvaluation(
         score=score,
         numeric_check=check.check,
         metric_ids=check.metric_ids,
         specificity=specificity,
-        prune_reason=prune_reason(score, check.check, config),
+        prune_reason=prune_reason(score, config),
     )
 
 
@@ -496,8 +522,9 @@ async def evaluate_evidence(
     rating_withdrawn = reassessed and evidence is EvidenceSupport.NONE
     if rating_withdrawn:
         citations = []
+    gated = contradicts_change(check, changed_metric)
     score = branch_score(
-        check.check, evidence, critique.contradiction, critique.specificity, config
+        numeric_consistency(check), evidence, critique.contradiction, critique.specificity, config
     )
     # An agreeing metric is still evidence, so it keeps a branch that has lost every citation.
     metric_agrees = check.check is NumericCheck.AGREE
@@ -517,10 +544,11 @@ async def evaluate_evidence(
         citations=tuple(citations),
         citation_failures=tuple(failures),
         reassessed=reassessed,
+        contradicts_change=gated,
         prune_reason=prune_reason(
             score,
-            check.check,
             config,
+            contradicts_change=gated,
             only_wrong_period=only_wrong_period,
             rating_withdrawn=rating_withdrawn and not metric_agrees,
         ),
