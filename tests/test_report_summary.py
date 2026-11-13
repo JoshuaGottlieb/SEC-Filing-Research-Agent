@@ -32,12 +32,14 @@ from sec_agent.schemas import (
     Claim,
     Comparison,
     ComparisonType,
+    Duration,
     EntailmentVerdict,
     ExplanationLabel,
     Filing,
     Finding,
     FiscalPeriod,
     FormType,
+    MetricName,
     MetricValue,
     Section,
 )
@@ -306,6 +308,41 @@ def test_the_template_gives_each_finding_one_line_that_passes_the_brief_check():
         "review. [F2]",
     ]
     assert check_brief(brief(text)) == ()
+
+
+class OneMetric:
+    """A lookup holding only the margin's current value."""
+
+    def get_metric(self, metric_id: str) -> MetricValue | None:
+        if metric_id != "gm-2025":
+            return None
+        return MetricValue(
+            metric_id="gm-2025",
+            ticker="HSY",
+            name=MetricName.GROSS_MARGIN,
+            period=CURRENT,
+            duration=Duration.TWELVE_MONTHS,
+            value=0.335,
+            unit="ratio",
+            input_fact_ids=("f1",),
+        )
+
+
+def test_with_a_lookup_the_template_names_the_metric_instead_of_its_id():
+    unexplained = MARGIN.model_copy(update={"claims": ()})
+    assert template_summary((unexplained,)).startswith("Metric change: metric gm-2025:")
+    named = template_summary((unexplained,), OneMetric())
+    assert named.startswith("Gross margin change: 33.5% in FY2025: no explanation met")
+    assert check_brief(brief(named, findings=(unexplained,))) == ()
+
+
+async def test_a_fallback_to_the_template_uses_the_metric_lookup():
+    unexplained = MARGIN.model_copy(update={"claims": ()})
+    writer = FakeWriter(LLMError("truncated"))
+    ctx = SummaryContext(writer=writer, chunks=FakeChunks(), metrics=OneMetric(), facts=NoFacts())
+    result = await write_summary((unexplained,), COMPARISON, ctx)
+    assert result.used_template
+    assert result.text.startswith("Gross margin change: 33.5% in FY2025")
 
 
 def test_the_template_shows_a_plausible_claim_when_nothing_is_confirmed():

@@ -22,6 +22,7 @@ from sec_agent.compare.materiality import (
     BatchDecisions,
     ChangeDecision,
     describe_move,
+    materiality_headroom,
     rank_changes,
     shown_metric_values,
 )
@@ -639,6 +640,65 @@ async def test_a_large_comparison_runs_under_a_cap_its_whole_worst_case_exceeds(
     result = await rank_changes(comparison, changes, scan(), client, **NO_EVIDENCE, batch_size=1)
     assert result.calls == 30
     assert fake.peak == MAX_IN_FLIGHT == 5
+
+
+# The headroom check before a run spends anything
+
+
+async def test_the_headroom_is_what_the_first_wave_of_batches_reserves(settings, comparison):
+    # Five equal batches all start at once (MAX_IN_FLIGHT), so a cap a hair under the headroom
+    # refuses one of them and a cap a hair over it lets every one through.
+    changes = [text(n, f"change {n}") for n in range(5)]
+    client, fake = client_for(settings, by_text({}))
+    headroom = materiality_headroom(comparison, changes, scan(), client, batch_size=1)
+    assert (headroom.batches, headroom.uncached) == (5, 5)
+    assert fake.requests == []  # the check sends nothing
+    # The counting fake yields once per call, so the five reservations overlap as live calls do.
+    short_fake = CountingAnthropic(by_text({}))
+    short = LLMClient(settings, CostLedger(headroom.headroom_usd * 0.999), client=short_fake)
+    with pytest.raises(BudgetExceededError):
+        await rank_changes(comparison, changes, scan(), short, **NO_EVIDENCE, batch_size=1)
+    enough_fake = CountingAnthropic(by_text({}))
+    enough = LLMClient(settings, CostLedger(headroom.headroom_usd * 1.001), client=enough_fake)
+    result = await rank_changes(comparison, changes, scan(), enough, **NO_EVIDENCE, batch_size=1)
+    assert result.calls == 5
+    assert enough_fake.peak == 5
+
+
+async def test_the_headroom_counts_only_as_many_batches_as_run_at_once(settings, comparison):
+    changes = [text(n, f"change {n}") for n in range(9)]
+    client, _ = client_for(settings, by_text({}))
+    five = materiality_headroom(comparison, changes[:5], scan(), client, batch_size=1)
+    nine = materiality_headroom(comparison, changes, scan(), client, batch_size=1)
+    assert nine.uncached == 9
+    assert nine.headroom_usd == pytest.approx(five.headroom_usd)
+    two = materiality_headroom(comparison, changes, scan(), client, batch_size=1, max_in_flight=2)
+    assert two.headroom_usd == pytest.approx(five.headroom_usd * 2 / 5)
+
+
+async def test_batches_the_replay_cache_answers_need_no_headroom(settings, comparison, tmp_path):
+    cache = ReplayCache(tmp_path / "replay.sqlite")
+    changes = [text(n, f"change {n}") for n in range(3)]
+    client, _ = client_for(settings, by_text({}), cache=cache)
+    await rank_changes(comparison, changes, scan(), client, **NO_EVIDENCE, batch_size=1)
+    replayed = materiality_headroom(comparison, changes, scan(), client, batch_size=1)
+    assert (replayed.batches, replayed.uncached, replayed.headroom_usd) == (3, 0, 0.0)
+    one_new = materiality_headroom(
+        comparison, [*changes, text(3, "change 3")], scan(), client, batch_size=1
+    )
+    assert one_new.uncached == 1
+    # Only the new batch counts: the same as checking it alone, with nothing cached.
+    fresh, _ = client_for(settings, by_text({}))
+    alone = materiality_headroom(comparison, [text(3, "change 3")], scan(), fresh, batch_size=1)
+    assert alone.headroom_usd > 0
+    assert one_new.headroom_usd == pytest.approx(alone.headroom_usd)
+
+
+@pytest.mark.parametrize("knob", [{"batch_size": 0}, {"max_in_flight": 0}])
+def test_the_headroom_check_refuses_impossible_settings(settings, comparison, knob):
+    client, _ = client_for(settings, by_text({}))
+    with pytest.raises(ValueError):
+        materiality_headroom(comparison, [text(1, "change 1")], scan(), client, **knob)
 
 
 # Cost and replay

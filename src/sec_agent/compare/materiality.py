@@ -271,6 +271,71 @@ def build_message(comparison: Comparison, scan: MetricScan, items: Sequence[_Ite
     return json.dumps(payload, ensure_ascii=False, indent=1)
 
 
+def _request(comparison: Comparison, scan: MetricScan, items: Sequence[_Item]) -> dict:
+    """The arguments of one batch's call, for `LLMClient.complete` and `LLMClient.plan` alike."""
+    return {
+        "system": SYSTEM,
+        "user": build_message(comparison, scan, items),
+        "output_type": BatchDecisions,
+        "max_tokens": MAX_TOKENS,
+    }
+
+
+def _items(scan: MetricScan, text_changes: Sequence[Change]) -> list[_Item]:
+    """Every change in the order it is sent: numeric changes first, then text changes."""
+    moves = {move.metric_id: move for move in scan.moves if move.flagged}
+    return [
+        _Item(position, change, moves.get(change.metric_id) if change.metric_id else None)
+        for position, change in enumerate([*scan.changes, *text_changes])
+    ]
+
+
+def _batches(items: Sequence[_Item], batch_size: int) -> list[Sequence[_Item]]:
+    if batch_size < 1:
+        raise ValueError("batch_size must be at least 1")
+    return [items[start : start + batch_size] for start in range(0, len(items), batch_size)]
+
+
+class MaterialityHeadroom(Record):
+    """What the materiality step could hold against the run's cap, before anything is sent."""
+
+    batches: int = Field(ge=0)
+    # Batches the replay cache does not answer; only these cost anything.
+    uncached: int = Field(ge=0)
+    # The most the step can have reserved at once: the largest worst cases among the uncached
+    # batches, as many as `max_in_flight` lets run together.
+    headroom_usd: float = Field(ge=0)
+
+
+def materiality_headroom(
+    comparison: Comparison,
+    text_changes: Sequence[Change],
+    scan: MetricScan,
+    client: LLMClient,
+    *,
+    batch_size: int = BATCH_SIZE,
+    max_in_flight: int = MAX_IN_FLIGHT,
+) -> MaterialityHeadroom:
+    """How much of the run's cap `rank_changes` needs free to start, sending nothing.
+
+    `rank_changes` starts up to `max_in_flight` batches at once, each reserving its worst case
+    first. A cap with less than that free refuses a reservation in the first wave and ends the run
+    with no brief, after paying for the batches that did start. Checking first turns that into a
+    refusal that costs nothing (user's decision, T5.5 budget stops). It is necessary, not
+    sufficient: a batch that fails is split and asked again, and actual costs accumulate.
+    """
+    if max_in_flight < 1:
+        raise ValueError("max_in_flight must be at least 1")
+    plans = [
+        client.plan(Role.MATERIALITY, **_request(comparison, scan, batch))
+        for batch in _batches(_items(scan, text_changes), batch_size)
+    ]
+    worst = sorted((plan.worst_case_usd for plan in plans if not plan.cached), reverse=True)
+    return MaterialityHeadroom(
+        batches=len(plans), uncached=len(worst), headroom_usd=sum(worst[:max_in_flight])
+    )
+
+
 def _check_answer(items: Sequence[_Item], answer: BatchDecisions) -> dict[int, ChangeDecision]:
     """Each item's decision, by position, or `_MalformedAnswer` if the answer doesn't fit."""
     refs = {f"c{n}": item for n, item in enumerate(items, start=1)}
@@ -321,13 +386,7 @@ async def _decide(
         # The slot is held for the call only (see MAX_IN_FLIGHT). A split runs outside it, or
         # the halves would wait for a slot their parent holds.
         async with gate:
-            result = await client.complete(
-                Role.MATERIALITY,
-                system=SYSTEM,
-                user=build_message(comparison, scan, items),
-                output_type=BatchDecisions,
-                max_tokens=MAX_TOKENS,
-            )
+            result = await client.complete(Role.MATERIALITY, **_request(comparison, scan, items))
         tally.calls += 1
         tally.cost_usd += result.cost_usd
         decided = _check_answer(items, result.output)
@@ -439,27 +498,18 @@ async def rank_changes(
     from the ranked change; the decision keeps it and the figures for the audit. Asked by the
     user on 2026-11-12.
     """
-    if batch_size < 1:
-        raise ValueError("batch_size must be at least 1")
     if max_in_flight < 1:
         raise ValueError("max_in_flight must be at least 1")
-    changes = [*scan.changes, *text_changes]
-    if any(change.comparison_id != comparison.comparison_id for change in changes):
+    items = _items(scan, text_changes)
+    batches = _batches(items, batch_size)
+    if any(item.change.comparison_id != comparison.comparison_id for item in items):
         raise ValueError(f"every change must belong to {comparison.comparison_id}")
-    moves = {move.metric_id: move for move in scan.moves if move.flagged}
     # Looked up before any call, so a lookup that fails costs nothing.
     shown = shown_metric_values(levels, comparison, scan)
-    items = [
-        _Item(position, change, moves.get(change.metric_id) if change.metric_id else None)
-        for position, change in enumerate(changes)
-    ]
     tally = _Tally()
     gate = asyncio.Semaphore(max_in_flight)
     results = await asyncio.gather(
-        *(
-            _decide(client, comparison, scan, items[start : start + batch_size], tally, gate)
-            for start in range(0, len(items), batch_size)
-        )
+        *(_decide(client, comparison, scan, batch, tally, gate) for batch in batches)
     )
     decisions: dict[int, MaterialityDecision] = {}
     unresolved: list[Unresolved] = []

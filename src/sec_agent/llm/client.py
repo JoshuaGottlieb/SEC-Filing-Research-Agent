@@ -95,6 +95,16 @@ class LLMResult[T: BaseModel]:
     replayed: bool
 
 
+@dataclass(frozen=True)
+class PlannedCall:
+    """A request looked at before it is sent (`LLMClient.plan`)."""
+
+    # The replay cache holds its answer, so `complete` would cost nothing and reserve nothing.
+    cached: bool
+    # What `complete` would reserve against the ledger if it is not cached.
+    worst_case_usd: float
+
+
 class LLMClient:
     """Sends requests to Claude, charges the ledger, and uses the replay cache if given."""
 
@@ -131,21 +141,8 @@ class LLMClient:
         effort: Effort | None = None,
         max_tokens: int | None = None,
     ) -> LLMResult[T]:
-        config = ROLE_CONFIG[role]
-        model = self.model_for(role)
-        get_price(model)  # fail before sending if this model's spend can't be tracked
-        effort = effort or config.effort
-        max_tokens = max_tokens or config.max_tokens
-
-        # Everything that changes the answer is part of the key.
-        key = cache_key(
-            model=model,
-            system=system,
-            user=user,
-            schema=output_type.model_json_schema(),
-            effort=effort,
-            max_tokens=max_tokens,
-        )
+        model, effort, max_tokens = self._settle(role, effort, max_tokens)
+        key = self._key(model, system, user, output_type, effort, max_tokens)
         # A cache hit costs nothing but is still logged, so the ledger shows every call.
         if self._cache is not None and (payload := self._cache.get(key)) is not None:
             output = output_type.model_validate_json(payload)
@@ -153,10 +150,7 @@ class LLMClient:
             return LLMResult(output=output, model=model, cost_usd=0.0, replayed=True)
 
         # Hold the worst-case cost before sending, so parallel calls can't overshoot the budget.
-        estimated_input = (len(system) + len(user)) // CHARS_PER_TOKEN_ESTIMATE
-        reserved = worst_case_cost_usd(
-            model, estimated_input_tokens=estimated_input, max_tokens=max_tokens
-        )
+        reserved = self._worst_case(model, system, user, max_tokens)
         self._ledger.reserve(reserved)
         recorded = False
         try:
@@ -207,6 +201,62 @@ class LLMClient:
         if self._cache is not None:
             self._cache.put(key, output.model_dump_json())
         return LLMResult(output=output, model=model, cost_usd=cost, replayed=False)
+
+    def plan[T: BaseModel](
+        self,
+        role: Role,
+        *,
+        system: str,
+        user: str,
+        output_type: type[T],
+        effort: Effort | None = None,
+        max_tokens: int | None = None,
+    ) -> PlannedCall:
+        """What `complete` would do with this request, without sending it or touching the ledger.
+
+        For checks before a run spends anything: a step whose answers are all cached is free.
+        It uses the same key and the same worst case as `complete`, so the two cannot disagree.
+        """
+        model, effort, max_tokens = self._settle(role, effort, max_tokens)
+        key = self._key(model, system, user, output_type, effort, max_tokens)
+        return PlannedCall(
+            cached=self._cache is not None and self._cache.get(key) is not None,
+            worst_case_usd=self._worst_case(model, system, user, max_tokens),
+        )
+
+    def _settle(
+        self, role: Role, effort: Effort | None, max_tokens: int | None
+    ) -> tuple[str, Effort, int]:
+        config = ROLE_CONFIG[role]
+        model = self.model_for(role)
+        get_price(model)  # fail before sending if this model's spend can't be tracked
+        return model, effort or config.effort, max_tokens or config.max_tokens
+
+    @staticmethod
+    def _key(
+        model: str,
+        system: str,
+        user: str,
+        output_type: type[BaseModel],
+        effort: Effort,
+        max_tokens: int,
+    ) -> str:
+        # Everything that changes the answer is part of the key.
+        return cache_key(
+            model=model,
+            system=system,
+            user=user,
+            schema=output_type.model_json_schema(),
+            effort=effort,
+            max_tokens=max_tokens,
+        )
+
+    @staticmethod
+    def _worst_case(model: str, system: str, user: str, max_tokens: int) -> float:
+        estimated_input = (len(system) + len(user)) // CHARS_PER_TOKEN_ESTIMATE
+        return worst_case_cost_usd(
+            model, estimated_input_tokens=estimated_input, max_tokens=max_tokens
+        )
 
     def runnable[T: BaseModel](
         self,

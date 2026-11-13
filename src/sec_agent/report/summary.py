@@ -143,8 +143,12 @@ def summary_request(findings: Sequence[Finding], comparison: Comparison) -> dict
     }
 
 
-def template_summary(findings: Sequence[Finding]) -> str:
-    """A summary with no model: one line per finding, its strongest claim or its review status."""
+def template_summary(findings: Sequence[Finding], metrics: MetricLookup | None = None) -> str:
+    """A summary with no model: one line per finding, its strongest claim or its review status.
+
+    With `metrics`, a numeric change's heading names the metric and its value ("Gross margin
+    change: 33.5% in FY2025") as the brief's own headings do; without it, the raw metric id.
+    """
     refs = assign_refs(findings)
     lines = []
     for _, members in grouped(findings):
@@ -157,7 +161,7 @@ def template_summary(findings: Sequence[Finding]) -> str:
                 text = f"{LABEL_NAMES[best.label]}: {best.text}"
                 lines.append(format_summary_line(text, [refs.claims[best.claim_id]]))
             else:
-                heading = change_heading(finding.change, None)
+                heading = change_heading(finding.change, metrics)
                 text = f"{heading}: no explanation met the evidence standard, so it needs review."
                 lines.append(format_summary_line(text, [refs.findings[finding.finding_id]]))
     return "\n".join(lines) if lines else NO_FINDINGS_SUMMARY
@@ -231,7 +235,7 @@ async def write_summary(
         failures += problems
         request = {**request, "rejected": {"problems": problems}}
     return SummaryResult(
-        text=template_summary(findings),
+        text=template_summary(findings, context.metrics),
         used_template=True,
         failures=tuple(failures),
         writer_calls=calls,

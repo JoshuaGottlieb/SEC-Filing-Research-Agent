@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -28,6 +29,7 @@ from sec_agent.ingest.pipeline import (
     read_parsed_filing,
     save_parsed_filing,
 )
+from sec_agent.schemas import ComparisonType
 
 # The pinned list of filings the project analyzes. Other corpus files are used for parser tests.
 CORPUS_PATH = REPO_ROOT / "config" / "corpus.yaml"
@@ -169,6 +171,81 @@ def ingest(corpus_path: CorpusOption = CORPUS_PATH) -> None:
     # A non-zero exit lets scripts and CI notice rejections.
     if rejected:
         raise typer.Exit(code=1)
+
+
+@app.command()
+def analyze(  # noqa: PLR0913 -- one argument per option
+    ticker: Annotated[str, typer.Argument(help="Company ticker, such as HSY.")],
+    comparison: Annotated[
+        ComparisonType, typer.Option("--comparison", help="Which two filings to compare.")
+    ],
+    max_changes: Annotated[
+        int | None,
+        typer.Option("--max-changes", min=1, help="Most material changes to explore (default 10)."),
+    ] = None,
+    max_usd: Annotated[
+        float | None,
+        typer.Option(
+            "--max-usd", min=0.01, help="Hard stop on model spend (default: the per-run budget)."
+        ),
+    ] = None,
+    run_id: Annotated[
+        str | None, typer.Option("--run-id", help="Run id; a fresh one by default.")
+    ] = None,
+    corpus_path: CorpusOption = CORPUS_PATH,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Print the cost estimate and go ahead without asking."),
+    ] = False,
+) -> None:
+    """Compare two filings and write a cited brief to the runs folder.
+
+    Shows a cost estimate and asks before spending anything, unless `--yes` is given. Exits 1
+    with no brief if the estimate is declined, the budget cannot cover the materiality step, the
+    materiality step hits the budget, or the brief breaks a rule.
+    """
+    # Imported here: the workflow loads torch and the search models, which other commands
+    # (doctor, search-facts) do not need.
+    from sec_agent.graph import (
+        DEFAULT_MAX_CHANGES,
+        CostEstimate,
+        RunDeclined,
+        describe_estimate,
+        run_analysis,
+    )
+    from sec_agent.llm.ledger import BudgetExceededError
+    from sec_agent.report.brief import BriefError
+
+    def confirm(estimate: CostEstimate) -> bool:
+        for line in describe_estimate(estimate):
+            typer.echo(line)
+        return yes or typer.confirm("Go ahead?", default=False)
+
+    settings = get_settings()
+    settings.ensure_dirs()
+    try:
+        report = asyncio.run(
+            run_analysis(
+                settings,
+                ticker.upper(),
+                comparison,
+                max_changes=max_changes or DEFAULT_MAX_CHANGES,
+                max_usd=max_usd,
+                run_id=run_id,
+                corpus_path=corpus_path,
+                confirm=confirm,
+            )
+        )
+    except (BudgetExceededError, BriefError, RunDeclined) as error:
+        typer.echo(f"No brief written: {error}")
+        raise typer.Exit(code=1) from error
+    typer.echo(f"Brief: {report.brief}")
+    typer.echo(f"Audit trail: {report.audit}")
+    typer.echo(
+        f"Run {report.run_id}: {report.selected} change(s) selected, {report.searched} searched, "
+        f"{report.not_examined} not examined, {report.node_evaluations} node evaluations, "
+        f"model cost ${report.cost_usd:.4f} (estimated ${report.estimated_usd:.2f})."
+    )
 
 
 @app.command("search-facts")
