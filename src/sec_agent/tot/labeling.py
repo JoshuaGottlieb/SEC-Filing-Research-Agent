@@ -76,6 +76,17 @@ STOP_AT_FIRST_CONFIRMATION = True
 # usually the paragraph that states the cause and a line close to it.
 MAX_RESTATED_JUDGE_CALLS_PER_CLAIM = 2
 
+# A quoted table row means nothing without its table's title and column labels: on the first paid
+# Hershey run the writer read a segment-table row ("Cost of sales | 5,796,018 | 804,635 | 740,764",
+# columns North America Confectionery, Salty Snacks and International) as two years. The chunker
+# starts every table part with its title, scale caption and column labels (`_split_table`), so a
+# row is shown with the opening lines of its chunk that come before it (user's decision,
+# 2026-11-13). Four lines hold a title, a caption and two label rows, as in Hershey's tax note
+# ("For the year ended December 31, | 2025", then "Amount ($) | Percent (%)"). Chosen by hand.
+TABLE_HEADER_LINES = 4
+# How the parser writes table cells, so a quote holding one is a table row.
+TABLE_CELL = " | "
+
 # Attempts at a plausible claim's wording before falling back to the fixed sentence: the first, and
 # one retry told why the first was rejected. Chosen by hand: a third attempt at the same request
 # mostly repeats the second, and the fallback is always safe.
@@ -107,6 +118,10 @@ Rules:
   about them. If they show only one of the two, say only that one. Do not add what you know about
   the company or its industry.
 - A figure is allowed only if it appears in a quote or follows from a metric's value.
+- A quote that is a table row ("Label | figure | figure") comes with "table_header", the table's
+  own title and column labels. Its figures mean only what those labels say they are. Never call
+  them periods, years or anything else the labels do not name, and never compare figures in one
+  row unless the labels say what each column is.
 - Write one sentence of at most 30 words.
 
 "metrics" are computed values: "value" is a fraction, so 0.335 is 33.5%. If "rejected" is present,
@@ -139,6 +154,9 @@ Rules:
   that change, give null for "text". Do not stretch a quote to fit.
 - A figure is allowed only if it appears in a quote.
 - Write one sentence of at most 30 words.
+
+A quote that is a table row comes with "table_header", the table's own title and column labels,
+which say what the row's figures are.
 
 {_UNTRUSTED}"""
 
@@ -213,6 +231,44 @@ class _Tally:
         self.writer_calls = 0
 
 
+def table_header(citation: Citation, chunks: ChunkLookup) -> str | None:
+    """The opening lines of the table a quoted row comes from, or None if it is not a table row.
+
+    Only lines before the row are taken, so a row near the top brings no rows after it.
+    """
+    if TABLE_CELL not in citation.quote:
+        return None
+    chunk = chunks.get_chunk(citation.chunk_id)
+    if chunk is None:
+        return None
+    lines = chunk.text.split("\n")
+    first = " ".join(citation.quote.split("\n")[0].split())
+    at = next((n for n, line in enumerate(lines) if first in " ".join(line.split())), None)
+    if at is None:
+        return None
+    header = [line for line in lines[: min(at, TABLE_HEADER_LINES)] if line.strip()]
+    return "\n".join(header) or None
+
+
+def _shown_quote(citation: Citation, chunks: ChunkLookup) -> dict:
+    """A quote as the claim writer sees it: its period, its words and a table row's header."""
+    shown = {"period": citation.period.label, "quote": citation.quote}
+    header = table_header(citation, chunks)
+    if header is not None:
+        shown["table_header"] = header
+    return shown
+
+
+def _judged_quote(citation: Citation, chunks: ChunkLookup) -> str:
+    """The quote the judge reads: for a table row, its table's header lines first.
+
+    The judge's prompt is unchanged (the T5.2 agreement check holds for it), so the header is
+    passed as part of the quote. Every word of it is copied from the same table.
+    """
+    header = table_header(citation, chunks)
+    return f"{header}\n{citation.quote}" if header is not None else citation.quote
+
+
 def _quote_key(citation: Citation) -> tuple[str, str]:
     return citation.chunk_id, " ".join(citation.quote.split())
 
@@ -271,7 +327,7 @@ async def _judge_quote(
         )
         return None
     tally.judge_calls += 1
-    result = await judge_entailment(text, citation.quote, context.judge)
+    result = await judge_entailment(text, _judged_quote(citation, context.chunks), context.judge)
     if result.failure is not None:
         tally.failures.append(f"claim {claim_id}: {result.failure}")
     return result
@@ -287,9 +343,7 @@ async def _restate(
     """The hypothesis worded at the level of the quotes that implied it, or None."""
     request = {
         "hypothesis": hypothesis,
-        "quotes": [
-            {"period": citation.period.label, "quote": citation.quote} for citation in implied
-        ],
+        "quotes": [_shown_quote(citation, context.chunks) for citation in implied],
     }
     tally.writer_calls += 1
     try:
@@ -405,9 +459,7 @@ def _wording_request(
     ]
     return {
         "hypothesis": hypothesis,
-        "quotes": [
-            {"period": citation.period.label, "quote": citation.quote} for citation in citations
-        ],
+        "quotes": [_shown_quote(citation, context.chunks) for citation in citations],
         "metrics": metrics,
     }
 
