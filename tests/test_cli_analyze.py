@@ -58,10 +58,10 @@ COMMAND = ["analyze", "hsy", "--comparison", "yoy-10k", "--max-changes", "3", "-
 def test_with_yes_the_estimate_is_printed_and_the_run_goes_ahead(analysis):
     result = CliRunner().invoke(app, [*COMMAND, "--yes"])
     assert result.exit_code == 0, result.output
-    assert "Estimated model cost: about $0.41, with a hard stop at $1.00." in result.output
+    assert "Estimated model cost: about $0.23, with a hard stop at $1.00." in result.output
     assert "Go ahead?" not in result.output
     assert analysis.ran
-    assert "model cost $0.3100 (estimated $0.41)" in result.output
+    assert "model cost $0.3100 (estimated $0.23)" in result.output
 
 
 def test_without_yes_it_asks_and_goes_ahead_on_yes(analysis):

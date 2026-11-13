@@ -534,10 +534,10 @@ def test_the_estimate_adds_uncached_batches_every_change_and_the_summary():
 def test_the_printed_estimate_warns_only_when_it_is_above_the_hard_stop():
     headroom = MaterialityHeadroom(batches=11, uncached=0, headroom_usd=0.0)
     under = describe_estimate(estimate_cost(headroom, max_changes=3, cap_usd=1.0))
-    assert under[0] == "Estimated model cost: about $0.41, with a hard stop at $1.00."
+    assert under[0] == "Estimated model cost: about $0.23, with a hard stop at $1.00."
     assert "0 of 11 batches need a call" in under[1]
     assert not any("above the hard stop" in line for line in under)
-    over = describe_estimate(estimate_cost(headroom, max_changes=10, cap_usd=1.0))
+    over = describe_estimate(estimate_cost(headroom, max_changes=20, cap_usd=1.0))
     assert "above the hard stop" in over[-1]
 
 

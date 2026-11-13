@@ -22,7 +22,7 @@ from collections.abc import Sequence
 
 from langchain_core.runnables import RunnableLambda
 
-from sec_agent.contracts import MetricLookup
+from sec_agent.contracts import ComparedMetric, MetricMoveLookup
 from sec_agent.llm.client import LLMClient, LLMError, Role
 from sec_agent.schemas import (
     Change,
@@ -85,6 +85,12 @@ Return "count" candidates. For each one:
   claim implies none, as with a new risk factor. A claim with no metric is fine, so do not add one
   just to have one, because a movement the numbers contradict discards the claim.
 
+For a change in a metric, which way it moved is given, not for you to guess: "metric_direction"
+("up" or "down") and "metric_move" (such as "-1,377 bps" or "+10.5%") come from the filings'
+figures, from "earlier_metric_value" in "earlier_period" to "metric_value" in "later_period".
+Every explanation must account for the metric moving that way, and an expectation for that metric
+must use that direction.
+
 "revenue_growth" is about revenue, not about how fast it grew: "up" means revenue rose and "down"
 means revenue fell. "Growth slowed to 2%" must not use "revenue_growth" "down", because revenue
 still rose, so the claim would be discarded as contradicted. A claim like that has no expectation
@@ -113,7 +119,8 @@ Return "count" sources, each one of two kinds:
   one of {_SECTIONS}, or null to search everywhere, including tables outside the named sections.
 - A metric to compute: "metric" is a "metric" and a "direction", and "query" and "section" are null.
   Metrics are {_METRICS}. "direction" is the way the explanation says it moved, from the earlier
-  period to the later one.
+  period to the later one. For the changed metric that is given as "metric_direction", from the
+  filings' figures, not for you to guess.
 
 In every source, "description" says in one sentence what it should show.
 
@@ -200,7 +207,24 @@ def _shown_value(metric: MetricValue) -> str | float:
     return metric.value
 
 
-def _change_context(change: Change, comparison: Comparison, metrics: MetricLookup) -> dict:
+def _describe_move(compared: ComparedMetric) -> str | None:
+    """The move as an analyst reads it, in the format of `compare.materiality.describe_move`."""
+    if compared.move is None:
+        return None
+    if compared.kind == "points":
+        return f"{compared.move * 10_000:+,.0f} bps"
+    return f"{compared.move:+.1%}"
+
+
+def _direction(compared: ComparedMetric) -> str | None:
+    if compared.move is None:
+        return None
+    if compared.move == 0:
+        return "unchanged"
+    return "up" if compared.move > 0 else "down"
+
+
+def _change_context(change: Change, comparison: Comparison, metrics: MetricMoveLookup) -> dict:
     """What the model should know about a change. Fields with no value are left out."""
     context = {
         "company": comparison.current.company,
@@ -217,11 +241,19 @@ def _change_context(change: Change, comparison: Comparison, metrics: MetricLooku
         "seasonality": _seasonality(change) if change.kind is ChangeKind.NUMERIC else None,
     }
     if change.metric_id is not None:
-        metric = metrics.get_metric(change.metric_id)
+        # The move comes with the change, so no explanation has to infer which way the metric
+        # went (T6.4; user's decision, 2026-11-13). Without it, only the later value is known.
+        compared = metrics.get_move(comparison, change.metric_id)
+        metric = compared.later if compared is not None else metrics.get_metric(change.metric_id)
         if metric is not None:
             context["metric"] = metric.name
             context["metric_value"] = _shown_value(metric)
             context["metric_period"] = metric.period.label
+        if compared is not None:
+            if compared.earlier is not None:
+                context["earlier_metric_value"] = _shown_value(compared.earlier)
+            context["metric_move"] = _describe_move(compared)
+            context["metric_direction"] = _direction(compared)
     return {name: value for name, value in context.items() if value is not None}
 
 
@@ -315,7 +347,7 @@ class ThoughtGenerator:
         self,
         change: Change,
         comparison: Comparison,
-        metrics: MetricLookup,
+        metrics: MetricMoveLookup,
         *,
         count: int = DEFAULT_CANDIDATES,
         already_tried: Sequence[str] = (),
@@ -347,7 +379,7 @@ class ThoughtGenerator:
         node: TreeNode,
         change: Change,
         comparison: Comparison,
-        metrics: MetricLookup,
+        metrics: MetricMoveLookup,
         *,
         count: int = DEFAULT_SOURCES,
     ) -> EvidenceGeneration:

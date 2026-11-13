@@ -179,9 +179,12 @@ class FakeChecker:
 
 
 class NoMetrics:
-    """A `MetricLookup`. The fake generator never reads it."""
+    """A `MetricMoveLookup`. The fake generator never reads it."""
 
     def get_metric(self, metric_id: str):
+        return None
+
+    def get_move(self, comparison, metric_id: str):
         return None
 
 
@@ -724,7 +727,7 @@ async def test_a_contradicting_metric_source_is_pruned_and_never_retried(tree, c
 
 
 LINKED_REASON = (
-    "no evidence: the metric is the change being explained, or moves with it by arithmetic, so "
+    "no evidence: the metric is the change being explained, or moves with it, so "
     "it cannot support the claim"
 )
 
@@ -745,6 +748,9 @@ class ChangeMetrics:
             unit="ratio",
             input_fact_ids=("f1",),
         )
+
+    def get_move(self, comparison, metric_id: str):
+        return None
 
 
 MARGIN_CHANGE = Change(

@@ -273,19 +273,26 @@ class EvidenceEvaluation(Record):
         return self.evidence is not EvidenceSupport.NONE or self.numeric_check is NumericCheck.AGREE
 
 
-# Metrics that move together by arithmetic, so agreeing with one is agreeing with the other. Checked
-# on the real catalog (2026-11-10, all 9 comparisons): gross margin plus the cost of sales ratio was
-# within 0.001 of 1 in all 18 period values and they moved opposite ways in 9 of 9; revenue growth
-# had revenue's direction in 9 of 9. Pairs that only tend to move together, such as net income and
-# net margin, are left out: either can move without the other, so agreeing with one says something.
+# Metrics that move together, so agreeing with one is agreeing with the other. Checked on the real
+# catalog (2026-11-10, all 9 comparisons): gross margin plus the cost of sales ratio was within
+# 0.001 of 1 in all 18 period values and they moved opposite ways in 9 of 9; revenue growth had
+# revenue's direction in 9 of 9.
+# An income level and its margin were added on 2026-11-13 (user's decision): on the first paid
+# Hershey run, three claims with no quote survived only because operating or net income fell, which
+# restates the margin change being explained. They need not move together by arithmetic, since
+# revenue can move enough to split them, but on the catalog operating income had operating margin's
+# direction in 6 of 6 comparisons (Stanley reports no operating income) and net income had net
+# margin's in 9 of 9. Gross profit is left out: it split from gross margin in 1 of 9 (MAT yoy-10q).
 _LINKED_GROUPS = (
     frozenset({MetricName.GROSS_MARGIN, MetricName.COGS_RATIO}),
     frozenset({MetricName.REVENUE, MetricName.REVENUE_GROWTH}),
+    frozenset({MetricName.OPERATING_MARGIN, MetricName.OPERATING_INCOME}),
+    frozenset({MetricName.NET_MARGIN, MetricName.NET_INCOME}),
 )
 
 
 def linked_metrics(metric: MetricName) -> frozenset[MetricName]:
-    """`metric` and every metric that moves with it by arithmetic."""
+    """`metric` and every metric that moves with it (`_LINKED_GROUPS`)."""
     return next((group for group in _LINKED_GROUPS if metric in group), frozenset({metric}))
 
 
@@ -297,7 +304,7 @@ def without_free_agreement(
     The changed metric moved by definition, so a candidate that expects it to move the way it did
     agrees for free, and an agreeing metric counts as evidence: almost every candidate listed it
     on a real run (2026-11-10), so a branch could survive on the change alone. The same goes for a
-    metric linked to it by arithmetic (`linked_metrics`): when gross margin fell, "cost of sales
+    metric that moves with it (`linked_metrics`): when gross margin fell, "cost of sales
     ratio up" says the same thing. Such an outcome becomes not applicable (the user's decision,
     option A, extended to linked metrics). A contradiction is kept: a candidate that says the
     metric moved the other way contradicts the change itself and must be pruned.
@@ -318,7 +325,7 @@ def without_free_agreement(
 def contradicts_change(check: MetricCheckResult, changed_metric: MetricName | None) -> bool:
     """Whether a branch expects the change being explained to have gone the other way.
 
-    That is a contradiction of the changed metric, or of one tied to it by arithmetic
+    That is a contradiction of the changed metric, or of one that moves with it
     (`linked_metrics`): with gross margin down, "cost of sales ratio down" says margin rose. Only
     this is a hard gate, because the change itself is a fact. A contradiction of any other metric
     lowers the score instead (`scoring.numeric_consistency`): the generator sometimes adds a wrong

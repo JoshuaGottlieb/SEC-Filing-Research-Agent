@@ -1,7 +1,7 @@
 """Interfaces between the parts that are built in parallel.
 
 The retrieval and change-detection code (lane 1) and the Tree-of-Thought and verification
-code (lane 2) meet at these five points. Each lane tests against fakes of the other side's
+code (lane 2) meet at these points. Each lane tests against fakes of the other side's
 interface, so the fakes must match what the real code will return. The records they pass
 are in schemas.py.
 
@@ -18,7 +18,7 @@ signature, so the type checker and the tests carry the rest.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from sec_agent.schemas import (
     Chunk,
@@ -26,6 +26,7 @@ from sec_agent.schemas import (
     MetricCheckResult,
     MetricExpectation,
     MetricValue,
+    Record,
     RetrievalResult,
     Section,
 )
@@ -127,6 +128,42 @@ class MetricLookup(Protocol):
     """
 
     def get_metric(self, metric_id: str) -> MetricValue | None: ...
+
+
+class ComparedMetric(Record):
+    """One metric across a comparison's two periods, and how far it moved (`MetricMoveLookup`).
+
+    Defined with its interface rather than in schemas.py because only this lookup passes it.
+    """
+
+    later: MetricValue
+    # None for revenue growth, which is itself measured between the two periods.
+    earlier: MetricValue | None
+    # "points": the difference of two ratios, so 0.01 is 100 basis points. "relative": the change
+    # as a fraction of the earlier figure, so 0.10 is 10%; revenue growth is its own value.
+    kind: Literal["points", "relative"]
+    # None when a relative change would start from zero or a negative figure.
+    move: float | None
+
+
+@runtime_checkable
+class MetricMoveLookup(MetricLookup, Protocol):
+    """A `MetricLookup` that also says how a numeric change's metric moved.
+
+    Built by lane 1 (the metric catalog); used by the thought generator, which must be told which
+    way a metric moved rather than infer it. T6.4 found candidates that said a margin moved the
+    wrong way when only its later value was shown (user's decision, 2026-11-13). The catalog
+    computes the move in one place, which the metric scan also reads, so the generator is told
+    the same move that flagged the change.
+    """
+
+    def get_move(self, comparison: Comparison, metric_id: str) -> ComparedMetric | None:
+        """How `metric_id`'s metric moved from the comparison's earlier period to its later one.
+
+        None if `metric_id` is not the comparison's later-period metric (a change built for other
+        periods) or either period lacks the figure.
+        """
+        ...
 
 
 @runtime_checkable

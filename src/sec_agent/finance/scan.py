@@ -25,7 +25,12 @@ from enum import StrEnum
 
 from pydantic import Field
 
-from sec_agent.finance.metrics import MetricCatalog, PastValue
+from sec_agent.finance.metrics import (
+    MetricCatalog,
+    PastValue,
+    measured_in_points,
+    relative_change,
+)
 from sec_agent.schemas import (
     Change,
     ChangeKind,
@@ -111,11 +116,6 @@ class ScanThresholds(Record):
     seasonal_share: float = Field(default=MIN_SEASONAL_SHARE, ge=0, le=1)
 
 
-def relative_change(current: float, prior: float) -> float | None:
-    """The change as a fraction of a positive starting figure, or None when it has none."""
-    return current / prior - 1 if prior > 0 else None
-
-
 def is_similar(move: float, year_earlier: float, share: float) -> bool:
     """True when the year-earlier move went the same way and was at least `share` as large."""
     return move * year_earlier > 0 and abs(year_earlier) >= share * abs(move)
@@ -139,20 +139,16 @@ def _year_earlier_move(
 def _move(
     catalog: MetricCatalog, comparison: Comparison, metric: MetricName
 ) -> tuple[MoveKind, float | None, str | None]:
-    """How far a metric moved between the comparison's periods, and the current metric's id."""
-    if metric is MetricName.REVENUE_GROWTH:
-        growth = catalog.growth(comparison.current, comparison.prior)
-        if growth is None:
-            return MoveKind.RELATIVE, None, None
-        return MoveKind.RELATIVE, growth.value, growth.metric_id
-    current = catalog.level(comparison.current, metric)
-    prior = catalog.level(comparison.prior, metric)
-    kind = MoveKind.POINTS if metric in MARGINS else MoveKind.RELATIVE
-    if current is None or prior is None:
+    """How far a metric moved between the comparison's periods, and the current metric's id.
+
+    Read from `MetricCatalog.compare`, which also tells the thought generator the move, so a
+    change and its explanations start from the same figure.
+    """
+    compared = catalog.compare(comparison, metric)
+    if compared is None:
+        kind = MoveKind.POINTS if measured_in_points(metric) else MoveKind.RELATIVE
         return kind, None, None
-    if kind is MoveKind.POINTS:
-        return kind, current.value - prior.value, current.metric_id
-    return kind, relative_change(current.value, prior.value), current.metric_id
+    return MoveKind(compared.kind), compared.move, compared.later.metric_id
 
 
 def scan_metric(

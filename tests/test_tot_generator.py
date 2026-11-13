@@ -11,6 +11,7 @@ import anthropic
 import pytest
 from pydantic import ValidationError
 
+from sec_agent.contracts import ComparedMetric
 from sec_agent.llm.client import LLMClient, Role
 from sec_agent.llm.ledger import BudgetExceededError, CostLedger
 from sec_agent.schemas import (
@@ -105,8 +106,13 @@ GROSS_MARGIN_UP = MetricExpectation(metric=MetricName.GROSS_MARGIN, direction=Di
 
 
 class FakeMetrics:
+    """A `MetricMoveLookup` that knows the later value only, as the generator used to see it."""
+
     def get_metric(self, metric_id: str) -> MetricValue | None:
         return MARGIN if metric_id == MARGIN.metric_id else None
+
+    def get_move(self, comparison: Comparison, metric_id: str) -> ComparedMetric | None:
+        return None
 
 
 def response(output: Any, stop_reason: str = "end_turn") -> SimpleNamespace:
@@ -404,9 +410,104 @@ async def test_a_dollar_metric_reaches_the_model_as_signed_dollars(settings, val
         def get_metric(self, metric_id: str) -> MetricValue | None:
             return revenue if metric_id == NUMERIC.metric_id else None
 
+        def get_move(self, comparison: Comparison, metric_id: str) -> ComparedMetric | None:
+            return None
+
     generator, fake = make_generator(settings, response(CandidateSet(candidates=())))
     await generator.propose_candidates(NUMERIC, COMPARISON, DollarMetrics())
     assert json.loads(fake.requests[0]["messages"][0]["content"])["metric_value"] == shown
+
+
+# The move a numeric change comes with (T6.4; user's decision, 2026-11-13)
+
+EARLIER_MARGIN = MARGIN.model_copy(
+    update={"metric_id": "HSY:gross_margin:FY2024:12m", "period": PRIOR, "value": 0.47282}
+)
+
+
+class MovingMetrics(FakeMetrics):
+    """A `MetricMoveLookup` that knows how the change's metric moved."""
+
+    def __init__(self, compared: ComparedMetric) -> None:
+        self.compared = compared
+        self.asked: list[tuple[str, str]] = []
+
+    def get_move(self, comparison: Comparison, metric_id: str) -> ComparedMetric | None:
+        self.asked.append((comparison.comparison_id, metric_id))
+        return self.compared if metric_id == self.compared.later.metric_id else None
+
+
+MARGIN_FELL = ComparedMetric(later=MARGIN, earlier=EARLIER_MARGIN, kind="points", move=-0.0977)
+
+
+async def test_a_numeric_change_comes_with_its_earlier_value_move_and_direction(settings):
+    generator, fake = make_generator(settings, response(CandidateSet(candidates=())))
+    metrics = MovingMetrics(MARGIN_FELL)
+    await generator.propose_candidates(NUMERIC, COMPARISON, metrics)
+    sent = json.loads(fake.requests[0]["messages"][0]["content"])
+    assert sent["metric_value"] == "37.51%"
+    assert sent["earlier_metric_value"] == "47.28%"
+    assert sent["metric_move"] == "-977 bps"
+    assert sent["metric_direction"] == "down"
+    assert metrics.asked == [("HSY-yoy", NUMERIC.metric_id)]
+
+
+async def test_the_source_request_comes_with_the_move_too(settings):
+    generator, fake = make_generator(settings, response(EvidenceSourceSet(sources=())))
+    await generator.propose_sources(KEPT, NUMERIC, COMPARISON, MovingMetrics(MARGIN_FELL))
+    sent = json.loads(fake.requests[0]["messages"][0]["content"])
+    assert (sent["metric_direction"], sent["metric_move"]) == ("down", "-977 bps")
+
+
+async def test_revenue_growth_comes_with_its_move_and_no_earlier_value(settings):
+    growth = MARGIN.model_copy(
+        update={
+            "metric_id": "HSY:revenue_growth:FY2025:12m:vs-FY2024",
+            "name": "revenue_growth",
+            "value": 0.044,
+        }
+    )
+    change = NUMERIC.model_copy(update={"metric_id": growth.metric_id})
+    compared = ComparedMetric(later=growth, earlier=None, kind="relative", move=0.044)
+    generator, fake = make_generator(settings, response(CandidateSet(candidates=())))
+    await generator.propose_candidates(change, COMPARISON, MovingMetrics(compared))
+    sent = json.loads(fake.requests[0]["messages"][0]["content"])
+    assert "earlier_metric_value" not in sent
+    assert (sent["metric_move"], sent["metric_direction"]) == ("+4.4%", "up")
+
+
+async def test_a_move_with_no_size_shows_the_values_without_a_direction(settings):
+    compared = MARGIN_FELL.model_copy(update={"kind": "relative", "move": None})
+    generator, fake = make_generator(settings, response(CandidateSet(candidates=())))
+    await generator.propose_candidates(NUMERIC, COMPARISON, MovingMetrics(compared))
+    sent = json.loads(fake.requests[0]["messages"][0]["content"])
+    assert sent["earlier_metric_value"] == "47.28%"
+    assert "metric_move" not in sent and "metric_direction" not in sent
+
+
+@pytest.mark.parametrize(("kind", "move"), [("points", -0.13768), ("relative", 0.1049)])
+def test_the_move_reads_as_the_materiality_step_showed_it(kind, move):
+    from sec_agent.compare.materiality import describe_move
+    from sec_agent.finance.scan import MetricMove, MoveKind, SeasonalStatus
+    from sec_agent.tot.generator import _describe_move
+
+    scanned = MetricMove(
+        metric=MetricName.GROSS_MARGIN,
+        kind=MoveKind(kind),
+        threshold=0.01,
+        move=move,
+        flagged=True,
+        seasonal=SeasonalStatus.NOT_SEQUENTIAL,
+    )
+    told = ComparedMetric(later=MARGIN, earlier=EARLIER_MARGIN, kind=kind, move=move)
+    assert _describe_move(told) == describe_move(scanned)
+
+
+def test_the_prompts_say_the_direction_is_given_not_guessed():
+    for system in (CANDIDATE_SYSTEM, SOURCE_SYSTEM):
+        prose = " ".join(system.split())
+        assert "not for you to guess" in prose
+        assert '"metric_direction"' in prose
 
 
 async def test_a_metric_that_does_not_resolve_is_left_out(settings):

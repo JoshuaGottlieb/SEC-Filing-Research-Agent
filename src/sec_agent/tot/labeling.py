@@ -6,6 +6,12 @@ Each surviving candidate becomes one claim, labeled by the ToT design's standard
   `check_citations` for the claim, and the entailment judge, which sees only the claim and that
   quote, also finds it states the cause. The claim keeps the hypothesis as written, because causal
   wording is allowed for a confirmed claim, and cites that one quote.
+  When the judge finds the quotes only imply the hypothesis, the claim writer restates it at the
+  quotes' level of detail, keeping its cause and dropping what they do not say, and the judge
+  rules on that (user's decision, 2026-11-13). On the first paid Hershey run every hypothesis was
+  narrower than the filing's stated cause ("tariffs on imported packaging" against "higher tariff
+  costs"), so nothing was confirmed though the 10-K states the cause. A confirmed restatement keeps
+  the candidate's node id, so the audit trail still leads to the hypothesis as generated.
 - `plausible`: every other survivor. A survivor always has a verified quote or an agreeing metric,
   so it has evidence, but nothing confirmed states the cause. Its text is rewritten by a worker
   model to say what the evidence shows without linking cause and change, then checked in code.
@@ -32,6 +38,7 @@ from langchain_core.runnables import RunnableLambda
 
 from sec_agent.agents.verification import (
     EntailmentJudge,
+    EntailmentResult,
     check_citations,
     find_causal_language,
     judge_entailment,
@@ -63,6 +70,11 @@ MAX_JUDGE_CALLS_PER_CLAIM = 3
 # Stop at the first quote the judge finds states the cause (the user's question, 2026-11-10, still
 # open). Judging the rest could only add confirming quotes, never change a label or a co-driver.
 STOP_AT_FIRST_CONFIRMATION = True
+
+# Judge calls on a restated hypothesis, against the quotes the hypothesis as written only implied.
+# Chosen by hand: a restatement is written once per claim, and the first two such quotes are
+# usually the paragraph that states the cause and a line close to it.
+MAX_RESTATED_JUDGE_CALLS_PER_CLAIM = 2
 
 # Attempts at a plausible claim's wording before falling back to the fixed sentence: the first, and
 # one retry told why the first was rejected. Chosen by hand: a third attempt at the same request
@@ -109,6 +121,34 @@ class PlausibleWording(Record):
     text: str
 
 
+RESTATE_SYSTEM = f"""\
+You restate a hypothesis about why something changed between two of a company's SEC filings,
+so that it says no more than quotes from the filings state. The quotes give a cause in broader or
+fewer words than the hypothesis does. Keep the hypothesis's cause and the change it explains,
+worded at the quotes' level of detail: drop every detail the quotes do not state, such as a
+product, a place, a mechanism, a comparison or a figure.
+
+For example, the hypothesis "New tariffs on imported packaging raised cost of sales and lowered
+gross margin", with the quote "Gross margin decreased, driven by higher commodity and tariff costs",
+becomes "Higher tariff costs lowered gross margin."
+
+Rules:
+- Name only the hypothesis's cause. Do not add another cause the quotes give, even beside it.
+- Keep the change the hypothesis explains, named as the quotes name it.
+- If the quotes do not state the hypothesis's cause, even in broader words, or do not tie it to
+  that change, give null for "text". Do not stretch a quote to fit.
+- A figure is allowed only if it appears in a quote.
+- Write one sentence of at most 30 words.
+
+{_UNTRUSTED}"""
+
+
+class Restatement(Record):
+    """The hypothesis at the quotes' level of detail, or null if they do not state its cause."""
+
+    text: str | None
+
+
 # Used when no written statement passes. It names no cause and holds no figure, so it always passes
 # the checks, and it points the reader to the evidence instead of leaving the claim out of the
 # brief. It does not repeat the claim id, because the brief already links every claim to its id.
@@ -128,9 +168,16 @@ class ClaimWriter:
         self._chain = RunnableLambda(json.dumps) | llm.runnable(
             Role.GENERATOR, system=WORDING_SYSTEM, output_type=PlausibleWording
         )
+        # The same worker model: restating drops detail and the judge, on Opus, rules on the result.
+        self._restate = RunnableLambda(json.dumps) | llm.runnable(
+            Role.GENERATOR, system=RESTATE_SYSTEM, output_type=Restatement
+        )
 
     async def write(self, request: dict) -> PlausibleWording:
         return await self._chain.ainvoke(request)
+
+    async def restate(self, request: dict) -> Restatement:
+        return await self._restate.ainvoke(request)
 
 
 @dataclass(frozen=True)
@@ -148,8 +195,9 @@ class LabeledFinding(Record):
     """A finding, with what labeling could not do, for the audit trail and the rework loop."""
 
     finding: Finding
-    # Judge and writer failures, quotes that failed `check_citations`, and wording that fell back.
-    # None of these is a judgment against a claim.
+    # Judge and writer failures, quotes that failed `check_citations`, wording that fell back, and
+    # confirmed claims merged for being the same sentence. None of these is a judgment against a
+    # claim.
     failures: tuple[str, ...] = ()
     judge_calls: int = 0
     writer_calls: int = 0
@@ -190,6 +238,75 @@ def _agreeing_metric_ids(evidence: Sequence[TreeNode]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(ids))
 
 
+async def _judge_quote(
+    claim_id: str,
+    text: str,
+    citation: Citation,
+    metric_ids: tuple[str, ...],
+    periods: frozenset[FiscalPeriod],
+    context: LabelingContext,
+    tally: _Tally,
+    *,
+    described: str = "the hypothesis as written",
+) -> EntailmentResult | None:
+    """The judge's verdict on `text` against one quote, or None if the quote cannot confirm it.
+
+    `check_citations` is free and deterministic, so it runs before paying for the judge. The quote
+    and period were checked when the critic cited it; what can fail here is a figure in `text`
+    that neither this quote nor the agreeing metrics back.
+    """
+    draft = Claim(
+        claim_id=claim_id,
+        text=text,
+        label=ExplanationLabel.PLAUSIBLE,
+        citations=(citation,),
+        metric_ids=metric_ids,
+    )
+    check = check_citations(draft, periods, context.chunks, context.metrics, context.facts)
+    if not check.passed:
+        details = "; ".join(failure.detail for failure in check.failures)
+        tally.failures.append(
+            f"claim {claim_id}: quote from {citation.chunk_id} cannot confirm {described}: "
+            f"{details}"
+        )
+        return None
+    tally.judge_calls += 1
+    result = await judge_entailment(text, citation.quote, context.judge)
+    if result.failure is not None:
+        tally.failures.append(f"claim {claim_id}: {result.failure}")
+    return result
+
+
+async def _restate(
+    claim_id: str,
+    hypothesis: str,
+    implied: Sequence[Citation],
+    context: LabelingContext,
+    tally: _Tally,
+) -> str | None:
+    """The hypothesis worded at the level of the quotes that implied it, or None."""
+    request = {
+        "hypothesis": hypothesis,
+        "quotes": [
+            {"period": citation.period.label, "quote": citation.quote} for citation in implied
+        ],
+    }
+    tally.writer_calls += 1
+    try:
+        restated = (await context.writer.restate(request)).text
+    except LLMError as error:
+        tally.failures.append(f"claim {claim_id}: restating the hypothesis failed: {error}")
+        return None
+    restated = (restated or "").strip()
+    if not restated or _normalized(restated) == _normalized(hypothesis):
+        return None
+    return restated
+
+
+def _normalized(text: str) -> str:
+    return " ".join(text.split()).casefold()
+
+
 async def _confirm(
     survivor: CandidateResult,
     metric_ids: tuple[str, ...],
@@ -197,11 +314,16 @@ async def _confirm(
     context: LabelingContext,
     tally: _Tally,
 ) -> Claim | None:
-    """The confirmed claim, if a quote earns it; None otherwise. Failures are noted in `tally`."""
+    """The confirmed claim, if a quote earns it; None otherwise. Failures are noted in `tally`.
+
+    The hypothesis as written is judged first. If no quote confirms it and some only imply it, the
+    hypothesis restated at those quotes' level is judged against them (see the module doc).
+    """
     candidate = survivor.candidate
-    hypothesis = candidate.thought
+    claim_id, hypothesis = candidate.node_id, candidate.thought
     judged: set[tuple[str, str]] = set()
     confirming: list[Citation] = []
+    implied: list[Citation] = []
     judge_failure: str | None = None
     calls = 0
     for branch in survivor.evidence:
@@ -214,41 +336,48 @@ async def _confirm(
             if key in judged or calls >= MAX_JUDGE_CALLS_PER_CLAIM:
                 continue
             judged.add(key)
-            # Free and deterministic, so it runs before paying for the judge. The quote and period
-            # were checked when the critic cited it; what can fail here is a figure in the
-            # hypothesis that neither this quote nor the agreeing metrics back.
-            draft = Claim(
-                claim_id=candidate.node_id,
-                text=hypothesis,
-                label=ExplanationLabel.PLAUSIBLE,
-                citations=(citation,),
-                metric_ids=metric_ids,
+            result = await _judge_quote(
+                claim_id, hypothesis, citation, metric_ids, periods, context, tally
             )
-            check = check_citations(draft, periods, context.chunks, context.metrics, context.facts)
-            if not check.passed:
-                details = "; ".join(failure.detail for failure in check.failures)
-                tally.failures.append(
-                    f"claim {candidate.node_id}: quote from {citation.chunk_id} cannot confirm the "
-                    f"hypothesis as written: {details}"
-                )
+            if result is None:
                 continue
             calls += 1
-            tally.judge_calls += 1
-            result = await judge_entailment(hypothesis, citation.quote, context.judge)
             if result.failure is not None:
                 judge_failure = result.failure
-                tally.failures.append(f"claim {candidate.node_id}: {result.failure}")
-                continue
-            if result.verdict is EntailmentVerdict.STATES_CAUSE:
+            elif result.verdict is EntailmentVerdict.STATES_CAUSE:
                 confirming.append(citation)
                 if STOP_AT_FIRST_CONFIRMATION:
                     break
+            elif result.verdict is EntailmentVerdict.IMPLIES:
+                implied.append(citation)
         if confirming and STOP_AT_FIRST_CONFIRMATION:
             break
+    text = hypothesis
+    if not confirming and implied:
+        restated = await _restate(claim_id, hypothesis, implied, context, tally)
+        for citation in implied[:MAX_RESTATED_JUDGE_CALLS_PER_CLAIM] if restated else ():
+            result = await _judge_quote(
+                claim_id,
+                restated,
+                citation,
+                metric_ids,
+                periods,
+                context,
+                tally,
+                described="the restated hypothesis",
+            )
+            if result is None:
+                continue
+            if result.failure is not None:
+                judge_failure = result.failure
+            elif result.verdict is EntailmentVerdict.STATES_CAUSE:
+                confirming.append(citation)
+                text = restated
+                break
     if confirming:
         return Claim(
-            claim_id=candidate.node_id,
-            text=hypothesis,
+            claim_id=claim_id,
+            text=text,
             label=ExplanationLabel.CONFIRMED,
             citations=tuple(confirming),
             metric_ids=metric_ids,
@@ -258,7 +387,7 @@ async def _confirm(
         # The evidence may well state the cause; only the check that could say so failed. A person
         # can confirm it, so the finding goes to review (the user's decision, 2026-11-10).
         tally.review_notes.append(
-            f"claim {candidate.node_id} could not be confirmed because {judge_failure}"
+            f"claim {claim_id} could not be confirmed because {judge_failure}"
         )
     return None
 
@@ -363,6 +492,38 @@ async def _label_survivor(
     return await _plausible(survivor, citations, metric_ids, periods, context, tally)
 
 
+def _merge_same_claims(claims: Sequence[Claim], tally: _Tally) -> list[Claim]:
+    """One claim per confirmed sentence, keeping the first and adding the others' quotes.
+
+    Two hypotheses restated at the same quote's level can come out alike ("Higher tariff costs
+    lowered gross margin."), and the brief would list one confirmed cause twice as co-drivers.
+    """
+    merged: list[Claim] = []
+    first: dict[str, int] = {}
+    for claim in claims:
+        key = _normalized(claim.text)
+        if claim.label is not ExplanationLabel.CONFIRMED:
+            merged.append(claim)
+            continue
+        if key not in first:
+            first[key] = len(merged)
+            merged.append(claim)
+            continue
+        kept = merged[first[key]]
+        seen = {_quote_key(citation) for citation in kept.citations}
+        merged[first[key]] = kept.model_copy(
+            update={
+                "citations": kept.citations
+                + tuple(c for c in claim.citations if _quote_key(c) not in seen),
+                "metric_ids": tuple(dict.fromkeys((*kept.metric_ids, *claim.metric_ids))),
+            }
+        )
+        tally.failures.append(
+            f"claim {claim.claim_id}: confirmed as the same sentence as {kept.claim_id}, so merged"
+        )
+    return merged
+
+
 async def label_result(
     result: ToTResult,
     change: Change,
@@ -397,9 +558,13 @@ async def label_result(
             f"the search lost {len(result.failures)} branch(es) to a model failure: "
             + "; ".join(result.failures)
         )
-    claims = [
-        await _label_survivor(survivor, periods, context, tally) for survivor in result.candidates
-    ]
+    claims = _merge_same_claims(
+        [
+            await _label_survivor(survivor, periods, context, tally)
+            for survivor in result.candidates
+        ],
+        tally,
+    )
     return LabeledFinding(
         finding=Finding(
             finding_id=finding_id,

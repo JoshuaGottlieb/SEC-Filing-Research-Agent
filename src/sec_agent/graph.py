@@ -118,11 +118,12 @@ LABELING_RESERVE_USD = 0.25
 # One 20-change materiality batch cost $0.074 to $0.075 live (lane 1, 2026-11-11, two calls).
 MATERIALITY_BATCH_USD = 0.075
 # One change's search (generator, critic and retrieval on Haiku) and labeling (the judge and the
-# claim writer). Chosen by hand, provisional: the guess before any measurement was $0.04 to $0.13,
-# so it is set at the top and the estimate errs high. The first paid run measures it.
-PER_CHANGE_USD = 0.13
-# The one live summary (2026-11-10) used 516 output tokens on Opus, about $0.02.
-SUMMARY_USD = 0.02
+# claim writer). The first paid run (HSY yoy-10k, 3 changes, 2026-11-13) measured about $0.04 per
+# change with nothing cached; set at $0.06 for headroom, since it is one run (user's decision).
+PER_CHANGE_USD = 0.06
+# The same run: $0.026 per summary call, and a rejected first draft made it two calls. Set at two
+# calls' worth (user's decision, 2026-11-13).
+SUMMARY_USD = 0.05
 
 # Review reasons the graph writes. Each must pass the causal-language check (`check_brief`).
 UNREACHED_REASON = "the run's dollar budget was reached before this change was examined"

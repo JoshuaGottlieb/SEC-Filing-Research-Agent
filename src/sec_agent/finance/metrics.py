@@ -22,6 +22,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from sec_agent.config import REPO_ROOT
+from sec_agent.contracts import ComparedMetric
 from sec_agent.edgar.corpus import Corpus, CorpusError
 from sec_agent.finance.fact_store import FactRow, FactStore
 from sec_agent.schemas import (
@@ -75,6 +76,20 @@ DOLLAR_ITEMS = {
     MetricName.OPERATING_INCOME: OPERATING_INCOME,
     MetricName.NET_INCOME: NET_INCOME,
 }
+
+
+def measured_in_points(name: MetricName) -> bool:
+    """Whether a metric's move is the difference of two ratios, not a relative change.
+
+    A ratio moves in points (a margin "fell 1,377 bps"); a dollar figure moves relative to its
+    earlier value ("+10.5%"), and revenue growth is itself a relative change.
+    """
+    return name is not MetricName.REVENUE_GROWTH and name not in DOLLAR_ITEMS
+
+
+def relative_change(current: float, prior: float) -> float | None:
+    """The change as a fraction of a positive starting figure, or None when it has none."""
+    return current / prior - 1 if prior > 0 else None
 
 
 class NoMoveTolerance(BaseModel):
@@ -358,6 +373,43 @@ class MetricCatalog:
             unit=UNIT_RATIO,
             input_fact_ids=(*now.fact_ids, *before.fact_ids),
         )
+
+    def compare(self, comparison: Comparison, name: MetricName) -> ComparedMetric | None:
+        """`name` in both of the comparison's periods and how far it moved, or None without data.
+
+        The one place a move is computed: the metric scan flags changes from it and `get_move`
+        tells the thought generator the same move (user's decision, 2026-11-13).
+        """
+        if name is MetricName.REVENUE_GROWTH:
+            growth = self.growth(comparison.current, comparison.prior)
+            if growth is None:
+                return None
+            return ComparedMetric(later=growth, earlier=None, kind="relative", move=growth.value)
+        later = self.level(comparison.current, name)
+        earlier = self.level(comparison.prior, name)
+        if later is None or earlier is None:
+            return None
+        if measured_in_points(name):
+            return ComparedMetric(
+                later=later, earlier=earlier, kind="points", move=later.value - earlier.value
+            )
+        return ComparedMetric(
+            later=later,
+            earlier=earlier,
+            kind="relative",
+            move=relative_change(later.value, earlier.value),
+        )
+
+    def get_move(self, comparison: Comparison, metric_id: str) -> ComparedMetric | None:
+        """How `metric_id`'s metric moved in `comparison` (`MetricMoveLookup`)."""
+        later = self.get_metric(metric_id)
+        if later is None:
+            return None
+        compared = self.compare(comparison, MetricName(later.name))
+        # A change built for other periods must not be told this comparison's move.
+        if compared is None or compared.later.metric_id != metric_id:
+            return None
+        return compared
 
     def _outcome(self, comparison: Comparison, expected: MetricExpectation) -> MetricOutcome:
         tolerance = self._config.no_move_tolerance
