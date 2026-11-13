@@ -35,8 +35,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from pydantic import Field
 
 from sec_agent.agents.verification import check_causal_language, find_causal_language
+from sec_agent.compare.materiality import MaterialityDecision
 from sec_agent.contracts import MetricLookup
 from sec_agent.report.names import (
     CHANGE_KIND_NAMES,
@@ -55,6 +57,7 @@ from sec_agent.schemas import (
     ExplanationLabel,
     Finding,
     MetricValue,
+    Record,
     TreeNode,
 )
 
@@ -96,6 +99,27 @@ class BriefError(ValueError):
     def __init__(self, problems: Sequence[str]) -> None:
         super().__init__("the brief was not written: " + "; ".join(problems))
         self.problems = tuple(problems)
+
+
+class SkippedChange(Record):
+    """A material change the run did not examine, as `audit.json` lists it."""
+
+    change_id: str
+    materiality_rank: int = Field(ge=1)
+    # From the materiality decision; None if the change has none on record.
+    importance: int | None = Field(default=None, ge=0, le=5)
+
+
+class NotExamined(Record):
+    """The material changes past the run's cap on how many it explores (T5.5).
+
+    They were never searched, so they are not findings and do not go under review: the brief says
+    how many there are in one line and `audit.json` lists them (user's decision, 2026-11-12). A
+    finding list of dozens of unexamined changes would bury the ones that were examined.
+    """
+
+    max_changes: int = Field(ge=1)
+    changes: tuple[SkippedChange, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -407,7 +431,24 @@ def _review_reason(finding: Finding) -> str:
     return "an explanation is unresolved"
 
 
-def render_markdown(brief: Brief, metrics: MetricLookup | None = None) -> str:
+def not_examined_line(not_examined: NotExamined | None) -> str | None:
+    """The brief's one line on changes past the cap, or None when there are none."""
+    if not_examined is None or not not_examined.changes:
+        return None
+    count = len(not_examined.changes)
+    changes = "change was" if count == 1 else "changes were"
+    return (
+        f"This run explores at most {not_examined.max_changes} material changes, in order of "
+        f"materiality, so {count} further material {changes} not examined. audit.json lists "
+        "them under not_examined, with their rank and importance."
+    )
+
+
+def render_markdown(
+    brief: Brief,
+    metrics: MetricLookup | None = None,
+    not_examined: NotExamined | None = None,
+) -> str:
     """The brief as Markdown. Call `check_brief` first; `write_run` does."""
     refs = assign_refs(brief.findings)
     comparison = brief.comparison
@@ -446,6 +487,7 @@ def render_markdown(brief: Brief, metrics: MetricLookup | None = None) -> str:
             for finding in members
             if finding.needs_review
         ],
+        "not_examined": not_examined_line(not_examined),
     }
     environment = Environment(
         loader=FileSystemLoader(TEMPLATES),
@@ -465,13 +507,24 @@ def audit_trail(
     trees: Mapping[str, Sequence[TreeNode]] | None = None,
     labeling_failures: Mapping[str, Sequence[str]] | None = None,
     metrics: MetricLookup | None = None,
+    not_examined: NotExamined | None = None,
+    untraced_rationales: Sequence[MaterialityDecision] = (),
+    summary_used_template: bool | None = None,
+    summary_failures: Sequence[str] = (),
 ) -> dict:
     """Everything behind the brief, as JSON-ready data, so a saved run stands on its own.
 
     `trees` maps a finding id to its whole tree, pruned branches included, as
     `TreeClient.read_tree` returns it. `labeling_failures` maps a finding id to what labeling
     could not do (`LabeledFinding.failures`). Metrics are looked up and stored when a lookup is
-    given, so the reader of a saved run can see the values a claim cites.
+    given, so the reader of a saved run can see the values a claim cites. `not_examined` lists
+    the material changes past the run's cap. `untraced_rationales` are the materiality decisions
+    whose rationale was dropped from the change for a figure nothing backs: the change reaches
+    the brief with no rationale, so this is the only record of what was dropped and why.
+    `summary_used_template` and `summary_failures` say how the summary was made
+    (`report.summary.SummaryResult`): a template summary looks like a written one in the brief, so
+    only the audit trail shows that the writer was rejected, failed or ran out of budget. They are
+    plain fields because `report.summary` imports this module. None means the caller did not say.
     """
     refs = assign_refs(brief.findings)
     metric_ids = {
@@ -506,6 +559,14 @@ def audit_trail(
         "metrics": stored,
         # Findings whose rationale was left out of the brief because it was worded causally.
         "rationales_omitted": omitted,
+        # Rationales dropped at materiality for a figure nothing backs, with those figures.
+        "rationales_untraced": [
+            decision.model_dump(mode="json") for decision in untraced_rationales
+        ],
+        "not_examined": None if not_examined is None else not_examined.model_dump(mode="json"),
+        "summary": None
+        if summary_used_template is None
+        else {"used_template": summary_used_template, "failures": list(summary_failures)},
     }
 
 
@@ -522,6 +583,10 @@ def write_run(
     trees: Mapping[str, Sequence[TreeNode]] | None = None,
     labeling_failures: Mapping[str, Sequence[str]] | None = None,
     metrics: MetricLookup | None = None,
+    not_examined: NotExamined | None = None,
+    untraced_rationales: Sequence[MaterialityDecision] = (),
+    summary_used_template: bool | None = None,
+    summary_failures: Sequence[str] = (),
 ) -> RunFiles:
     """Check the brief, then write `brief.md` and `audit.json` into `out_dir`.
 
@@ -532,8 +597,17 @@ def write_run(
     problems = check_brief(brief)
     if problems:
         raise BriefError(problems)
-    markdown = render_markdown(brief, metrics)
-    trail = audit_trail(brief, trees=trees, labeling_failures=labeling_failures, metrics=metrics)
+    markdown = render_markdown(brief, metrics, not_examined)
+    trail = audit_trail(
+        brief,
+        trees=trees,
+        labeling_failures=labeling_failures,
+        metrics=metrics,
+        not_examined=not_examined,
+        untraced_rationales=untraced_rationales,
+        summary_used_template=summary_used_template,
+        summary_failures=summary_failures,
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
     files = RunFiles(brief=out_dir / "brief.md", audit=out_dir / "audit.json")
     files.brief.write_text(markdown, encoding="utf-8")

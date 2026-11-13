@@ -9,16 +9,20 @@ from typing import Any
 import pytest
 
 from sec_agent.agents.verification import find_causal_language
+from sec_agent.compare.materiality import MaterialityDecision
 from sec_agent.report.brief import (
     NO_FINDINGS_SUMMARY,
     REF,
     WRAP_WIDTH,
     BriefError,
+    NotExamined,
+    SkippedChange,
     assign_refs,
     audit_trail,
     check_brief,
     escape,
     format_summary_line,
+    not_examined_line,
     render_markdown,
     wrap_markdown,
     write_run,
@@ -47,6 +51,7 @@ from sec_agent.schemas import (
     Finding,
     FiscalPeriod,
     FormType,
+    MaterialityCriterion,
     MetricName,
     MetricValue,
     NodeStatus,
@@ -520,6 +525,79 @@ def test_the_audit_trail_holds_everything_behind_the_brief():
     assert set(trail["metrics"]) == {"gm-2025"}
     assert trail["metrics"]["gm-2025"]["value"] == 0.335
     json.dumps(trail)  # all of it is plain JSON
+
+
+def skipped(count: int, max_changes: int = 10) -> NotExamined:
+    return NotExamined(
+        max_changes=max_changes,
+        changes=tuple(
+            SkippedChange(change_id=f"chg-{n}", materiality_rank=max_changes + n, importance=3)
+            for n in range(1, count + 1)
+        ),
+    )
+
+
+def test_changes_past_the_cap_get_one_line_and_no_review_entry():
+    report = brief()
+    markdown = render_markdown(report, METRICS, skipped(42))
+    assert "## Not examined" in markdown
+    assert contains(markdown, "explores at most 10 material changes")
+    assert contains(markdown, "so 42 further material changes were not examined")
+    # They are not findings: the review section and the references are unchanged.
+    assert statements(markdown) == statements(render_markdown(report, METRICS))
+    assert contains(render_markdown(report, METRICS, skipped(1)), "1 further material change was")
+
+
+def test_with_nothing_past_the_cap_the_brief_has_no_such_section():
+    report = brief()
+    assert render_markdown(report, METRICS, skipped(0)) == render_markdown(report, METRICS)
+    assert "Not examined" not in render_markdown(report, METRICS)
+
+
+def test_the_not_examined_line_is_not_worded_causally():
+    assert find_causal_language(not_examined_line(skipped(3))) == ()
+
+
+def test_the_audit_trail_lists_skipped_changes_and_untraced_rationales(tmp_path):
+    untraced = MaterialityDecision(
+        change_id="chg-gm",
+        material=True,
+        importance=4,
+        criterion=MaterialityCriterion.METRIC_LINKED_SHIFT,
+        rationale="Margin fell by 12.4%.",
+        untraced_figures=("12.4%",),
+    )
+    files = write_run(
+        brief(), tmp_path / "run1", not_examined=skipped(2), untraced_rationales=(untraced,)
+    )
+    trail = json.loads(files.audit.read_text(encoding="utf-8"))
+    assert trail["not_examined"]["max_changes"] == 10
+    assert [item["change_id"] for item in trail["not_examined"]["changes"]] == ["chg-1", "chg-2"]
+    assert trail["not_examined"]["changes"][0] == {
+        "change_id": "chg-1",
+        "materiality_rank": 11,
+        "importance": 3,
+    }
+    assert trail["rationales_untraced"][0]["untraced_figures"] == ["12.4%"]
+    # Without them, the keys are still there, so a reader never has to guess.
+    bare = audit_trail(brief())
+    assert bare["not_examined"] is None
+    assert bare["rationales_untraced"] == []
+    assert bare["summary"] is None
+
+
+def test_the_audit_trail_records_a_summary_from_the_template(tmp_path):
+    files = write_run(
+        brief(),
+        tmp_path / "run1",
+        summary_used_template=True,
+        summary_failures=("sentence 1: cites C9, which does not exist",),
+    )
+    trail = json.loads(files.audit.read_text(encoding="utf-8"))
+    assert trail["summary"] == {
+        "used_template": True,
+        "failures": ["sentence 1: cites C9, which does not exist"],
+    }
 
 
 def test_write_run_writes_both_files_and_replaces_a_rerun(tmp_path):

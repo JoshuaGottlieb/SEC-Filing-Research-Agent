@@ -230,6 +230,37 @@ async def test_failures_are_not_cached(settings, tmp_path):
     assert result.output.value == "ok"
 
 
+async def test_plan_matches_what_complete_reserves_and_sends_nothing(settings):
+    fake = FakeAnthropic()
+    client, ledger = make_client(settings, fake)
+    plan = client.plan(Role.MATERIALITY, system="s" * 400, user="u" * 600, output_type=Answer)
+    # 1,000 characters at 2 per token, and the role's max_tokens, as `complete` reserves.
+    assert plan.worst_case_usd == worst_case_cost_usd(
+        "claude-opus-5-5", estimated_input_tokens=500, max_tokens=4_000
+    )
+    assert not plan.cached
+    assert fake.requests == []
+    assert ledger.spent_usd == 0
+    assert ledger.entries == ()
+    # Its own max_tokens changes the worst case, as it would in `complete`.
+    bigger = client.plan(
+        Role.MATERIALITY, system="s" * 400, user="u" * 600, output_type=Answer, max_tokens=8_000
+    )
+    assert bigger.worst_case_usd > plan.worst_case_usd
+
+
+async def test_plan_sees_a_cached_answer_only_for_the_same_request(settings, tmp_path):
+    fake = FakeAnthropic(response(output=Answer(value="saved")))
+    client, _ = make_client(settings, fake, cache=ReplayCache(tmp_path / "cache.sqlite"))
+    assert not client.plan(Role.CRITIC, system="s", user="u", output_type=Answer).cached
+    await client.complete(Role.CRITIC, system="s", user="u", output_type=Answer)
+    assert client.plan(Role.CRITIC, system="s", user="u", output_type=Answer).cached
+    assert not client.plan(Role.CRITIC, system="s", user="other", output_type=Answer).cached
+    assert not client.plan(
+        Role.CRITIC, system="s", user="u", output_type=Answer, max_tokens=1_000
+    ).cached
+
+
 async def test_runnable_composes_in_lcel(settings):
     # The Tree-of-Thought generator and critic are LCEL chains, so a call must pipe like one.
     fake = FakeAnthropic(response(output=Answer(value="chained")))
