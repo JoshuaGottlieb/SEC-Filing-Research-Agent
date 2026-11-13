@@ -107,6 +107,7 @@ CHANGE = Change(
     rationale="Gross margin fell 200 basis points",
 )
 GROSS_MARGIN_DOWN = MetricExpectation(metric=MetricName.GROSS_MARGIN, direction=Direction.DOWN)
+REVENUE_DOWN = MetricExpectation(metric=MetricName.REVENUE, direction=Direction.DOWN)
 RUN = "run-1"
 
 
@@ -617,7 +618,9 @@ async def test_a_vague_candidate_is_pruned_below_the_threshold(tree, config):
     assert "Conditions changed" not in generator.source_calls
 
 
-async def test_a_candidate_the_numbers_contradict_is_pruned_without_paying_the_critic(tree, config):
+async def test_on_a_text_change_a_lone_wrong_metric_prunes_on_score_not_the_gate(tree, config):
+    # A text change has no changed metric, so nothing gates. One metric, contradicted, scores 0
+    # on numerical consistency, which leaves at most 0.25 at depth 1: under the threshold.
     generator = FakeGenerator(
         [CandidateGeneration(candidates=(candidate("Margin rose", (GROSS_MARGIN_DOWN,)),))]
     )
@@ -627,11 +630,30 @@ async def test_a_candidate_the_numbers_contradict_is_pruned_without_paying_the_c
     nodes = await nodes_by_id(tree, result)
     pruned = next(n for n in nodes.values() if n.thought == "Margin rose")
     assert pruned.status is NodeStatus.PRUNED
-    assert "contradict" in pruned.prune_reason
+    assert "below the 0.30 threshold" in pruned.prune_reason
     assert pruned.numeric_check is NumericCheck.CONTRADICT
-    assert critic.calls == []
-    # The critic was never called, so this is one generator call per round and nothing else.
-    assert result.model_calls == 2
+    assert [call[0] for call in critic.calls] == ["specificity"]
+
+
+async def test_on_a_text_change_a_true_cause_with_one_wrong_metric_goes_on(tree, config):
+    # HSY-S01 in T6.4 (2026-11-12): "lower sales volume" came with revenue down (wrong: revenue
+    # rose on price) and gross margin down (right). It used to be gated at depth 1.
+    claim = "Lower volume deleveraged fixed costs"
+    generator = FakeGenerator(
+        [CandidateGeneration(candidates=(candidate(claim, (REVENUE_DOWN, GROSS_MARGIN_DOWN)),))],
+        {claim: sources(search("volume"))},
+    )
+    checker = FakeChecker(
+        {MetricName.REVENUE: NumericCheck.CONTRADICT, MetricName.GROSS_MARGIN: NumericCheck.AGREE}
+    )
+    retriever = FakeRetriever({("volume", Section.MDNA): found("volume", passage("now-1"))})
+    result = await explore(tree, config, generator, FakeCritic(), retriever, checker)
+    nodes = await nodes_by_id(tree, result)
+    first = next(n for n in nodes.values() if n.thought == claim)
+    assert first.status is not NodeStatus.PRUNED
+    assert first.score == pytest.approx(0.75 * 0.5 + 0.25 * 1.0)
+    assert retriever.calls  # it reached depth 2 and was searched
+    assert result.outcome is Outcome.RESOLVED
 
 
 async def test_a_text_only_candidate_is_not_pruned_for_lacking_numbers(tree, config):
@@ -693,7 +715,10 @@ async def test_a_contradicting_metric_source_is_pruned_and_never_retried(tree, c
     result = await explore(tree, config, generator, FakeCritic(), retriever, checker)
     nodes = await nodes_by_id(tree, result)
     metric_node = next(n for n in nodes.values() if n.depth == 2)
-    assert "contradict" in metric_node.prune_reason
+    # A text change: not the gate, but a metric that moved the other way supports nothing.
+    assert metric_node.prune_reason == (
+        "no evidence: the metric moved the other way from what the claim expects"
+    )
     assert retriever.calls == []
     assert result.outcome is Outcome.UNRESOLVED
 
@@ -805,11 +830,15 @@ async def test_contradicting_the_changed_metric_still_prunes(tree, config):
         {},
     )
     checker = FakeChecker({MetricName.GROSS_MARGIN: NumericCheck.CONTRADICT})
-    result = await explore_margin_change(tree, config, generator, checker)
+    critic = FakeCritic()
+    result = await explore_margin_change(tree, config, generator, checker, critic)
     nodes = await nodes_by_id(tree, result)
     first = next(n for n in nodes.values() if n.depth == 1)
     assert first.status is NodeStatus.PRUNED
-    assert "contradict" in first.prune_reason
+    assert first.prune_reason == "hard gate: computed metrics contradict the change being explained"
+    # Pruned before the critic is paid; one generator call per round and nothing else.
+    assert critic.calls == []
+    assert result.model_calls == 2
 
 
 async def test_a_text_change_keeps_metric_agreement_as_evidence(tree, config):
@@ -979,6 +1008,24 @@ async def test_a_branch_with_no_evidence_is_searched_again_everywhere_first(tree
     assert node.retrieved_chunk_ids == ("any-1",)
     # The retry's search is free; only its evaluation counts: prescreen, first try, retry.
     assert result.node_evaluations == 3
+
+
+async def test_a_branch_with_a_wrong_extra_metric_still_gets_its_retry(tree, config):
+    # Only a contradiction of the change itself rules out the retry; a wrong extra metric on a
+    # text change lowers the score but is still missing evidence worth one more search.
+    claim = "Lower volume deleveraged fixed costs"
+    generator = FakeGenerator(
+        [CandidateGeneration(candidates=(candidate(claim, (REVENUE_DOWN, GROSS_MARGIN_DOWN)),))],
+        {claim: sources(search("volume"))},
+    )
+    checker = FakeChecker(
+        {MetricName.REVENUE: NumericCheck.CONTRADICT, MetricName.GROSS_MARGIN: NumericCheck.AGREE}
+    )
+    retriever = FakeRetriever({("volume", None): found("volume", passage("any-1"))})
+    critic = FakeCritic(by_chunk={"any-1": Verdict(EvidenceSupport.STATES_CAUSE)})
+    result = await explore(tree, config, generator, critic, retriever, checker)
+    assert sections_searched(retriever) == [Section.MDNA, None]
+    assert only_evidence(result).status is NodeStatus.KEPT
 
 
 @pytest.mark.parametrize("own", [Section.MDNA, Section.FINANCIAL_NOTES, Section.MARKET_RISK])

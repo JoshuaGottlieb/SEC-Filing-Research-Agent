@@ -77,6 +77,10 @@ COMPARISON = Comparison(
     prior=filing(PRIOR, "acc-2024"),
 )
 GROSS_MARGIN_DOWN = MetricExpectation(metric=MetricName.GROSS_MARGIN, direction=Direction.DOWN)
+COGS_RATIO_UP = MetricExpectation(metric=MetricName.COGS_RATIO, direction=Direction.UP)
+SGA_UP = MetricExpectation(metric=MetricName.SGA, direction=Direction.UP)
+REVENUE_DOWN = MetricExpectation(metric=MetricName.REVENUE, direction=Direction.DOWN)
+SGA_RATIO_UP = MetricExpectation(metric=MetricName.SGA_RATIO, direction=Direction.UP)
 CANDIDATE = TreeNode(
     node_id="c1",
     run_id="r1",
@@ -139,6 +143,27 @@ class FakeAnthropic:
         if isinstance(item, Exception):
             raise item
         return item
+
+
+class ByMetricChecker:
+    """A `MetricChecker` with a verdict per metric, for candidates whose metrics disagree."""
+
+    def __init__(self, verdicts: dict[MetricName, NumericCheck]) -> None:
+        self.verdicts = verdicts
+
+    def check(
+        self, comparison: Comparison, expectations: Sequence[MetricExpectation]
+    ) -> MetricCheckResult:
+        return MetricCheckResult(
+            outcomes=tuple(
+                MetricOutcome(
+                    metric=item.metric,
+                    check=self.verdicts[item.metric],
+                    metric_ids=(f"{item.metric.value}-now", f"{item.metric.value}-before"),
+                )
+                for item in expectations
+            )
+        )
 
 
 class FakeChecker:
@@ -273,14 +298,104 @@ async def test_a_vague_text_only_candidate_is_pruned(settings, config):
     assert "below" in result.prune_reason
 
 
-async def test_a_contradicted_candidate_is_pruned_without_paying_the_critic(settings, config):
+async def test_contradicting_the_changed_metric_is_pruned_without_paying_the_critic(
+    settings, config
+):
     critic, fake = make_critic(settings)
     checker = FakeChecker(NumericCheck.CONTRADICT)
-    result = await evaluate_candidate(CANDIDATE, COMPARISON, critic, checker, config)
-    assert "metrics contradict" in result.prune_reason
+    result = await evaluate_candidate(
+        CANDIDATE, COMPARISON, critic, checker, config, changed_metric=MetricName.GROSS_MARGIN
+    )
+    assert "metrics contradict the change being explained" in result.prune_reason
+    assert result.contradicts_change
     assert result.metric_ids == ("m-now", "m-before")
     assert result.specificity is None
     assert fake.requests == []
+
+
+async def test_contradicting_a_metric_tied_to_the_change_also_gates(settings, config):
+    # With gross margin the change, "cost of sales ratio" contradicting says margin went the
+    # other way.
+    critic, fake = make_critic(settings)
+    node = CANDIDATE.model_copy(update={"expected_metrics": (COGS_RATIO_UP,)})
+    result = await evaluate_candidate(
+        node,
+        COMPARISON,
+        critic,
+        FakeChecker(NumericCheck.CONTRADICT),
+        config,
+        changed_metric=MetricName.GROSS_MARGIN,
+    )
+    assert result.contradicts_change
+    assert fake.requests == []
+
+
+async def test_any_other_contradiction_lowers_the_score_and_pays_the_critic(settings, config):
+    # A text change has no changed metric, so nothing gates; a lone wrong metric scores 0 on
+    # numerical consistency, which leaves at most 0.25 at depth 1.
+    critic, fake = make_critic(
+        settings, response(SpecificityCritique(specificity=Specificity.SPECIFIC))
+    )
+    result = await evaluate_candidate(
+        CANDIDATE, COMPARISON, critic, FakeChecker(NumericCheck.CONTRADICT), config
+    )
+    assert not result.contradicts_change
+    assert len(fake.requests) == 1
+    assert result.score == pytest.approx(0.25)
+    assert "below" in result.prune_reason
+
+
+async def test_a_wrong_metric_not_tied_to_the_change_does_not_gate(settings, config):
+    # Explaining a gross margin change: revenue going the wrong way is not the change itself.
+    critic, fake = make_critic(
+        settings, response(SpecificityCritique(specificity=Specificity.SPECIFIC))
+    )
+    node = CANDIDATE.model_copy(update={"expected_metrics": (REVENUE_DOWN, GROSS_MARGIN_DOWN)})
+    checker = ByMetricChecker(
+        {MetricName.REVENUE: NumericCheck.CONTRADICT, MetricName.GROSS_MARGIN: NumericCheck.AGREE}
+    )
+    result = await evaluate_candidate(
+        node, COMPARISON, critic, checker, config, changed_metric=MetricName.GROSS_MARGIN
+    )
+    assert not result.contradicts_change
+    assert len(fake.requests) == 1
+    # Agreeing with the changed metric is set aside as free, so only revenue counts: 0 of 1.
+    assert result.score == pytest.approx(0.25)
+
+
+async def test_at_depth_2_a_wrong_extra_metric_costs_half_the_numeric_weight(settings, config):
+    node = CANDIDATE.model_copy(update={"expected_metrics": (SGA_UP, SGA_RATIO_UP)})
+    checker = ByMetricChecker(
+        {MetricName.SGA: NumericCheck.AGREE, MetricName.SGA_RATIO: NumericCheck.CONTRADICT}
+    )
+    critic, _ = make_critic(settings, critique())
+    mixed = await evaluate_evidence(
+        node, [passage()], COMPARISON, (CURRENT,), critic, checker, config
+    )
+    agree = await judge(settings, config, critique())
+    assert mixed.score == pytest.approx(agree.score - 0.30 * 0.5)
+    assert mixed.prune_reason is None
+
+
+async def test_one_wrong_metric_beside_a_right_one_halves_numerical_consistency(settings, config):
+    # HSY-S03 in T6.4 (2026-11-12): "higher compensation" with SG&A up (right) and SG&A ratio
+    # up (wrong, revenue grew faster). As a share it is 0.5, so a specific claim stays.
+    critic, _ = make_critic(
+        settings, response(SpecificityCritique(specificity=Specificity.SPECIFIC))
+    )
+    node = CANDIDATE.model_copy(update={"expected_metrics": (SGA_UP, SGA_RATIO_UP)})
+    checker = ByMetricChecker(
+        {MetricName.SGA: NumericCheck.AGREE, MetricName.SGA_RATIO: NumericCheck.CONTRADICT}
+    )
+    result = await evaluate_candidate(node, COMPARISON, critic, checker, config)
+    assert result.numeric_check is NumericCheck.CONTRADICT  # the record keeps the verdict
+    assert result.score == pytest.approx(0.75 * 0.5 + 0.25 * 1.0)
+    assert result.prune_reason is None
+    # The same candidate explaining an SG&A ratio change contradicts that change: gated.
+    gated = await evaluate_candidate(
+        node, COMPARISON, critic, checker, config, changed_metric=MetricName.SGA_RATIO
+    )
+    assert gated.contradicts_change
 
 
 async def test_a_refusal_ends_the_candidate_instead_of_the_run(settings, config):
@@ -540,11 +655,30 @@ async def test_other_failed_citations_are_left_to_the_controllers_retry(settings
     assert result.prune_reason is None
 
 
-async def test_a_numeric_contradiction_prunes_the_branch(settings, config):
-    checker = FakeChecker(NumericCheck.CONTRADICT)
-    result = await judge(settings, config, critique(), checker=checker)
+async def test_a_branch_contradicting_the_changed_metric_is_pruned(settings, config):
+    critic, _ = make_critic(settings, critique())
+    result = await evaluate_evidence(
+        CANDIDATE,
+        [passage()],
+        COMPARISON,
+        (CURRENT,),
+        critic,
+        FakeChecker(NumericCheck.CONTRADICT),
+        config,
+        changed_metric=MetricName.GROSS_MARGIN,
+    )
     assert result.numeric_check is NumericCheck.CONTRADICT
-    assert "metrics contradict" in result.prune_reason
+    assert result.contradicts_change
+    assert "metrics contradict the change being explained" in result.prune_reason
+
+
+async def test_another_contradiction_lowers_a_branchs_score_without_pruning_it(settings, config):
+    agree = await judge(settings, config, critique())
+    other = await judge(settings, config, critique(), checker=FakeChecker(NumericCheck.CONTRADICT))
+    assert not other.contradicts_change
+    # Numerical consistency (weight 0.30) goes from 1 to 0; strong quoted evidence still clears.
+    assert other.score == pytest.approx(agree.score - 0.30)
+    assert other.prune_reason is None
 
 
 async def test_a_low_score_prunes_the_branch(settings, config):
