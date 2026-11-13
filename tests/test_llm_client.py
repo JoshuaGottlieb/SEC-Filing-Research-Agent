@@ -199,6 +199,37 @@ def test_ledger_writes_entries_to_file(tmp_path):
     assert '"role": "critic"' in path.read_text()
 
 
+def test_a_resumed_ledger_counts_what_the_run_already_spent(tmp_path):
+    path = tmp_path / "run" / "ledger.jsonl"
+    first = CostLedger(1.0, path=path)
+    first.record(LedgerEntry("critic", "m", 1, 1, 0, 0, 0.30, False))
+    first.record(LedgerEntry("judge", "m", 1, 1, 0, 0, 0.25, False))
+    resumed = CostLedger.resume(1.0, path)
+    assert resumed.spent_usd == pytest.approx(0.55)
+    assert [entry.role for entry in resumed.entries] == ["critic", "judge"]
+    # The cap counts the earlier spend, and new calls append to the same log.
+    with pytest.raises(BudgetExceededError):
+        resumed.reserve(0.50)
+    resumed.record(LedgerEntry("brief", "m", 1, 1, 0, 0, 0.10, False))
+    assert len(path.read_text().splitlines()) == 3
+    assert CostLedger.resume(1.0, path).spent_usd == pytest.approx(0.65)
+
+
+def test_a_resumed_ledger_with_no_log_starts_at_zero(tmp_path):
+    assert CostLedger.resume(1.0, tmp_path / "missing.jsonl").spent_usd == 0
+
+
+def test_a_last_line_cut_off_by_a_crash_is_skipped_and_others_are_errors(tmp_path):
+    path = tmp_path / "ledger.jsonl"
+    CostLedger(1.0, path=path).record(LedgerEntry("critic", "m", 1, 1, 0, 0, 0.2, False))
+    with path.open("a") as handle:
+        handle.write('{"role": "jud')
+    assert CostLedger.resume(1.0, path).spent_usd == pytest.approx(0.2)
+    path.write_text('{"role": "jud\n' + path.read_text().splitlines()[0] + "\n")
+    with pytest.raises(ValueError):
+        CostLedger.resume(1.0, path)
+
+
 async def test_repeat_call_replays_for_free(settings, tmp_path):
     fake = FakeAnthropic(response(output=Answer(value="saved")))
     client, ledger = make_client(settings, fake, cache=ReplayCache(tmp_path / "cache.sqlite"))

@@ -37,6 +37,14 @@ Two checks keep money from being spent on work the cap cannot finish (user's dec
   explanations can still be checked and the summary written. A change that starts with less is
   filed for review unexamined, and so is every change after it.
 
+Resume (user's decision, T5.5 decision 3). A SQLite checkpointer saves the state after every step,
+keyed by the run id, and each `explore` pass is one whole change, so a killed run continues from
+its last finished change (`run_analysis(..., resume=True)`). A change cut off mid-search is run
+again whole: the tree store refuses a tree id twice and has no delete, so the new attempt's tree
+gets an attempt id (`Workflow.tree_run_id`, `{run_id}.r{time}`), while the finding keeps its id.
+Its model calls replay from the cache at no cost, since no prompt holds a node or run id, and the
+ledger carries the run's earlier spend forward (`CostLedger.resume`).
+
 The steps are passed in as `Stages`, so tests drive the graph with fakes. `run_analysis` builds
 the real ones.
 """
@@ -47,11 +55,15 @@ import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from enum import Enum
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict, get_args, get_type_hints
 
+import aiosqlite
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from sec_agent.agents.retrieval import RetrievalAgent
 from sec_agent.agents.verification import EntailmentJudge
@@ -231,6 +243,9 @@ class Workflow:
     # (tests, and the CLI's `--yes` prints the estimate and goes ahead). Run in a thread, since
     # the CLI's prompt blocks on the terminal.
     confirm: Callable[[CostEstimate], bool] | None = None
+    # The run id this process's trees are built under. None is the run id itself; a resumed run
+    # gets an attempt id, so a change cut off mid-search can be run again (see the module doc).
+    tree_run_id: str | None = None
 
     def free_usd(self) -> float:
         """What the cap has left, not counting reservations: none are held between steps."""
@@ -359,7 +374,7 @@ def build_graph(workflow: Workflow, checkpointer=None):
             # Not `out_of_budget`: nothing more is spent, so each later change gets this reason too.
             labeled = claimless(run_id, change, RESERVE_REASON)
         else:
-            result = await stages.explore(change, comparison, run_id)
+            result = await stages.explore(change, comparison, workflow.tree_run_id or run_id)
             evaluations += result.node_evaluations
             await workflow.tree.record_budget(
                 BudgetUse(
@@ -483,6 +498,82 @@ def new_run_id(comparison: Comparison, now: datetime | None = None) -> str:
     return f"{comparison.ticker}-{comparison.comparison_type.value}-{stamp}"
 
 
+class ResumeError(RuntimeError):
+    """A run cannot be started or resumed as asked. Nothing was spent."""
+
+
+def _records(annotation: Any, found: set[type]) -> None:
+    """Add every pydantic record and enum `annotation` can hold to `found`."""
+    if isinstance(annotation, type) and annotation not in found:
+        if issubclass(annotation, Enum):
+            found.add(annotation)
+            return
+        if issubclass(annotation, BaseModel):
+            found.add(annotation)
+            for model_field in annotation.model_fields.values():
+                _records(model_field.annotation, found)
+            return
+    for arg in get_args(annotation):
+        _records(arg, found)
+
+
+async def run_graph(  # noqa: PLR0913 -- the run's settings, passed through
+    workflow: Workflow,
+    settings: Settings,
+    run_id: str,
+    comparison: Comparison,
+    max_changes: int,
+    resume: bool,
+) -> RunState:
+    """Run the graph with its checkpointer: from the start, or from a stopped run's checkpoint."""
+    settings.checkpoint_db_path.parent.mkdir(parents=True, exist_ok=True)
+    async with aiosqlite.connect(settings.checkpoint_db_path) as connection:
+        saver = AsyncSqliteSaver(connection, serde=checkpoint_serializer())
+        graph = build_graph(workflow, checkpointer=saver)
+        thread = {"configurable": {"thread_id": run_id}}
+        snapshot = await graph.aget_state(thread)
+        if resume:
+            check_resumable(snapshot, run_id, comparison)
+            inputs: RunState | None = None
+            max_changes = snapshot.values["max_changes"]
+        elif snapshot.values:
+            raise ResumeError(f"run {run_id} already has a checkpoint; resume it with --resume")
+        else:
+            inputs = initial_state(run_id, comparison, max_changes)
+        return await graph.ainvoke(
+            inputs, config={**thread, "recursion_limit": recursion_limit(max_changes)}
+        )
+
+
+def checkpoint_serializer() -> JsonPlusSerializer:
+    """The checkpointer's serializer, allowed to restore every record type the state holds.
+
+    LangGraph restores only the classes it is told it may (anything else comes back as plain
+    data), so the list is read from `RunState`'s types rather than kept by hand.
+    """
+    found: set[type] = set()
+    for annotation in get_type_hints(RunState).values():
+        _records(annotation, found)
+    return JsonPlusSerializer(allowed_msgpack_modules=found)
+
+
+def check_resumable(snapshot: Any, run_id: str, comparison: Comparison) -> None:
+    """Raise `ResumeError` unless the checkpoint `snapshot` is an unfinished run of `comparison`."""
+    values = snapshot.values or {}
+    if not values:
+        raise ResumeError(f"run {run_id} has no checkpoint to resume")
+    if not snapshot.next:
+        raise ResumeError(f"run {run_id} already finished; its brief is {values.get('brief_path')}")
+    saved = values["comparison"].comparison_id
+    if saved != comparison.comparison_id:
+        raise ResumeError(f"run {run_id} analyzes {saved}, not {comparison.comparison_id}")
+
+
+def attempt_id(run_id: str, now: datetime | None = None) -> str:
+    """The tree run id for a resumed attempt: the run id and when the attempt started."""
+    return f"{run_id}.r{(now or datetime.now(UTC)).strftime('%Y%m%dT%H%M%SZ')}"
+
+
 @dataclass(frozen=True)
 class RunReport:
     """What `run_analysis` produced, for the CLI to print."""
@@ -510,6 +601,8 @@ async def run_analysis(  # noqa: PLR0913 -- the CLI's options, passed through
     run_id: str | None = None,
     corpus_path: Path,
     confirm: Callable[[CostEstimate], bool] | None = None,
+    resume: bool = False,
+    announce: Callable[[str], None] | None = None,
 ) -> RunReport:
     """Analyze one comparison with the real pieces and write its brief.
 
@@ -517,16 +610,21 @@ async def run_analysis(  # noqa: PLR0913 -- the CLI's options, passed through
     and fact lookup); one bge model shared by the embedding cache and the chunk index; one
     retriever on this event loop; the tree store opened once around the whole run, in this task.
     `confirm` sees the cost estimate before anything is spent (`Workflow.confirm`); if it returns
-    False, `RunDeclined` is raised and nothing is written.
+    False, `RunDeclined` is raised and nothing is written. `resume` continues the stopped run
+    `run_id` from its checkpoint (`max_changes` then comes from the checkpoint). `announce` is told
+    the run id before any work starts, so a stopped run can be named.
     """
+    if resume and run_id is None:
+        raise ResumeError("resuming needs the run id")
     corpus = Corpus.load(corpus_path)
     comparison = corpus.comparison(ticker, kind)
     run_id = run_id or new_run_id(comparison)
+    if announce is not None:
+        announce(run_id)
     run_dir = settings.runs_dir / run_id
-    ledger = CostLedger(
-        max_usd if max_usd is not None else settings.max_usd_per_run,
-        path=run_dir / "ledger.jsonl",
-    )
+    cap = max_usd if max_usd is not None else settings.max_usd_per_run
+    ledger_path = run_dir / "ledger.jsonl"
+    ledger = CostLedger.resume(cap, ledger_path) if resume else CostLedger(cap, path=ledger_path)
     cache = ReplayCache(settings.llm_cache_path) if settings.llm_cache else None
     llm = LLMClient(settings, ledger, cache=cache)
     store = FactStore(settings.duckdb_path, read_only=True)
@@ -589,13 +687,10 @@ async def run_analysis(  # noqa: PLR0913 -- the CLI's options, passed through
                 runs_dir=settings.runs_dir,
                 metrics=catalog,
                 confirm=confirm,
+                tree_run_id=attempt_id(run_id) if resume else None,
             )
-            graph = build_graph(workflow)
             try:
-                state = await graph.ainvoke(
-                    initial_state(run_id, comparison, max_changes),
-                    config={"recursion_limit": recursion_limit(max_changes)},
-                )
+                state = await run_graph(workflow, settings, run_id, comparison, max_changes, resume)
             except Exception as error:  # noqa: BLE001 -- re-raised unchanged just below
                 # The MCP client's task group wraps anything raised inside it in an
                 # ExceptionGroup, so the CLI could not catch `RunDeclined`, `BriefError` or a
