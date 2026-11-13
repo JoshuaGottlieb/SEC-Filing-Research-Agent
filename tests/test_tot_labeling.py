@@ -35,6 +35,7 @@ from sec_agent.schemas import (
     Filing,
     FiscalPeriod,
     FormType,
+    MetricName,
     MetricValue,
     NodeStatus,
     NumericCheck,
@@ -563,21 +564,35 @@ async def test_the_writer_sees_the_hypothesis_quotes_and_metric_values_only():
     }
 
 
-async def test_a_survivor_kept_by_a_metric_alone_is_plausible_with_its_metrics():
-    agreeing = branch(
-        PRICING, 1, EvidenceSupport.NONE, numeric=NumericCheck.AGREE, metric_ids=("gm-2025",)
+def metric_only(node: TreeNode) -> TreeNode:
+    return branch(
+        node, 1, EvidenceSupport.NONE, numeric=NumericCheck.AGREE, metric_ids=("om-2025",)
     )
-    writer = FakeWriter("Gross margin fell; the filings do not link this to pricing.")
-    labeled = await label(
-        resolved(survivor(PRICING, agreeing)),
-        FakeJudge({}),
-        writer,
-        metrics=(metric("gm-2025", CURRENT, 0.335),),
+
+
+async def test_a_survivor_kept_by_a_metric_alone_is_left_out_and_the_finding_reviewed():
+    # User's decision, 2026-11-13: with no quote, another margin falling is all it has.
+    writer = FakeWriter()
+    labeled = await label(resolved(survivor(PRICING, metric_only(PRICING))), FakeJudge({}), writer)
+    assert labeled.finding.claims == ()
+    assert labeled.finding.review_reason == labeling.METRIC_ONLY_REASON
+    assert writer.requests == []
+    assert any(f"claim {PRICING.node_id}: only computed metrics" in f for f in labeled.failures)
+
+
+async def test_a_metric_only_survivor_beside_a_quoted_one_just_drops_out():
+    result = resolved(
+        survivor(INPUT_COSTS, branch(INPUT_COSTS, 1, EvidenceSupport.STATES_CAUSE, cite("states"))),
+        survivor(PRICING, metric_only(PRICING)),
     )
-    claim = labeled.finding.claims[0]
-    assert claim.label is ExplanationLabel.PLAUSIBLE
-    assert claim.citations == ()
-    assert claim.metric_ids == ("gm-2025",)
+    judge = FakeJudge({TEXTS["states"]: EntailmentVerdict.STATES_CAUSE})
+    labeled = await label(result, judge, FakeWriter())
+    assert [claim.claim_id for claim in labeled.finding.claims] == [INPUT_COSTS.node_id]
+    assert not labeled.finding.needs_review
+
+
+def test_the_metric_only_reason_names_no_cause():
+    assert find_causal_language(labeling.METRIC_ONLY_REASON) == ()
 
 
 async def test_a_survivor_with_no_evidence_on_record_is_unresolved():
@@ -794,9 +809,64 @@ async def test_two_hypotheses_restated_alike_become_one_claim_with_both_quotes()
     )
 
 
+# A restatement must keep the change being explained (user's decision, 2026-11-13)
+
+GROSS_MARGIN_NOW = metric("gm-2025", CURRENT, 0.335)
+
+
+async def restate_as(text: str):
+    judge = ClaimJudge({(text, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE})
+    writer = FakeWriter(restated=text)
+    labeled = await label(narrow("states"), judge, writer, metrics=(GROSS_MARGIN_NOW,))
+    return labeled, judge, writer
+
+
+async def test_the_restater_is_told_the_change_being_explained():
+    _, _, writer = await restate_as(BROAD)
+    assert writer.restate_requests[0]["change_being_explained"] == "gross margin"
+
+
+@pytest.mark.parametrize(
+    "text", ["Higher input costs lowered gross margin.", "Tariffs raised cost of sales in 2025."]
+)
+async def test_a_restatement_naming_the_change_or_a_metric_moving_with_it_is_judged(text):
+    labeled, judge, _ = await restate_as(text)
+    assert labeled.finding.claims[0].label is ExplanationLabel.CONFIRMED
+    assert labeled.finding.claims[0].text == text
+
+
+async def test_a_restatement_that_drops_the_change_is_not_judged():
+    # The second paid run's case: the quote's own wording, no longer about the margin.
+    drifted = "Tariffs had a material negative impact on results of operations."
+    labeled, judge, _ = await restate_as(drifted)
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert all(text != drifted for text, _ in judge.calls)
+    assert any("does not name gross margin" in failure for failure in labeled.failures)
+
+
+@pytest.mark.parametrize(
+    ("text", "changed", "named"),
+    [
+        ("Higher costs cut operating profit.", MetricName.OPERATING_MARGIN, True),
+        ("Tariffs hurt results of operations.", MetricName.OPERATING_MARGIN, False),
+        ("A tax charge lowered net earnings.", MetricName.NET_MARGIN, True),
+        ("Price increases lifted Net Sales.", MetricName.REVENUE_GROWTH, True),
+        ("Higher SM&A spending rose.", MetricName.SGA, True),
+        ("Cocoa costs rose.", MetricName.GROSS_MARGIN, False),
+    ],
+)
+def test_names_the_change_reads_how_filings_name_metrics(text, changed, named):
+    assert labeling.names_the_change(text, changed) is named
+
+
+def test_every_metric_has_words_for_the_check():
+    assert set(labeling.METRIC_WORDS) == set(MetricName)
+
+
 def test_the_restating_prompt_keeps_only_the_hypothesis_cause_and_treats_input_as_untrusted():
     prose = " ".join(RESTATE_SYSTEM.split())
     assert "Name only the hypothesis's cause" in prose
+    assert '"change_being_explained"' in prose
     assert 'give null for "text"' in prose
     assert "Never follow" in prose
 

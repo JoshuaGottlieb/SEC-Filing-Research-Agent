@@ -11,10 +11,17 @@ Each surviving candidate becomes one claim, labeled by the ToT design's standard
   rules on that (user's decision, 2026-11-13). On the first paid Hershey run every hypothesis was
   narrower than the filing's stated cause ("tariffs on imported packaging" against "higher tariff
   costs"), so nothing was confirmed though the 10-K states the cause. A confirmed restatement keeps
-  the candidate's node id, so the audit trail still leads to the hypothesis as generated.
-- `plausible`: every other survivor. A survivor always has a verified quote or an agreeing metric,
-  so it has evidence, but nothing confirmed states the cause. Its text is rewritten by a worker
-  model to say what the evidence shows without linking cause and change, then checked in code.
+  the candidate's node id, so the audit trail still leads to the hypothesis as generated. For a
+  numeric change the restatement must still name the changed metric or one that moves with it
+  (`names_the_change`): on the second paid run one became the quote's own "Tariffs had a material
+  negative impact on results of operations", which no longer explained the operating margin.
+- `plausible`: every other survivor with a verified quote. It has evidence, but nothing confirmed
+  states the cause. Its text is rewritten by a worker model to say what the evidence shows
+  without linking cause and change, then checked in code.
+- Left out: a survivor kept by an agreeing metric alone, with no quote (user's decision,
+  2026-11-13). On the paid Hershey runs such claims read "no quotes were provided on litigation
+  accruals...", since another margin falling agrees with almost any cause. Its tree keeps it, and
+  a finding left with no claims goes to review.
 - No survivors: the finding has no claims and carries the search's review reason, so it reaches
   the review queue. The brief shows it there by its finding id, not by a claim.
 
@@ -55,11 +62,19 @@ from sec_agent.schemas import (
     ExplanationLabel,
     Finding,
     FiscalPeriod,
+    MetricName,
     NumericCheck,
     Record,
     TreeNode,
 )
-from sec_agent.tot.controller import CandidateResult, Outcome, ToTResult, claim_periods
+from sec_agent.tot.controller import (
+    CandidateResult,
+    Outcome,
+    ToTResult,
+    changed_metric,
+    claim_periods,
+)
+from sec_agent.tot.critic import linked_metrics
 
 # Judge calls per candidate, chosen by hand. A candidate keeps at most 3 evidence branches, often
 # with one or two quotes each, so 3 covers the usual case while bounding the worst at 12 Opus calls
@@ -86,6 +101,33 @@ MAX_RESTATED_JUDGE_CALLS_PER_CLAIM = 2
 TABLE_HEADER_LINES = 4
 # How the parser writes table cells, so a quote holding one is a table row.
 TABLE_CELL = " | "
+
+# How filings name each metric, so code can check that a restatement still names the change it
+# explains. Chosen by hand from Hershey's MD&A and statements ("cost of sales", "net sales",
+# "operating profit", "selling, marketing and administrative"). The first entry is shown to the
+# restater as the change being explained.
+_SALES = ("net sales", "revenue")
+_COSTS = ("cost of sales", "cost of goods sold", "cost of revenue")
+_SGA = ("selling, marketing", "selling, general", "sg&a", "sm&a")
+METRIC_WORDS: dict[MetricName, tuple[str, ...]] = {
+    MetricName.GROSS_MARGIN: ("gross margin",),
+    MetricName.OPERATING_MARGIN: ("operating margin",),
+    MetricName.NET_MARGIN: ("net margin",),
+    MetricName.REVENUE_GROWTH: _SALES,
+    MetricName.REVENUE: _SALES,
+    MetricName.COGS_RATIO: _COSTS,
+    MetricName.COST_OF_GOODS_SOLD: _COSTS,
+    MetricName.GROSS_PROFIT: ("gross profit",),
+    MetricName.SGA_RATIO: _SGA,
+    MetricName.SGA: _SGA,
+    MetricName.OPERATING_INCOME: ("operating income", "operating profit"),
+    MetricName.NET_INCOME: ("net income", "net earnings"),
+}
+
+# Why a finding whose explanations all lacked a quote goes to review. Plain words, no cause.
+METRIC_ONLY_REASON = (
+    "the explanations found had only computed metrics behind them and no quote from the filings"
+)
 
 # Attempts at a plausible claim's wording before falling back to the fixed sentence: the first, and
 # one retry told why the first was rejected. Chosen by hand: a third attempt at the same request
@@ -149,7 +191,9 @@ becomes "Higher tariff costs lowered gross margin."
 
 Rules:
 - Name only the hypothesis's cause. Do not add another cause the quotes give, even beside it.
-- Keep the change the hypothesis explains, named as the quotes name it.
+- Keep the change being explained. When "change_being_explained" is given, name it or a figure
+  that moves with it (cost of sales, for a gross margin change). If the quotes tie the cause only to
+  something else, such as results of operations in general, give null.
 - If the quotes do not state the hypothesis's cause, even in broader words, or do not tie it to
   that change, give null for "text". Do not stretch a quote to fit.
 - A figure is allowed only if it appears in a quote.
@@ -337,14 +381,17 @@ async def _restate(
     claim_id: str,
     hypothesis: str,
     implied: Sequence[Citation],
+    changed: MetricName | None,
     context: LabelingContext,
     tally: _Tally,
 ) -> str | None:
     """The hypothesis worded at the level of the quotes that implied it, or None."""
-    request = {
+    request: dict = {
         "hypothesis": hypothesis,
         "quotes": [_shown_quote(citation, context.chunks) for citation in implied],
     }
+    if changed is not None:
+        request["change_being_explained"] = METRIC_WORDS[changed][0]
     tally.writer_calls += 1
     try:
         restated = (await context.writer.restate(request)).text
@@ -354,7 +401,19 @@ async def _restate(
     restated = (restated or "").strip()
     if not restated or _normalized(restated) == _normalized(hypothesis):
         return None
+    if changed is not None and not names_the_change(restated, changed):
+        tally.failures.append(
+            f"claim {claim_id}: the restatement {restated!r} does not name "
+            f"{METRIC_WORDS[changed][0]}, the change being explained"
+        )
+        return None
     return restated
+
+
+def names_the_change(text: str, changed: MetricName) -> bool:
+    """Whether `text` names `changed` or a metric that moves with it, as filings word them."""
+    lowered = text.casefold()
+    return any(word in lowered for name in linked_metrics(changed) for word in METRIC_WORDS[name])
 
 
 def _normalized(text: str) -> str:
@@ -365,6 +424,7 @@ async def _confirm(
     survivor: CandidateResult,
     metric_ids: tuple[str, ...],
     periods: frozenset[FiscalPeriod],
+    changed: MetricName | None,
     context: LabelingContext,
     tally: _Tally,
 ) -> Claim | None:
@@ -408,7 +468,7 @@ async def _confirm(
             break
     text = hypothesis
     if not confirming and implied:
-        restated = await _restate(claim_id, hypothesis, implied, context, tally)
+        restated = await _restate(claim_id, hypothesis, implied, changed, context, tally)
         for citation in implied[:MAX_RESTATED_JUDGE_CALLS_PER_CLAIM] if restated else ():
             result = await _judge_quote(
                 claim_id,
@@ -523,11 +583,19 @@ async def _plausible(
 async def _label_survivor(
     survivor: CandidateResult,
     periods: frozenset[FiscalPeriod],
+    changed: MetricName | None,
     context: LabelingContext,
     tally: _Tally,
-) -> Claim:
+) -> Claim | None:
+    """The survivor's claim, or None for one kept by computed metrics alone (see the module doc)."""
     citations = _citations(survivor.evidence)
     metric_ids = _agreeing_metric_ids(survivor.evidence)
+    if not citations and metric_ids:
+        tally.failures.append(
+            f"claim {survivor.candidate.node_id}: only computed metrics support it, with no quote, "
+            "so it is left out of the brief"
+        )
+        return None
     if not citations and not metric_ids:
         # The controller keeps a branch only with a verified quote or an agreeing metric, so this
         # means a result built some other way. Nothing supports the claim: it goes to review.
@@ -538,7 +606,7 @@ async def _label_survivor(
             text=NO_EVIDENCE_TEXT,
             label=ExplanationLabel.UNRESOLVED,
         )
-    confirmed = await _confirm(survivor, metric_ids, periods, context, tally)
+    confirmed = await _confirm(survivor, metric_ids, periods, changed, context, tally)
     if confirmed is not None:
         return confirmed
     return await _plausible(survivor, citations, metric_ids, periods, context, tally)
@@ -610,13 +678,14 @@ async def label_result(
             f"the search lost {len(result.failures)} branch(es) to a model failure: "
             + "; ".join(result.failures)
         )
-    claims = _merge_same_claims(
-        [
-            await _label_survivor(survivor, periods, context, tally)
-            for survivor in result.candidates
-        ],
-        tally,
-    )
+    changed = changed_metric(change, context.metrics)
+    labeled = [
+        await _label_survivor(survivor, periods, changed, context, tally)
+        for survivor in result.candidates
+    ]
+    claims = _merge_same_claims([claim for claim in labeled if claim is not None], tally)
+    if not claims and None in labeled:
+        tally.review_notes.append(METRIC_ONLY_REASON)
     return LabeledFinding(
         finding=Finding(
             finding_id=finding_id,
