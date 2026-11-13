@@ -99,6 +99,16 @@ TEXTS = {
     "fits": "We continue to monitor commodity markets closely.",
     "pricing": "Competitors increased promotional activity during 2025.",
     "removed": "A shortage of cocoa beans could disrupt our supply chain.",
+    # Hershey's segment table (FY2025 10-K): its columns are segments, not years.
+    "segments": (
+        "Our segment net sales and earnings were as follows:\n"
+        "(amounts in thousands, except share data or if otherwise indicated)\n"
+        "For the year ended December 31, 2025 | North America Confectionery | "
+        "North America Salty Snacks | International | Total\n"
+        "Net sales | $ | 9,479,709 | $ | 1,271,299 | $ | 941,568 | $ | 11,692,576\n"
+        "Cost of sales | 5,796,018 | 804,635 | 740,764\n"
+        "SM&A expense | 1,189,959 | 225,311 | 197,486"
+    ),
 }
 
 
@@ -209,7 +219,7 @@ class FakeWriter:
 
 
 def context(judge: FakeJudge, writer: FakeWriter, *, metrics=()) -> LabelingContext:
-    chunks = [chunk(key) for key in ("states", "implies", "fits", "pricing")]
+    chunks = [chunk(key) for key in ("states", "implies", "fits", "pricing", "segments")]
     chunks.append(chunk("removed", PRIOR))
     return LabelingContext(
         judge=judge,
@@ -806,6 +816,77 @@ async def test_the_real_writer_restates_on_the_worker_model(settings):
     assert sent["model"] == settings.model_worker
     assert sent["system"][0]["text"] == RESTATE_SYSTEM
     assert json.loads(sent["messages"][0]["content"]) == request
+
+
+# A quoted table row comes with its table's header (user's decision, 2026-11-13)
+
+COST_ROW = "Cost of sales | 5,796,018 | 804,635 | 740,764"
+SEGMENTS_HEADER = "\n".join(TEXTS["segments"].split("\n")[:4])
+
+
+def row(text: str) -> Citation:
+    return cite("segments").model_copy(update={"quote": text})
+
+
+def test_a_table_row_gets_the_opening_lines_before_it():
+    chunks = FakeChunks(chunk("segments"))
+    assert labeling.table_header(row(COST_ROW), chunks) == SEGMENTS_HEADER
+    # A row near the top brings only the lines above it, never the rows after it.
+    sales = "Net sales | $ | 9,479,709 | $ | 1,271,299 | $ | 941,568 | $ | 11,692,576"
+    assert labeling.table_header(row(sales), chunks) == "\n".join(TEXTS["segments"].split("\n")[:3])
+
+
+def test_prose_and_unknown_chunks_get_no_table_header():
+    chunks = FakeChunks(chunk("segments"), chunk("states"))
+    assert labeling.table_header(cite("states"), chunks) is None
+    # Prose quoted from a later line of its chunk is still not a table row.
+    prose = chunk("states").model_copy(
+        update={"chunk_id": "prose", "text": "Sales rose in 2025.\nCosts rose faster."}
+    )
+    later = cite("states").model_copy(update={"chunk_id": "prose", "quote": "Costs rose faster."})
+    assert labeling.table_header(later, FakeChunks(prose)) is None
+    unknown = row(COST_ROW).model_copy(update={"chunk_id": "missing"})
+    assert labeling.table_header(unknown, chunks) is None
+
+
+async def test_the_writer_sees_a_table_rows_header_and_prose_without_one():
+    pricing_rows = branch(PRICING, 1, EvidenceSupport.CONSISTENT, cite("pricing"), row(COST_ROW))
+    writer = FakeWriter("Competitors promoted more; the filings do not link this.")
+    await label(resolved(survivor(PRICING, pricing_rows)), FakeJudge({}), writer)
+    prose, table = writer.requests[0]["quotes"]
+    assert "table_header" not in prose
+    assert table == {"period": "FY2025", "quote": COST_ROW, "table_header": SEGMENTS_HEADER}
+
+
+async def test_the_judge_reads_a_table_row_under_its_header_and_prose_as_it_is():
+    result = resolved(
+        survivor(
+            INPUT_COSTS,
+            branch(INPUT_COSTS, 1, EvidenceSupport.STATES_CAUSE, cite("states"), row(COST_ROW)),
+        )
+    )
+    judge = FakeJudge({}, default=EntailmentVerdict.UNRELATED)
+    await label(result, judge, FakeWriter())
+    assert [quote for _, quote in judge.calls] == [
+        TEXTS["states"],
+        f"{SEGMENTS_HEADER}\n{COST_ROW}",
+    ]
+
+
+async def test_the_restater_sees_a_table_rows_header():
+    result = resolved(
+        survivor(NARROW, branch(NARROW, 1, EvidenceSupport.STATES_CAUSE, row(COST_ROW)))
+    )
+    writer = FakeWriter(restated=None)
+    await label(result, ClaimJudge({}), writer)
+    assert writer.restate_requests[0]["quotes"][0]["table_header"] == SEGMENTS_HEADER
+
+
+def test_the_writer_is_told_a_rows_figures_mean_only_what_its_labels_say():
+    prose = " ".join(WORDING_SYSTEM.split())
+    assert '"table_header"' in prose
+    assert "Never call them periods, years or anything else the labels do not name" in prose
+    assert '"table_header"' in " ".join(RESTATE_SYSTEM.split())
 
 
 def test_the_fixed_texts_and_the_prompt_example_pass_the_causal_check():
