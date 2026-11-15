@@ -196,14 +196,19 @@ class FakeJudge:
         return EntailmentJudgment(verdict=verdict, reason="scripted")
 
 
+# What the fake restater returns by default: the hypothesis itself, as a restater does when the
+# hypothesis is already at its quote's level, so a claim the judge confirms as written stays so.
+ECHO = object()
+
+
 class FakeWriter:
     """A `ClaimWriter` playing back queued texts. An Exception in the queue is raised.
 
-    `restated` is what `restate` returns, None by default (the quotes do not state the cause), or
-    an Exception to raise.
+    `restated` is what `restate` returns: by default the hypothesis (`ECHO`), None when the quotes
+    do not state the cause, a text, or an Exception to raise.
     """
 
-    def __init__(self, *texts: Any, restated: Any = None) -> None:
+    def __init__(self, *texts: Any, restated: Any = ECHO) -> None:
         self.texts = list(texts)
         self.requests: list[dict] = []
         self.restated = restated
@@ -213,6 +218,8 @@ class FakeWriter:
         self.restate_requests.append(request)
         if isinstance(self.restated, Exception):
             raise self.restated
+        if self.restated is ECHO:
+            return Restatement(text=request["hypothesis"])
         return Restatement(text=self.restated)
 
     async def write(self, request: dict) -> PlausibleWording:
@@ -326,9 +333,10 @@ async def test_the_gross_margin_example_reproduces():
     assert pricing.citations == (cite("pricing"),)
     assert not labeled.finding.needs_review
     assert labeled.failures == ()
-    # Only the quote the critic rated as stating the cause went to the judge.
+    # Only the quote the critic rated as stating the cause went to the judge. The writer restated
+    # the confirmed claim (it was at the quote's level already) and worded the plausible one.
     assert judge.calls == [(INPUT_COSTS.thought, TEXTS["states"])]
-    assert (labeled.judge_calls, labeled.writer_calls) == (1, 1)
+    assert (labeled.judge_calls, labeled.writer_calls) == (1, 2)
 
 
 async def test_every_claim_passes_the_causal_language_check():
@@ -1074,9 +1082,11 @@ async def relabel(labeled, ctx, *evidence: TreeNode, node: TreeNode = NARROW):
 
 async def test_a_new_quote_that_states_the_cause_confirms_the_claim():
     judge = ClaimJudge({(NARROW.thought, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE})
-    ctx = context(judge, FakeWriter(restated=None))
+    writer = FakeWriter(restated=None)
+    ctx = context(judge, writer)
     labeled = await label_result(narrow("implies"), MARGIN_CHANGE, COMPARISON, ctx, RUN)
     before = labeled.judge_calls
+    writer.restated = ECHO
 
     after = await relabel(
         labeled, ctx, new_branch(NARROW, EvidenceSupport.STATES_CAUSE, cite("states"))
@@ -1355,3 +1365,166 @@ def test_the_denial_check_leaves_plain_causal_sentences_alone(text):
 
 def test_the_restater_is_told_to_give_null_rather_than_deny():
     assert "Never deny or hedge a link" in RESTATE_SYSTEM
+
+
+# -- a claim confirmed as written is confirmed at its quote's level (user's decision, 2026-11-15)
+
+# From the T6.4 Hershey run: the quote states the compensation cause, not the added inference.
+OVERREACH = candidate(
+    5,
+    "Excluding advertising, costs grew because compensation rose, meaning headcount, not "
+    "marketing, is the main source of the increase.",
+)
+QUOTE_LEVEL = "Higher input costs lowered gross margin."
+
+
+def overreach(*keys: str) -> ToTResult:
+    return resolved(
+        survivor(OVERREACH, branch(OVERREACH, 1, EvidenceSupport.STATES_CAUSE, *map(cite, keys)))
+    )
+
+
+async def test_a_confirmed_hypothesis_is_restated_and_the_restatement_confirmed():
+    judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
+    writer = FakeWriter(restated=QUOTE_LEVEL)
+    labeled = await label(overreach("states"), judge, writer)
+    (claim,) = labeled.finding.claims
+    assert (claim.label, claim.text) == (ExplanationLabel.CONFIRMED, QUOTE_LEVEL)
+    assert claim.citations == (cite("states"),)
+    assert judge.calls == [(OVERREACH.thought, TEXTS["states"]), (QUOTE_LEVEL, TEXTS["states"])]
+    # The restater saw the quote that confirmed the hypothesis as written.
+    assert [q["quote"] for q in writer.restate_requests[0]["quotes"]] == [TEXTS["states"]]
+
+
+async def test_a_hypothesis_already_at_its_quotes_level_is_confirmed_as_written():
+    judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
+    labeled = await label(narrow("states"), judge, FakeWriter())
+    (claim,) = labeled.finding.claims
+    assert (claim.label, claim.text) == (ExplanationLabel.CONFIRMED, NARROW.thought)
+    # No second judge call: the judge already confirmed this very text.
+    assert len(judge.calls) == 1
+
+
+async def test_a_restatement_the_judge_does_not_confirm_leaves_the_claim_plausible():
+    judge = ClaimJudge({(OVERREACH.thought, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE})
+    labeled = await label(overreach("states"), judge, FakeWriter(restated=QUOTE_LEVEL))
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    # The quote still bears on the claim, so the rework loop may look further.
+    (item,) = labeled.rework
+    assert item.implied == (cite("states"),)
+
+
+async def test_no_quote_level_wording_leaves_a_confirmed_hypothesis_unconfirmed():
+    judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
+    labeled = await label(overreach("states"), judge, FakeWriter(restated=None))
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert any("no wording at the quote's level" in failure for failure in labeled.failures)
+
+
+async def test_a_hypothesis_kept_as_written_must_still_pass_the_checks():
+    # The restater kept the hypothesis, whose "not marketing" denies a link.
+    judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
+    labeled = await label(overreach("states"), judge, FakeWriter())
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert any(
+        "the hypothesis" in failure and "denies or hedges a link" in failure
+        for failure in labeled.failures
+    )
+
+
+async def test_a_quote_level_restatement_of_a_numeric_change_must_name_it():
+    judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
+    writer = FakeWriter(restated="Higher input costs raised net sales.")
+    labeled = await label(narrow("states"), judge, writer, metrics=(GROSS_MARGIN_NOW,))
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert any("does not name gross margin" in failure for failure in labeled.failures)
+
+
+# -- a text change's claim must be about what the change is about (user's decision, 2026-11-15)
+
+SGA_TEXT = Change(
+    change_id="chg-gm",
+    comparison_id="HSY-yoy",
+    kind=ChangeKind.MODIFIED,
+    section=Section.MDNA,
+    prior_text="SM&A expenses were $2,373.6 million in 2024.",
+    current_text="SM&A expenses were $2,460.6 million in 2025, driven by higher compensation.",
+)
+MARGIN_TEXT = SGA_TEXT.model_copy(
+    update={
+        "current_text": "Gross margin was 33.5% in 2025.",
+        "prior_text": "Gross margin was 47.3% in 2024.",
+    }
+)
+NEW_RISK = SGA_TEXT.model_copy(
+    update={
+        "kind": ChangeKind.ADDED,
+        "current_text": "Conflict in the Middle East.",
+        "prior_text": None,
+    }
+)
+
+
+async def label_text(change: Change, writer: FakeWriter):
+    judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
+    return await label_result(narrow("states"), change, COMPARISON, context(judge, writer), RUN)
+
+
+async def test_a_text_changes_claim_about_another_line_is_not_confirmed():
+    labeled = await label_text(SGA_TEXT, FakeWriter(restated=QUOTE_LEVEL))
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert any(
+        "names gross margin, which the change does not mention" in failure
+        for failure in labeled.failures
+    )
+
+
+async def test_a_text_changes_claim_about_its_own_line_is_confirmed():
+    labeled = await label_text(MARGIN_TEXT, FakeWriter(restated=QUOTE_LEVEL))
+    assert labeled.finding.claims[0].label is ExplanationLabel.CONFIRMED
+
+
+async def test_a_line_that_moves_with_the_changes_line_fits():
+    labeled = await label_text(MARGIN_TEXT, FakeWriter(restated="Tariffs raised cost of sales."))
+    assert labeled.finding.claims[0].label is ExplanationLabel.CONFIRMED
+
+
+async def test_a_text_change_that_names_no_line_checks_nothing():
+    labeled = await label_text(NEW_RISK, FakeWriter(restated=QUOTE_LEVEL))
+    assert labeled.finding.claims[0].label is ExplanationLabel.CONFIRMED
+
+
+async def test_a_claim_that_names_no_line_fits_any_text_change():
+    writer = FakeWriter(restated="Higher compensation costs rose in 2025.")
+    labeled = await label_text(SGA_TEXT, writer)
+    assert labeled.finding.claims[0].label is ExplanationLabel.CONFIRMED
+
+
+async def test_the_restater_is_told_what_a_text_change_is_about():
+    writer = FakeWriter(restated=QUOTE_LEVEL)
+    await label_text(SGA_TEXT, writer)
+    assert writer.restate_requests[0]["change_being_explained"] == "selling, marketing"
+    writer = FakeWriter()
+    await label_text(NEW_RISK, writer)
+    assert "change_being_explained" not in writer.restate_requests[0]
+
+
+def test_lines_are_read_as_filings_word_them():
+    assert labeling.lines_named("SM&A expenses rose") == {MetricName.SGA, MetricName.SGA_RATIO}
+    assert labeling.fits_lines("Costs rose.", frozenset({MetricName.SGA}))
+    assert not labeling.fits_lines("Gross margin fell.", frozenset({MetricName.SGA}))
+    assert labeling.fits_lines("Gross margin fell.", frozenset())
+
+
+async def test_the_quote_level_wording_is_written_from_the_confirming_quote_only():
+    judge = ClaimJudge(
+        {
+            (OVERREACH.thought, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE,
+            (QUOTE_LEVEL, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE,
+        }
+    )
+    writer = FakeWriter(restated=QUOTE_LEVEL)
+    labeled = await label(overreach("implies", "states"), judge, writer)
+    assert [q["quote"] for q in writer.restate_requests[0]["quotes"]] == [TEXTS["states"]]
+    (claim,) = labeled.finding.claims
+    assert (claim.text, claim.citations) == (QUOTE_LEVEL, (cite("states"),))

@@ -4,8 +4,9 @@ Each surviving candidate becomes one claim, labeled by the ToT design's standard
 
 - `confirmed`: a kept evidence branch the critic rated "states the cause" has a quote that passes
   `check_citations` for the claim, and the entailment judge, which sees only the claim and that
-  quote, also finds it states the cause. The claim keeps the hypothesis as written, because causal
-  wording is allowed for a confirmed claim, and cites that one quote.
+  quote, also finds it states the cause. Causal wording is allowed for a confirmed claim, and it
+  cites that one quote. Its text is the hypothesis worded at the quote's level (below), which is
+  the hypothesis as written when it says no more than the quote.
   When the judge finds the quotes only imply the hypothesis, the claim writer restates it at the
   quotes' level of detail, keeping its cause and dropping what they do not say, and the judge
   rules on that (user's decision, 2026-11-13). On the first paid Hershey run every hypothesis was
@@ -19,6 +20,12 @@ Each surviving candidate becomes one claim, labeled by the ToT design's standard
   labeling run): a quote that covers a longer span of time than the change, such as six months
   for a quarter, cannot confirm (`span_problem`), and a restatement that denies or hedges a link
   is not judged (`DENIAL`).
+  A hypothesis the judge confirms as written is also restated at its quote's level and the
+  restatement judged, so the brief never carries detail the quote does not state; the T6.4 runs
+  confirmed "...meaning headcount-related expense, not marketing, is the main source" on a quote
+  that said only the first part (user's decision, 2026-11-15). Whatever is confirmed must also fit
+  the change (`_fit_problem`): for a text change, a financial line it names must be one the
+  change's own text names, since a gross margin claim was confirmed for a change about SG&A.
 - `plausible`: every other survivor with a verified quote. It has evidence, but nothing confirmed
   states the cause. Its text is rewritten by a worker model to say what the evidence shows
   without linking cause and change, then checked in code.
@@ -213,10 +220,12 @@ class PlausibleWording(Record):
 
 RESTATE_SYSTEM = f"""\
 You restate a hypothesis about why something changed between two of a company's SEC filings,
-so that it says no more than quotes from the filings state. The quotes give a cause in broader or
-fewer words than the hypothesis does. Keep the hypothesis's cause and the change it explains,
-worded at the quotes' level of detail: drop every detail the quotes do not state, such as a
-product, a place, a mechanism, a comparison or a figure.
+so that it says no more than quotes from the filings state. The quotes give a cause of the
+hypothesis, often in broader or fewer words, and the hypothesis may add detail or reasoning they do
+not state. Keep the hypothesis's cause and the change it explains, worded at the quotes' level of
+detail: drop every detail the quotes do not state, such as a product, a place, a mechanism, a
+comparison, a figure or a conclusion drawn from them. If the hypothesis says no more than the
+quotes, return it unchanged.
 
 For example, the hypothesis "New tariffs on imported packaging raised cost of sales and lowered
 gross margin", with the quote "Gross margin decreased, driven by higher commodity and tariff costs",
@@ -225,8 +234,9 @@ becomes "Higher tariff costs lowered gross margin."
 Rules:
 - Name only the hypothesis's cause. Do not add another cause the quotes give, even beside it.
 - Keep the change being explained. When "change_being_explained" is given, name it or a figure
-  that moves with it (cost of sales, for a gross margin change). If the quotes tie the cause only to
-  something else, such as results of operations in general, give null.
+  that moves with it (cost of sales, for a gross margin change), and no other financial line. If
+  the quotes tie the cause only to something else, such as results of operations in general,
+  give null.
 - If the quotes do not state the hypothesis's cause, even in broader words, or do not tie it to
   that change, give null for "text". Do not stretch a quote to fit.
 - Never deny or hedge a link ("the quotes do not tie this to gross margin"): where you would, give
@@ -455,40 +465,63 @@ async def _judge_quote(
 async def _restate(
     claim_id: str,
     hypothesis: str,
-    implied: Sequence[Citation],
-    changed: MetricName | None,
+    quotes: Sequence[Citation],
+    target: _Target,
     context: LabelingContext,
     tally: _Tally,
 ) -> str | None:
-    """The hypothesis worded at the level of the quotes that implied it, or None."""
+    """What the restater writes for `hypothesis` at the level of `quotes`, unchecked, or None.
+
+    None when the restater gives null (the quotes do not state the cause) or fails.
+    """
     request: dict = {
         "hypothesis": hypothesis,
-        "quotes": [_shown_quote(citation, context.chunks) for citation in implied],
+        "quotes": [_shown_quote(citation, context.chunks) for citation in quotes],
     }
-    if changed is not None:
-        request["change_being_explained"] = METRIC_WORDS[changed][0]
+    if target.explained is not None:
+        request["change_being_explained"] = target.explained
     tally.writer_calls += 1
     try:
         restated = (await context.writer.restate(request)).text
     except LLMError as error:
         tally.failures.append(f"claim {claim_id}: restating the hypothesis failed: {error}")
         return None
-    restated = (restated or "").strip()
-    if not restated or _normalized(restated) == _normalized(hypothesis):
-        return None
-    if DENIAL.search(restated):
-        tally.failures.append(
-            f"claim {claim_id}: the restatement {restated!r} denies or hedges a link, so it "
-            "cannot be confirmed"
-        )
-        return None
-    if changed is not None and not names_the_change(restated, changed):
-        tally.failures.append(
-            f"claim {claim_id}: the restatement {restated!r} does not name "
-            f"{METRIC_WORDS[changed][0]}, the change being explained"
-        )
-        return None
-    return restated
+    return (restated or "").strip() or None
+
+
+def _fit_problem(text: str, target: _Target) -> str | None:
+    """Why `text` cannot be a confirmed claim about the change, or None. Checked in code, free.
+
+    It must not deny or hedge a link (`DENIAL`). For a numeric change it must name the changed
+    metric or one that moves with it (`names_the_change`). For a text change, a financial line it
+    names must be one the change's own text names or one that moves with it (`fits_lines`).
+    """
+    if DENIAL.search(text):
+        return "denies or hedges a link, so it cannot be confirmed"
+    if target.changed is not None and not names_the_change(text, target.changed):
+        return f"does not name {METRIC_WORDS[target.changed][0]}, the change being explained"
+    if not fits_lines(text, target.lines):
+        named = ", ".join(sorted(METRIC_WORDS[name][0] for name in lines_named(text)))
+        return f"names {named}, which the change does not mention"
+    return None
+
+
+def lines_named(text: str) -> frozenset[MetricName]:
+    """The financial lines `text` names, as filings word them (`METRIC_WORDS`)."""
+    lowered = text.casefold()
+    return frozenset(
+        name for name, words in METRIC_WORDS.items() if any(word in lowered for word in words)
+    )
+
+
+def fits_lines(text: str, lines: frozenset[MetricName]) -> bool:
+    """Whether `text` names no financial line, or one of `lines`.
+
+    `lines` empty means nothing to check against: a numeric change (checked by
+    `names_the_change` instead), or a text change whose text names no line, such as a new risk.
+    """
+    named = lines_named(text)
+    return not lines or not named or bool(named & lines)
 
 
 def change_span(change: Change, metrics: MetricLookup) -> Duration | None:
@@ -528,6 +561,43 @@ def _normalized(text: str) -> str:
     return " ".join(text.split()).casefold()
 
 
+@dataclass(frozen=True)
+class _Target:
+    """The change a claim must explain, as the checks before the judge read it."""
+
+    periods: frozenset[FiscalPeriod]
+    # The changed metric, for a numeric change.
+    changed: MetricName | None
+    span: Duration | None
+    # For a text change, the financial lines its own text names and those that move with them.
+    lines: frozenset[MetricName]
+    # What the restater is told the change is ("change_being_explained").
+    explained: str | None
+
+
+def _target(change: Change, comparison: Comparison, metrics: MetricLookup) -> _Target:
+    changed = changed_metric(change, metrics)
+    lines: frozenset[MetricName] = frozenset()
+    explained = METRIC_WORDS[changed][0] if changed is not None else None
+    if change.metric_id is None:
+        # A text change: what it is about is what its own words name. On the T6.4 runs a claim
+        # about gross margin was confirmed for a change about SG&A (user's decision, 2026-11-15).
+        words = " ".join(
+            text for text in (change.current_text, change.prior_text, change.rationale) if text
+        )
+        named = lines_named(words)
+        lines = frozenset(linked for name in named for linked in linked_metrics(name))
+        shown = dict.fromkeys(METRIC_WORDS[name][0] for name in METRIC_WORDS if name in named)
+        explained = ", ".join(shown) or None
+    return _Target(
+        periods=claim_periods(change, comparison),
+        changed=changed,
+        span=change_span(change, metrics),
+        lines=lines,
+        explained=explained,
+    )
+
+
 def _cause_quotes(evidence: Sequence[TreeNode]) -> list[Citation]:
     """The quotes of the branches the critic rated as stating the cause, best branch first.
 
@@ -545,12 +615,9 @@ def _cause_quotes(evidence: Sequence[TreeNode]) -> list[Citation]:
 async def _confirm(
     survivor: CandidateResult,
     metric_ids: tuple[str, ...],
-    periods: frozenset[FiscalPeriod],
-    changed: MetricName | None,
+    target: _Target,
     context: LabelingContext,
     tally: _Tally,
-    *,
-    span: Duration | None,
 ) -> _Judged:
     """Judge a survivor's quotes: the confirmed claim, if one earns it. Failures go in `tally`."""
     candidate = survivor.candidate
@@ -560,11 +627,9 @@ async def _confirm(
         _cause_quotes(survivor.evidence),
         (),
         metric_ids,
-        periods,
-        changed,
+        target,
         context,
         tally,
-        span=span,
     )
 
 
@@ -574,20 +639,23 @@ async def _judge_claim(  # noqa: PLR0913 -- one claim's judging, its inputs pass
     quotes: Sequence[Citation],
     implied_before: Sequence[Citation],
     metric_ids: tuple[str, ...],
-    periods: frozenset[FiscalPeriod],
-    changed: MetricName | None,
+    target: _Target,
     context: LabelingContext,
     tally: _Tally,
-    *,
-    span: Duration | None = None,
 ) -> _Judged:
-    """Judge `hypothesis` against `quotes`, then a restatement if any only imply it.
+    """Judge `hypothesis` against `quotes`; whatever is confirmed is worded at a quote's level.
 
-    The hypothesis as written is judged first. If no quote confirms it and some only imply it, the
-    hypothesis restated at those quotes' level is judged against them (see the module doc).
-    `implied_before` holds what an earlier round found only implied it (`relabel_claim`): those are
-    not judged as written again, and a restatement, made only when this round finds a new implying
-    quote, is written from them as well, new ones first.
+    The hypothesis as written is judged first.
+    - If a quote states its cause, the hypothesis is restated at that quote's level and the
+      restatement judged (user's decision, 2026-11-15): on the T6.4 runs the judge confirmed
+      hypotheses whose core cause the quote stated but whose added detail it did not ("...meaning
+      headcount-related expense, not marketing, is the main source"). A restatement the same as
+      the hypothesis means it was at the quote's level already, and it is confirmed as written.
+    - If quotes only imply it, the hypothesis restated at their level is judged against them.
+    Either way the confirmed text must pass `_fit_problem`. `implied_before` holds what an earlier
+    round found only implied it (`relabel_claim`): those are not judged as written again, and a
+    restatement, made only when this round finds a new implying quote, is written from them as
+    well, new ones first.
     """
     judged = {_quote_key(citation) for citation in implied_before}
     confirming: list[Citation] = []
@@ -601,7 +669,14 @@ async def _judge_claim(  # noqa: PLR0913 -- one claim's judging, its inputs pass
             continue
         judged.add(key)
         result = await _judge_quote(
-            claim_id, hypothesis, citation, metric_ids, periods, context, tally, span=span
+            claim_id,
+            hypothesis,
+            citation,
+            metric_ids,
+            target.periods,
+            context,
+            tally,
+            span=target.span,
         )
         if result is None:
             continue
@@ -616,39 +691,59 @@ async def _judge_claim(  # noqa: PLR0913 -- one claim's judging, its inputs pass
         elif result.verdict is EntailmentVerdict.IMPLIES:
             implied.append(citation)
     every_implied = [*implied, *implied_before]
-    text = hypothesis
-    if not confirming and implied:
-        restated = await _restate(claim_id, hypothesis, every_implied, changed, context, tally)
-        for citation in every_implied[:MAX_RESTATED_JUDGE_CALLS_PER_CLAIM] if restated else ():
-            result = await _judge_quote(
-                claim_id,
-                restated,
-                citation,
-                metric_ids,
-                periods,
-                context,
-                tally,
-                span=span,
-                described="the restated hypothesis",
+    text: str | None = None
+    confirmed: list[Citation] = []
+    if confirming or implied:
+        # Restated from the quotes that stated the cause, or else from every implying one.
+        sources = confirming or every_implied
+        restated = await _restate(claim_id, hypothesis, sources, target, context, tally)
+        same = restated is not None and _normalized(restated) == _normalized(hypothesis)
+        wording = hypothesis if same else restated
+        problem = _fit_problem(wording, target) if wording is not None else None
+        if problem is not None:
+            described = "hypothesis" if same else "restatement"
+            tally.failures.append(f"claim {claim_id}: the {described} {wording!r} {problem}")
+        elif same and confirming:
+            # Already at the quote's level, and the judge has confirmed it as written.
+            text, confirmed = hypothesis, confirming
+        elif restated is not None and not same:
+            for citation in sources[:MAX_RESTATED_JUDGE_CALLS_PER_CLAIM]:
+                result = await _judge_quote(
+                    claim_id,
+                    restated,
+                    citation,
+                    metric_ids,
+                    target.periods,
+                    context,
+                    tally,
+                    span=target.span,
+                    described="the restated hypothesis",
+                )
+                if result is None:
+                    continue
+                if result.failure is not None:
+                    judge_failure = result.failure
+                elif result.verdict is EntailmentVerdict.STATES_CAUSE:
+                    text, confirmed = restated, [citation]
+                    break
+        elif confirming:
+            tally.failures.append(
+                f"claim {claim_id}: confirmed as written, but no wording at the quote's level "
+                "could be written, so it is left unconfirmed"
             )
-            if result is None:
-                continue
-            if result.failure is not None:
-                judge_failure = result.failure
-            elif result.verdict is EntailmentVerdict.STATES_CAUSE:
-                confirming.append(citation)
-                text = restated
-                break
-    if confirming:
+    if text is not None:
         claim = Claim(
             claim_id=claim_id,
             text=text,
             label=ExplanationLabel.CONFIRMED,
-            citations=tuple(confirming),
+            citations=tuple(confirmed),
             metric_ids=metric_ids,
             entailment=EntailmentVerdict.STATES_CAUSE,
         )
         return _Judged(claim, every_implied, unjudged, None)
+    # A quote that confirmed the hypothesis only as written still bears on it: the rework loop
+    # treats it as implying the claim.
+    every_implied = [*confirming, *every_implied]
     note = None
     if judge_failure is not None:
         # The evidence may well state the cause; only the check that could say so failed. A person
@@ -734,11 +829,9 @@ async def _plausible(
 
 async def _label_survivor(
     survivor: CandidateResult,
-    periods: frozenset[FiscalPeriod],
-    changed: MetricName | None,
+    target: _Target,
     context: LabelingContext,
     tally: _Tally,
-    span: Duration | None = None,
 ) -> Claim | None:
     """The survivor's claim, or None for one kept by computed metrics alone (see the module doc)."""
     citations = _citations(survivor.evidence)
@@ -759,7 +852,7 @@ async def _label_survivor(
             text=NO_EVIDENCE_TEXT,
             label=ExplanationLabel.UNRESOLVED,
         )
-    judged = await _confirm(survivor, metric_ids, periods, changed, context, tally, span=span)
+    judged = await _confirm(survivor, metric_ids, target, context, tally)
     if judged.claim is not None:
         return judged.claim
     if judged.implied or judged.unjudged:
@@ -771,7 +864,7 @@ async def _label_survivor(
                 review_note=judged.review_note,
             )
         )
-    return await _plausible(survivor, citations, metric_ids, periods, context, tally)
+    return await _plausible(survivor, citations, metric_ids, target.periods, context, tally)
 
 
 def _merge_same_claims(claims: Sequence[Claim], tally: _Tally) -> list[Claim]:
@@ -830,7 +923,7 @@ async def label_result(
                 review_reason=result.review_reason,
             )
         )
-    periods = claim_periods(change, comparison)
+    target = _target(change, comparison, context.metrics)
     tally = _Tally()
     if result.failures:
         # A branch a model failed on was never judged, and it might have held the answer, so a
@@ -840,11 +933,8 @@ async def label_result(
             f"the search lost {len(result.failures)} branch(es) to a model failure: "
             + "; ".join(result.failures)
         )
-    changed = changed_metric(change, context.metrics)
-    span = change_span(change, context.metrics)
     labeled = [
-        await _label_survivor(survivor, periods, changed, context, tally, span)
-        for survivor in result.candidates
+        await _label_survivor(survivor, target, context, tally) for survivor in result.candidates
     ]
     claims = _merge_same_claims([claim for claim in labeled if claim is not None], tally)
     if not claims and None in labeled:
@@ -900,11 +990,9 @@ async def relabel_claim(  # noqa: PLR0913 -- one claim's rework, its inputs pass
         [*item.unjudged, *_cause_quotes(evidence)],
         item.implied,
         tuple(dict.fromkeys((*claim.metric_ids, *_agreeing_metric_ids(evidence)))),
-        claim_periods(finding.change, comparison),
-        changed_metric(finding.change, context.metrics),
+        _target(finding.change, comparison, context.metrics),
         context,
         tally,
-        span=change_span(finding.change, context.metrics),
     )
     # A judge failure's note stands until the judge rules again: dropped once the claim is
     # confirmed, replaced by this round's outcome if it made any judge call, else kept.
