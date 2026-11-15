@@ -19,6 +19,7 @@ from sec_agent.agents.verification import (
     check_causal_language,
     find_causal_language,
 )
+from sec_agent.finance.metrics import metric_id_for
 from sec_agent.llm.client import LLMClient, LLMError, LLMRefusalError
 from sec_agent.llm.ledger import BudgetExceededError, CostLedger
 from sec_agent.schemas import (
@@ -367,18 +368,21 @@ async def test_the_critics_rating_alone_does_not_confirm(verdict):
     assert input_costs.citations == (cite("states"), cite("implies"), cite("fits"))
 
 
-async def test_a_branch_not_rated_as_stating_the_cause_never_reaches_the_judge():
+async def test_a_branch_rated_below_implies_never_reaches_the_judge_or_the_restater():
     result = resolved(
         survivor(
             INPUT_COSTS,
-            branch(INPUT_COSTS, 1, EvidenceSupport.IMPLIES, cite("implies")),
-            branch(INPUT_COSTS, 2, EvidenceSupport.CONSISTENT, cite("states")),
+            branch(INPUT_COSTS, 1, EvidenceSupport.CONSISTENT, cite("states")),
+            branch(INPUT_COSTS, 2, EvidenceSupport.NONE, cite("implies")),
         )
     )
     judge = FakeJudge({TEXTS["states"]: EntailmentVerdict.STATES_CAUSE})
-    labeled = await label(result, judge, FakeWriter())
+    writer = FakeWriter()
+    labeled = await label(result, judge, writer)
     assert judge.calls == []
+    assert writer.restate_requests == []
     assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert labeled.rework == ()
 
 
 async def test_a_judge_failure_leaves_the_claim_plausible_and_sends_it_to_review():
@@ -822,6 +826,94 @@ async def test_two_hypotheses_restated_alike_become_one_claim_with_both_quotes()
     )
 
 
+# A quote the critic rated as only implying is restated from, never judged as written (user's
+# decision, 2026-11-15)
+
+
+def critic_implied(*keys: str, node: TreeNode = NARROW) -> ToTResult:
+    return resolved(survivor(node, branch(node, 1, EvidenceSupport.IMPLIES, *map(cite, keys))))
+
+
+async def test_a_quote_the_critic_found_only_implying_confirms_the_restatement():
+    judge = ClaimJudge({(BROAD, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE})
+    writer = FakeWriter(restated=BROAD)
+    labeled = await label(critic_implied("states"), judge, writer)
+    (claim,) = labeled.finding.claims
+    assert (claim.label, claim.text, claim.citations) == (
+        ExplanationLabel.CONFIRMED,
+        BROAD,
+        (cite("states"),),
+    )
+    # The hypothesis as written never went to the judge: the critic already found it says more.
+    assert judge.calls == [(BROAD, TEXTS["states"])]
+    assert [shown["quote"] for shown in writer.restate_requests[0]["quotes"]] == [TEXTS["states"]]
+    assert labeled.rework == ()
+
+
+async def test_a_hypothesis_restated_unchanged_is_judged_as_written_on_the_critics_quote():
+    judge = ClaimJudge({(NARROW.thought, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE})
+    labeled = await label(critic_implied("states"), judge, FakeWriter())
+    (claim,) = labeled.finding.claims
+    assert (claim.label, claim.text) == (ExplanationLabel.CONFIRMED, NARROW.thought)
+    assert judge.calls == [(NARROW.thought, TEXTS["states"])]
+
+
+async def test_an_unchanged_restatement_is_not_judged_again_on_a_quote_judged_as_written():
+    # The same quote rated as stating the cause in one branch and implying it in another.
+    result = resolved(
+        survivor(
+            NARROW,
+            branch(NARROW, 1, EvidenceSupport.STATES_CAUSE, cite("states")),
+            branch(NARROW, 2, EvidenceSupport.IMPLIES, cite("states")),
+        )
+    )
+    judge = ClaimJudge({})
+    await label(result, judge, FakeWriter())
+    assert judge.calls == [(NARROW.thought, TEXTS["states"])]
+
+
+async def test_a_critics_quote_cited_by_two_branches_is_restated_from_and_judged_once():
+    result = resolved(
+        survivor(
+            NARROW,
+            branch(NARROW, 1, EvidenceSupport.IMPLIES, cite("states")),
+            branch(NARROW, 2, EvidenceSupport.IMPLIES, cite("states")),
+        )
+    )
+    judge = ClaimJudge({})
+    writer = FakeWriter(restated=BROAD)
+    labeled = await label(result, judge, writer)
+    assert len(writer.restate_requests[0]["quotes"]) == 1
+    assert judge.calls == [(BROAD, TEXTS["states"])]
+    assert labeled.rework[0].implied == (cite("states"),)
+
+
+async def test_the_judges_implying_quotes_come_before_the_critics():
+    result = resolved(
+        survivor(
+            NARROW,
+            branch(NARROW, 1, EvidenceSupport.STATES_CAUSE, cite("implies")),
+            branch(NARROW, 2, EvidenceSupport.IMPLIES, cite("states")),
+        )
+    )
+    judge = ClaimJudge({})
+    writer = FakeWriter(restated=BROAD)
+    await label(result, judge, writer)
+    quotes = [shown["quote"] for shown in writer.restate_requests[0]["quotes"]]
+    assert quotes == [TEXTS["implies"], TEXTS["states"]]
+    restated = [quote for text, quote in judge.calls if text == BROAD]
+    assert restated == [TEXTS["implies"], TEXTS["states"]][:MAX_RESTATED_JUDGE_CALLS_PER_CLAIM]
+
+
+async def test_a_critics_implying_quote_that_confirms_nothing_is_listed_for_rework():
+    judge = ClaimJudge({})
+    labeled = await label(critic_implied("states"), judge, FakeWriter(restated=None))
+    (item,) = labeled.rework
+    assert item.implied == (cite("states"),)
+    assert judge.calls == []
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+
+
 # A restatement must keep the change being explained (user's decision, 2026-11-13)
 
 GROSS_MARGIN_NOW = metric("gm-2025", CURRENT, 0.335)
@@ -973,10 +1065,23 @@ def test_the_writer_is_told_a_rows_figures_mean_only_what_its_labels_say():
 
 
 def test_the_fixed_texts_and_the_prompt_example_pass_the_causal_check():
-    example = "Cocoa prices rose and gross margin fell; the filings do not link the two."
+    example = (
+        "Cocoa prices rose and gross margin fell; "
+        "this brief did not confirm a link between the two."
+    )
     assert example in " ".join(WORDING_SYSTEM.split())
     for text in (example, FALLBACK_PLAUSIBLE_TEXT, NO_EVIDENCE_TEXT):
         assert find_causal_language(text) == ()
+
+
+def test_plausible_wording_never_claims_what_the_filings_do_not_say():
+    # Third paid Hershey run (2026-11-15): "the filings do not link these to the margin decline"
+    # beside a quote in which the 10-K did. Nothing checks a whole filing, so no text may say so.
+    prose = " ".join(WORDING_SYSTEM.split())
+    assert "this brief did not confirm a link" in prose
+    assert "Never say that the filings do not link them" in prose
+    assert "the filings do not link the two" not in prose
+    assert "the filings do not state" not in FALLBACK_PLAUSIBLE_TEXT
 
 
 def test_the_prompt_treats_input_as_untrusted():
@@ -1103,19 +1208,50 @@ async def test_a_new_quote_that_states_the_cause_confirms_the_claim():
     assert after.judge_calls == before + 1
 
 
-async def test_a_new_quote_rated_below_states_cause_is_not_judged():
+async def test_a_new_quote_rated_below_implies_is_not_judged():
     judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
-    ctx = context(judge, FakeWriter(restated=None))
+    writer = FakeWriter(restated=BROAD)
+    ctx = context(judge, writer)
     labeled = await label_result(
         narrow("implies"),
         MARGIN_CHANGE,
         COMPARISON,
-        context(ClaimJudge({}), FakeWriter()),
+        context(ClaimJudge({}), FakeWriter(restated=None)),
         RUN,
     )
-    after = await relabel(labeled, ctx, new_branch(NARROW, EvidenceSupport.IMPLIES, cite("states")))
+    after = await relabel(
+        labeled, ctx, new_branch(NARROW, EvidenceSupport.CONSISTENT, cite("states"))
+    )
     assert judge.calls == []
+    assert writer.restate_requests == []
     assert after.finding.claims == labeled.finding.claims
+    assert after.rework == labeled.rework
+
+
+async def test_a_new_quote_the_critic_found_only_implying_is_judged_as_restated():
+    judge = ClaimJudge({(BROAD, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE})
+    writer = FakeWriter(restated=None)
+    ctx = context(judge, writer)
+    labeled = await label_result(narrow("implies"), MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    calls_before = len(judge.calls)
+    writer.restated = BROAD
+
+    after = await relabel(labeled, ctx, new_branch(NARROW, EvidenceSupport.IMPLIES, cite("states")))
+
+    quotes = [shown["quote"] for shown in writer.restate_requests[-1]["quotes"]]
+    assert quotes == [TEXTS["states"], TEXTS["implies"]]
+    assert judge.calls[calls_before:] == [(BROAD, TEXTS["states"])]
+    (claim,) = after.finding.claims
+    assert (claim.label, claim.text) == (ExplanationLabel.CONFIRMED, BROAD)
+
+
+async def test_a_critics_implying_quote_from_an_earlier_round_brings_no_new_restatement():
+    writer = FakeWriter(restated=None)
+    ctx = context(ClaimJudge({}), writer)
+    labeled = await label_result(critic_implied("states"), MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    requests_before = len(writer.restate_requests)
+    after = await relabel(labeled, ctx, new_branch(NARROW, EvidenceSupport.IMPLIES, cite("states")))
+    assert len(writer.restate_requests) == requests_before
     assert after.rework == labeled.rework
 
 
@@ -1528,3 +1664,200 @@ async def test_the_quote_level_wording_is_written_from_the_confirming_quote_only
     assert [q["quote"] for q in writer.restate_requests[0]["quotes"]] == [TEXTS["states"]]
     (claim,) = labeled.finding.claims
     assert (claim.text, claim.citations) == (QUOTE_LEVEL, (cite("states"),))
+
+
+# -- a back-reference: the filing explains the change by another line's factors -------------
+# (user's decision, 2026-11-15, option A; Hershey's FY2025 10-K wording)
+
+BACK_GROSS = (
+    "Gross margin was 33.5% in 2025 compared with 47.3% in 2024. The decrease was driven by "
+    "higher tariff costs."
+)
+BACK_SENTENCE = (
+    "Operating profit margin decreased to 12.3% in 2025 from 25.9% in 2024 by the same factors "
+    "noted above in gross margin."
+)
+BACK_JUDGED = f"{BACK_GROSS}\n\n[...]\n\n{BACK_SENTENCE}"
+TARIFFS = candidate(4, "New tariffs on imported cocoa raised costs and lowered operating margin.")
+CHAINED = "Higher tariff costs lowered operating margin."
+OPERATING_CHANGE = Change(
+    change_id="chg-gm",
+    comparison_id="HSY-yoy",
+    kind=ChangeKind.NUMERIC,
+    metric_id=metric_id_for(COMPARISON.current, MetricName.OPERATING_MARGIN),
+)
+
+
+def back_chunk(n: int, text: str) -> Chunk:
+    return chunk("fits").model_copy(
+        update={"chunk_id": f"{NOW_ACC}:mdna:{n:04d}:0", "paragraph_id": f"bp{n}", "text": text}
+    )
+
+
+def back_cite(n: int, text: str) -> Citation:
+    return cite("fits").model_copy(update={"chunk_id": f"{NOW_ACC}:mdna:{n:04d}:0", "quote": text})
+
+
+class FilingStore(FakeChunks):
+    """A `ChunkLookup` that also lists a filing's chunks, as `FactStore` does."""
+
+    def chunks(self, accession: str | None = None) -> list[Chunk]:
+        return [item for item in self._chunks.values() if accession in (None, item.accession)]
+
+
+def ratio(name: MetricName, filing_: Filing, value: float) -> MetricValue:
+    return metric(metric_id_for(filing_, name), filing_.period, value).model_copy(
+        update={"name": name.value}
+    )
+
+
+class QueuedRestater(FakeWriter):
+    """A writer whose restatements are played back in order, one per call."""
+
+    def __init__(self, *restated: Any) -> None:
+        super().__init__()
+        self.queue = list(restated)
+
+    async def restate(self, request: dict) -> Restatement:
+        self.restate_requests.append(request)
+        item = self.queue.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return Restatement(text=request["hypothesis"] if item is ECHO else item)
+
+
+BACK_METRICS = (
+    ratio(MetricName.OPERATING_MARGIN, COMPARISON.current, 0.1233),
+    ratio(MetricName.OPERATING_MARGIN, COMPARISON.prior, 0.2591),
+    ratio(MetricName.GROSS_MARGIN, COMPARISON.current, 0.335),
+    ratio(MetricName.GROSS_MARGIN, COMPARISON.prior, 0.473),
+)
+
+
+def back_context(
+    judge: FakeJudge, writer: FakeWriter, *, filing: bool = True, metrics=BACK_METRICS
+) -> LabelingContext:
+    store = FilingStore(chunk("fits"), back_chunk(1, BACK_GROSS), back_chunk(2, BACK_SENTENCE))
+    metrics = FakeMetrics(*metrics)
+    return LabelingContext(
+        judge=judge,
+        writer=writer,
+        chunks=store,
+        metrics=metrics,
+        facts=NoFacts(),
+        filing=store if filing else None,
+    )
+
+
+async def label_operating(judge: FakeJudge, writer: FakeWriter, **kwargs: Any):
+    result = resolved(
+        survivor(TARIFFS, branch(TARIFFS, 1, EvidenceSupport.STATES_CAUSE, cite("fits")))
+    )
+    return await label_result(
+        result, OPERATING_CHANGE, COMPARISON, back_context(judge, writer, **kwargs), RUN
+    )
+
+
+async def test_a_claim_its_quotes_leave_unconfirmed_is_confirmed_on_the_back_reference():
+    judge = ClaimJudge({(CHAINED, BACK_JUDGED): EntailmentVerdict.STATES_CAUSE})
+    writer = QueuedRestater(None, CHAINED)
+    labeled = await label_operating(judge, writer)
+    (claim,) = labeled.finding.claims
+    assert (claim.label, claim.text) == (ExplanationLabel.CONFIRMED, CHAINED)
+    assert claim.entailment is EntailmentVerdict.STATES_CAUSE
+    assert claim.citations == (back_cite(1, BACK_GROSS), back_cite(2, BACK_SENTENCE))
+    # Its own quote as written first, then the restatement against both passages read together.
+    assert judge.calls == [(TARIFFS.thought, TEXTS["fits"]), (CHAINED, BACK_JUDGED)]
+    request = writer.restate_requests[-1]
+    assert [shown["quote"] for shown in request["quotes"]] == [BACK_GROSS, BACK_SENTENCE]
+    assert request["change_being_explained"] == "operating margin"
+    assert labeled.rework == ()
+    assert labeled.finding.review_reason is None
+
+
+async def test_a_claim_confirmed_on_its_own_quotes_never_reaches_the_back_reference():
+    judge = ClaimJudge({(TARIFFS.thought, TEXTS["fits"]): EntailmentVerdict.STATES_CAUSE})
+    writer = QueuedRestater(ECHO)
+    labeled = await label_operating(judge, writer)
+    assert labeled.finding.claims[0].citations == (cite("fits"),)
+    assert len(writer.restate_requests) == 1
+    assert all(quote != BACK_JUDGED for _, quote in judge.calls)
+
+
+async def test_no_restatement_from_the_back_reference_means_no_more_judge_calls():
+    judge = ClaimJudge({})
+    labeled = await label_operating(judge, QueuedRestater(None, None))
+    assert judge.calls == [(TARIFFS.thought, TEXTS["fits"])]
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    # What its own quote implied still goes to rework.
+    assert labeled.rework[0].implied == (cite("fits"),)
+
+
+async def test_a_restatement_naming_only_the_other_line_is_not_judged():
+    judge = ClaimJudge({}, default=EntailmentVerdict.UNRELATED)
+    drifted = "Higher tariff costs lowered gross margin."
+    labeled = await label_operating(judge, QueuedRestater(drifted))
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert any(
+        "from the back-reference does not name operating margin" in failure
+        for failure in labeled.failures
+    )
+    assert judge.calls == [(TARIFFS.thought, TEXTS["fits"])]
+
+
+async def test_a_restatement_with_an_unbacked_figure_is_not_judged_on_the_back_reference():
+    judge = ClaimJudge({}, default=EntailmentVerdict.UNRELATED)
+    unbacked = "Tariff costs up 9% lowered operating margin."
+    labeled = await label_operating(judge, QueuedRestater(unbacked))
+    assert all(quote != BACK_JUDGED for _, quote in judge.calls)
+    assert any("the back-reference cannot confirm" in failure for failure in labeled.failures)
+
+
+async def test_a_judge_failure_on_the_back_reference_sends_the_finding_to_review():
+    judge = ClaimJudge({(CHAINED, BACK_JUDGED): LLMError("no parsable output")})
+    labeled = await label_operating(judge, QueuedRestater(None, CHAINED))
+    assert labeled.finding.needs_review
+    assert TARIFFS.node_id in labeled.finding.review_reason
+    # The claim's rework item carries the note, so a round that rules on the claim replaces it.
+    assert labeled.rework[0].review_note == labeled.finding.review_reason
+
+
+async def test_confirming_on_the_back_reference_clears_a_judge_failure_on_its_own_quotes():
+    judge = ClaimJudge(
+        {
+            (TARIFFS.thought, TEXTS["fits"]): LLMError("no parsable output"),
+            (CHAINED, BACK_JUDGED): EntailmentVerdict.STATES_CAUSE,
+        }
+    )
+    labeled = await label_operating(judge, QueuedRestater(CHAINED))
+    assert labeled.finding.claims[0].label is ExplanationLabel.CONFIRMED
+    assert labeled.finding.review_reason is None
+    assert labeled.review_notes == ()
+
+
+async def test_without_the_filings_chunks_no_back_reference_is_looked_for():
+    judge = ClaimJudge({(CHAINED, BACK_JUDGED): EntailmentVerdict.STATES_CAUSE})
+    writer = QueuedRestater(None)
+    labeled = await label_operating(judge, writer, filing=False)
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert len(writer.restate_requests) == 1
+
+
+def test_the_restater_is_told_how_a_back_reference_states_a_cause():
+    prose = " ".join(RESTATE_SYSTEM.split())
+    assert '"by the same factors" as another line' in prose
+    assert "name the change, not the other line" in prose
+
+
+async def test_a_back_reference_the_judge_finds_only_implied_leaves_the_claim_plausible():
+    judge = ClaimJudge({(CHAINED, BACK_JUDGED): EntailmentVerdict.IMPLIES})
+    labeled = await label_operating(judge, QueuedRestater(None, CHAINED))
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert judge.calls[-1] == (CHAINED, BACK_JUDGED)
+
+
+async def test_a_change_whose_metric_is_unknown_is_not_looked_up():
+    # Without a known metric there is no line to match, and the lookup must not be attempted.
+    judge = ClaimJudge({})
+    labeled = await label_operating(judge, QueuedRestater(None), metrics=())
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE

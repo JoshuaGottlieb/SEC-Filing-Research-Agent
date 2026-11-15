@@ -57,10 +57,11 @@ Rules:
   to", "driven by", "drivers", "caused", "led to", "reflecting higher" or "therefore", must cite
   only confirmed claims.
 - Those words count even when denied or hedged: "the filings do not state what caused it" breaks
-  the rule as surely as "it was caused by". To say that no cause is stated, write "the filings do
-  not link them" or "the filings do not say why".
-- For a "plausible" claim, report what was seen and say that the filings do not link them. Do not
-  state an "unresolved" claim at all; you may say that a change needs review, citing it.
+  the rule as surely as "it was caused by". To say that no cause was confirmed, write "this brief
+  did not confirm a link". Never say that the filings do not link them or do not say why: another
+  claim may cite a filing that does.
+- For a "plausible" claim, report what was seen and say that this brief did not confirm a link. Do
+  not state an "unresolved" claim at all; you may say that a change needs review, citing it.
 - Use a figure only if it appears in a claim you cite, written the same way.
 - Never give investment advice: no recommendation, rating, price target or valuation view.
 - Put references only in "refs", never in "text".

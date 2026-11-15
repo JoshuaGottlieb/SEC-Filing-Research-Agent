@@ -366,10 +366,18 @@ def test_the_wording_the_prompt_gives_for_no_stated_cause_passes_the_causal_chec
     # Both paid Hershey runs (2026-11-13) lost a draft to "do not state what caused", and the
     # prompt itself had said "do not state the cause", which the check also flags.
     prose = " ".join(SUMMARY_SYSTEM.split())
-    for wording in ("the filings do not link them", "the filings do not say why"):
-        assert wording in prose
-        assert find_causal_language(wording) == ()
+    wording = "this brief did not confirm a link"
+    assert wording in prose
+    assert find_causal_language(wording) == ()
     assert "do not state the cause" not in prose
+
+
+def test_the_summary_never_says_the_filings_do_not_link_a_cause():
+    # Third paid Hershey run (2026-11-15): "the filings do not link these to the margin decline",
+    # though another claim's quote in the same finding did link them.
+    prose = " ".join(SUMMARY_SYSTEM.split())
+    assert "Never say that the filings do not link them or do not say why" in prose
+    assert 'write "the filings do not link them"' not in prose
     assert "count even when denied or hedged" in prose
 
 
