@@ -13,6 +13,8 @@ its progress and the next build finishes the rest.
 from __future__ import annotations
 
 import hashlib
+import threading
+from collections import OrderedDict
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
@@ -35,6 +37,11 @@ QUERY_INSTRUCTION = "Represent this sentence for searching relevant passages: "
 # and the memory used on CPU. Chosen by hand.
 BATCH_SIZE = 32
 METADATA_FINGERPRINT = "fingerprint"
+# Query vectors kept by `ChunkIndex.search`. A search covers both filings of a comparison with the
+# same query, and embedding it was about 13% of a search's time (T6.6, 2026-11-15), so the second
+# filing reuses the first's vector. A run asks only a few hundred distinct queries; this bounds the
+# memory anyway. Chosen by hand.
+QUERY_VECTORS_KEPT = 256
 
 
 class Embedder(Protocol):
@@ -156,6 +163,9 @@ class ChunkIndex:
         self._client = chromadb.PersistentClient(
             path=str(path), settings=ChromaSettings(anonymized_telemetry=False)
         )
+        # Recently embedded queries, most recent last; guarded because searches run in threads.
+        self._query_vectors: OrderedDict[str, list[float]] = OrderedDict()
+        self._query_lock = threading.Lock()
         # embedding_function=None because vectors are always supplied. Chroma's default would
         # download a different model and could put its vectors in this collection.
         self._collection = self._client.get_or_create_collection(
@@ -229,7 +239,7 @@ class ChunkIndex:
         Fewer than `top_k` come back when fewer match, and none when nothing does.
         """
         result = self._collection.query(
-            query_embeddings=[self._embedder.embed_query(query)],
+            query_embeddings=[self._query_vector(query)],
             n_results=top_k,
             where=where.to_where(),
             include=["distances"],
@@ -238,6 +248,23 @@ class ChunkIndex:
             IndexHit(chunk_id=chunk_id, distance=distance)
             for chunk_id, distance in zip(result["ids"][0], result["distances"][0], strict=True)
         ]
+
+    def _query_vector(self, query: str) -> list[float]:
+        """The query's vector, embedded once while it stays among the recent ones.
+
+        Two threads asking for a new query at once may both embed it; the vectors are the same.
+        """
+        with self._query_lock:
+            vector = self._query_vectors.get(query)
+            if vector is not None:
+                self._query_vectors.move_to_end(query)
+                return vector
+        vector = self._embedder.embed_query(query)
+        with self._query_lock:
+            self._query_vectors[query] = vector
+            if len(self._query_vectors) > QUERY_VECTORS_KEPT:
+                self._query_vectors.popitem(last=False)
+        return vector
 
 
 def build_index(store: FactStore, index: ChunkIndex) -> IndexSummary:

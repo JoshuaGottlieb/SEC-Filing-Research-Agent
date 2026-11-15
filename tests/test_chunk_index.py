@@ -15,6 +15,7 @@ from sec_agent.edgar.corpus import Corpus
 from sec_agent.finance.fact_store import FactStore, SourcedChunk
 from sec_agent.ingest.index import (
     BATCH_SIZE,
+    QUERY_VECTORS_KEPT,
     BgeEmbedder,
     ChunkFilter,
     ChunkIndex,
@@ -90,6 +91,28 @@ def index(settings, embedder):
 
 def ids(hits) -> list[str]:
     return [hit.chunk_id for hit in hits]
+
+
+def test_a_query_is_embedded_once_for_both_filings(index, embedder):
+    # A search covers both filings with the same query; the second reuses the first's vector.
+    index.sync([chunk(1), chunk(2, accession="hsy-q2-2025", year=2025)])
+    current = index.search("freight costs", ChunkFilter(accession="hsy-q2-2026"), 5)
+    prior = index.search("freight costs", ChunkFilter(accession="hsy-q2-2025"), 5)
+    assert embedder.queries == ["freight costs"]
+    assert (ids(current), ids(prior)) == (["hsy-q2-2026:mdna:0001:0"], ["hsy-q2-2025:mdna:0002:0"])
+    index.search("cocoa prices", ChunkFilter(accession="hsy-q2-2026"), 5)
+    assert embedder.queries == ["freight costs", "cocoa prices"]
+
+
+def test_only_the_most_recent_query_vectors_are_kept(index, embedder):
+    index.sync([chunk(1)])
+    where = ChunkFilter(accession="hsy-q2-2026")
+    for number in range(QUERY_VECTORS_KEPT + 1):
+        index.search(f"query {number}", where, 1)
+    index.search("query 0", where, 1)  # pushed out by the newer ones, so embedded again
+    index.search(f"query {QUERY_VECTORS_KEPT}", where, 1)  # still kept
+    assert embedder.queries.count("query 0") == 2
+    assert embedder.queries.count(f"query {QUERY_VECTORS_KEPT}") == 1
 
 
 def test_a_build_adds_every_chunk(index):
