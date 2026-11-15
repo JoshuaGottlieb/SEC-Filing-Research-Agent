@@ -53,10 +53,13 @@ from sec_agent.report.summary import SummaryResult, template_summary
 from sec_agent.schemas import (
     Change,
     ChangeKind,
+    Chunk,
+    Citation,
     Claim,
     Comparison,
     ComparisonType,
     Duration,
+    EntailmentVerdict,
     ExplanationLabel,
     Filing,
     Finding,
@@ -100,6 +103,17 @@ COMPARISON = Comparison(
     comparison_type=ComparisonType.YOY_10K,
     current=filing(CURRENT, "acc-2025"),
     prior=filing(PRIOR, "acc-2024"),
+)
+
+QUOTE = Citation(
+    chunk_id="acc-2025:mdna:0034:0",
+    accession="acc-2025",
+    ticker="HSY",
+    form=FormType.FORM_10K,
+    period=CURRENT,
+    section=Section.MDNA,
+    quote="The increase was driven by higher supply chain costs, including tariffs.",
+    url="https://www.sec.gov/acc-2025.htm",
 )
 
 
@@ -171,6 +185,8 @@ class FakePipeline:
         rework_budget_on: str | None = None,
         rework_stop_on: str | None = None,
         rework_kill_on: str | None = None,
+        repeated_quote_on: str | None = None,
+        quote: Citation | None = None,
     ) -> None:
         self.tree = tree
         self.numeric_changes = numeric_changes
@@ -198,6 +214,9 @@ class FakePipeline:
         self.rework_budget_on = rework_budget_on
         self.rework_stop_on = rework_stop_on
         self.rework_kill_on = rework_kill_on
+        # The change labeled with a confirmed claim and a plausible one citing the same quote.
+        self.repeated_quote_on = repeated_quote_on
+        self.quote = quote or QUOTE
         self.rework_rounds: dict[str, int] = {}
         self.prefixes: list[str] = []
 
@@ -274,10 +293,21 @@ class FakePipeline:
             label=ExplanationLabel.PLAUSIBLE,
             metric_ids=("gm-2025",),
         )
+        claims = (claim,)
+        if change.change_id == self.repeated_quote_on:
+            claim = claim.model_copy(update={"citations": (self.quote,)})
+            confirmed = Claim(
+                claim_id=f"{run_id}:{change.change_id}:r1:c2",
+                text="Tariffs raised cost of sales.",
+                label=ExplanationLabel.CONFIRMED,
+                citations=(self.quote,),
+                entailment=EntailmentVerdict.STATES_CAUSE,
+            )
+            claims = (confirmed, claim)
         finding = Finding(
             finding_id=f"{run_id}:{change.change_id}",
             change=change,
-            claims=(claim,),
+            claims=claims,
             tree_root_id=result.tree_root_id,
         )
         rework = (
@@ -355,6 +385,7 @@ async def run(  # noqa: PLR0913 -- the test's knobs, all optional
     ledger=None,
     metrics=None,
     confirm=None,
+    chunks=None,
 ):
     workflow = Workflow(
         stages=fake.stages(),
@@ -362,6 +393,7 @@ async def run(  # noqa: PLR0913 -- the test's knobs, all optional
         ledger=ledger or fake.ledger or CostLedger(5.0),
         runs_dir=tmp_path / "runs",
         metrics=metrics,
+        chunks=chunks,
         confirm=confirm,
         clock=lambda: datetime(2026, 11, 12, 12, 0, tzinfo=UTC),
     )
@@ -853,6 +885,69 @@ async def test_a_round_the_dollar_cap_stopped_ends_the_loop_and_the_search(tree,
     assert reworks(fake) == [GM.change_id]
     assert explored(fake) == [GM.change_id]
     assert state["out_of_budget"]
+
+
+# A plausible claim whose quotes a confirmed claim already shows (user's decision, 2026-11-15).
+
+
+async def test_a_plausible_claim_repeating_a_confirmed_quote_is_left_out_before_the_summary(
+    tree, tmp_path
+):
+    fake = pipeline(tree, repeated_quote_on=GM.change_id)
+    state = await run(tree, fake, tmp_path, max_changes=2)
+    confirmed, plausible = f"{RUN}:{GM.change_id}:r1:c2", f"{RUN}:{GM.change_id}:r1:c1"
+    (summarized,) = fake.summarized
+    assert [c.claim_id for c in summarized[0].claims] == [confirmed]
+    # The other finding is untouched, and the brief and the state hold what the summary saw.
+    assert [c.claim_id for c in summarized[1].claims] == [f"{RUN}:{OM.change_id}:r1:c1"]
+    assert [c["claim_id"] for c in audit(state)["brief"]["findings"][0]["claims"]] == [confirmed]
+    assert state["findings"][0].finding.claims == summarized[0].claims
+    note = (
+        f"claim {plausible}: every quote it cites is shown by confirmed claim {confirmed}, "
+        "so it is left out of the brief"
+    )
+    assert note in audit(state)["labeling_failures"][f"{RUN}:{GM.change_id}"]
+
+
+async def test_a_repeating_claim_keeps_its_rework_rounds_and_is_left_out_after(tree, tmp_path):
+    fake = pipeline(tree, repeated_quote_on=GM.change_id, rework_on={GM.change_id: None})
+    state = await run(tree, fake, tmp_path, max_changes=1)
+    assert reworks(fake) == [GM.change_id] * MAX_REWORK_ROUNDS
+    (labeled,) = state["findings"]
+    assert [c.claim_id for c in labeled.finding.claims] == [f"{RUN}:{GM.change_id}:r1:c2"]
+    assert labeled.rework == ()
+
+
+class TableChunks:
+    """A `ChunkLookup` holding one table, whose third row `ROW` quotes."""
+
+    def get_chunk(self, chunk_id: str) -> Chunk | None:
+        if chunk_id != ROW.chunk_id:
+            return None
+        return Chunk(
+            chunk_id=chunk_id,
+            paragraph_id="p-t82",
+            ticker="HSY",
+            cik="0000047111",
+            form=FormType.FORM_10K,
+            period=CURRENT,
+            section=Section.FINANCIAL_NOTES,
+            accession="acc-2025",
+            text="INCOME\n(in thousands)\nYear | 2025 | 2024\nGross profit | 3,922,691 | 5,300,888",
+            token_count=20,
+        )
+
+
+ROW = QUOTE.model_copy(
+    update={"chunk_id": "acc-2025:t82:0", "quote": "Gross profit | 3,922,691 | 5,300,888"}
+)
+
+
+async def test_the_brief_shows_a_quoted_rows_table_header_from_the_workflows_chunks(tree, tmp_path):
+    fake = pipeline(tree, repeated_quote_on=GM.change_id, quote=ROW)
+    state = await run(tree, fake, tmp_path, max_changes=1, chunks=TableChunks())
+    markdown = Path(state["brief_path"]).read_text(encoding="utf-8")
+    assert "  > Year \\| 2025 \\| 2024\n  > Gross profit \\| 3,922,691" in markdown
 
 
 def test_the_step_limit_allows_every_change_its_rounds():

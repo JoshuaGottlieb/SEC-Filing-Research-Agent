@@ -36,6 +36,7 @@ from sec_agent.schemas import (
     EvidenceSupport,
     ExplanationLabel,
     Filing,
+    Finding,
     FiscalPeriod,
     FormType,
     MetricName,
@@ -2117,3 +2118,169 @@ async def test_a_table_only_claim_whose_wording_passes_is_kept():
 
 def test_the_table_only_reason_names_no_cause():
     assert find_causal_language(labeling.TABLE_ONLY_REASON) == ()
+
+
+# -- paid5's brief (user's decision, 2026-11-15) -------------------------------------------------
+# A plausible claim whose every quote a confirmed claim in the same finding already shows is left
+# out once rework is over.
+
+
+def plausible(n: int, *citations: Citation, metric_ids: tuple[str, ...] = ()) -> Claim:
+    return Claim(
+        claim_id=f"{RUN}:chg-gm:r1:c{n}",
+        text="Freight costs rose; this brief did not confirm a link to gross margin.",
+        label=ExplanationLabel.PLAUSIBLE,
+        citations=citations,
+        metric_ids=metric_ids,
+    )
+
+
+def finding_of(*claims: Claim, **fields: Any) -> labeling.LabeledFinding:
+    return labeling.LabeledFinding(
+        finding=Finding(finding_id=f"{RUN}:chg-gm", change=MARGIN_CHANGE, claims=claims),
+        **fields,
+    )
+
+
+def claim_ids(labeled: labeling.LabeledFinding) -> list[str]:
+    return [claim.claim_id for claim in labeled.finding.claims]
+
+
+def test_a_plausible_claim_citing_only_a_confirmed_claims_quote_is_left_out():
+    tariffs = confirmed(1, "Tariffs raised cost of sales.", "states")
+    repeat, other = plausible(2, cite("states")), plausible(3, cite("pricing"))
+    labeled = labeling.leave_out_repeated_quotes(
+        finding_of(tariffs, repeat, other, failures=("earlier note",))
+    )
+    assert claim_ids(labeled) == [tariffs.claim_id, other.claim_id]
+    assert labeled.failures == (
+        "earlier note",
+        f"claim {repeat.claim_id}: every quote it cites is shown by confirmed claim "
+        f"{tariffs.claim_id}, so it is left out of the brief",
+    )
+
+
+def test_a_quote_inside_a_longer_confirmed_quote_from_the_same_chunk_counts_as_shown():
+    part = cite("states").model_copy(update={"quote": "due to higher input  costs,\nprimarily"})
+    labeled = labeling.leave_out_repeated_quotes(
+        finding_of(confirmed(1, "Input costs lowered gross margin.", "states"), plausible(2, part))
+    )
+    assert claim_ids(labeled) == [f"{RUN}:chg-gm:r1:c1"]
+
+
+def test_a_longer_plausible_quote_around_a_confirmed_one_is_not_shown():
+    short = cite("states").model_copy(update={"quote": "due to higher input costs"})
+    tariffs = confirmed(1, "Input costs lowered gross margin.", "states").model_copy(
+        update={"citations": (short,)}
+    )
+    claims = (tariffs, plausible(2, cite("states")))
+    assert claim_ids(labeling.leave_out_repeated_quotes(finding_of(*claims))) == [
+        c.claim_id for c in claims
+    ]
+
+
+def test_the_same_words_from_another_chunk_are_not_shown():
+    elsewhere = cite("states").model_copy(update={"chunk_id": "other-chunk"})
+    claims = (confirmed(1, "Input costs lowered gross margin.", "states"), plausible(2, elsewhere))
+    assert claim_ids(labeling.leave_out_repeated_quotes(finding_of(*claims))) == [
+        c.claim_id for c in claims
+    ]
+
+
+def test_a_plausible_claim_with_one_quote_of_its_own_is_kept():
+    claims = (
+        confirmed(1, "Input costs lowered gross margin.", "states"),
+        plausible(2, cite("states"), cite("pricing")),
+    )
+    labeled = finding_of(*claims)
+    assert labeling.leave_out_repeated_quotes(labeled) is labeled
+
+
+def test_quotes_shown_by_two_confirmed_claims_together_count_and_both_are_named():
+    first = confirmed(1, "Input costs lowered gross margin.", "states")
+    second = confirmed(2, "Pricing pressure lowered gross margin.", "pricing")
+    repeat = plausible(3, cite("states"), cite("pricing"))
+    labeled = labeling.leave_out_repeated_quotes(finding_of(first, second, repeat))
+    assert claim_ids(labeled) == [first.claim_id, second.claim_id]
+    assert labeled.failures == (
+        f"claim {repeat.claim_id}: every quote it cites is shown by confirmed claim "
+        f"{first.claim_id}, {second.claim_id}, so it is left out of the brief",
+    )
+
+
+def test_the_note_names_only_the_confirmed_claims_that_show_the_quotes():
+    pricing = confirmed(1, "Pricing pressure lowered gross margin.", "pricing")
+    tariffs = confirmed(2, "Input costs lowered gross margin.", "states")
+    repeat = plausible(3, cite("states"))
+    labeled = labeling.leave_out_repeated_quotes(finding_of(pricing, tariffs, repeat))
+    assert labeled.failures == (
+        f"claim {repeat.claim_id}: every quote it cites is shown by confirmed claim "
+        f"{tariffs.claim_id}, so it is left out of the brief",
+    )
+
+
+def test_an_unresolved_claim_citing_a_shown_quote_is_kept():
+    unresolved = plausible(2, cite("states")).model_copy(
+        update={"label": ExplanationLabel.UNRESOLVED, "text": NO_EVIDENCE_TEXT}
+    )
+    labeled = finding_of(confirmed(1, "Input costs lowered gross margin.", "states"), unresolved)
+    assert labeling.leave_out_repeated_quotes(labeled) is labeled
+
+
+def test_confirmed_claims_sharing_a_quote_are_both_kept():
+    claims = (
+        confirmed(1, "Input costs lowered gross margin.", "states"),
+        confirmed(2, "Cocoa costs lowered gross margin.", "states"),
+    )
+    labeled = finding_of(*claims)
+    assert labeling.leave_out_repeated_quotes(labeled) is labeled
+
+
+def test_a_plausible_claim_with_no_quote_is_not_left_out_for_this():
+    metric_only_ = plausible(2, metric_ids=("m2",))
+    claims = (confirmed(1, "Input costs lowered gross margin.", "states"), metric_only_)
+    labeled = finding_of(*claims)
+    assert labeling.leave_out_repeated_quotes(labeled) is labeled
+
+
+def test_without_a_confirmed_claim_nothing_is_left_out():
+    labeled = finding_of(plausible(1, cite("states")), plausible(2, cite("states")))
+    assert labeling.leave_out_repeated_quotes(labeled) is labeled
+
+
+def test_a_left_out_claims_rework_item_goes_and_review_notes_stay():
+    repeat, other = plausible(2, cite("states")), plausible(3, cite("pricing"))
+    labeled = labeling.leave_out_repeated_quotes(
+        finding_of(
+            confirmed(1, "Input costs lowered gross margin.", "states"),
+            repeat,
+            other,
+            rework=(
+                labeling.ReworkItem(claim_id=repeat.claim_id, review_note="judge failed"),
+                labeling.ReworkItem(claim_id=other.claim_id),
+            ),
+            review_notes=("judge failed",),
+        )
+    )
+    assert [item.claim_id for item in labeled.rework] == [other.claim_id]
+    assert labeled.review_notes == ("judge failed",)
+
+
+def test_leaving_out_repeated_quotes_twice_changes_nothing_more():
+    once = labeling.leave_out_repeated_quotes(
+        finding_of(
+            confirmed(1, "Input costs lowered gross margin.", "states"),
+            plausible(2, cite("states")),
+        )
+    )
+    assert labeling.leave_out_repeated_quotes(once) is once
+
+
+def test_the_left_out_note_names_no_cause():
+    labeled = labeling.leave_out_repeated_quotes(
+        finding_of(
+            confirmed(1, "Input costs lowered gross margin.", "states"),
+            plausible(2, cite("states")),
+        )
+    )
+    assert find_causal_language(labeled.failures[-1]) == ()

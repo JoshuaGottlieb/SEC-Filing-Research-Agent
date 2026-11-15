@@ -20,7 +20,9 @@ A deterministic LangGraph controller runs the steps in order; no model decides t
    searches and is relabeled (`tot/rework.py`), at most `MAX_REWORK_ROUNDS` rounds, one per pass.
    It is skipped once the cap is reached, and stops when less than the labeling reserve is free;
    a budget stop inside a round keeps the finding as it was before it.
-6. `summarize`: the brief's summary (T5.4).
+6. `summarize`: first leaves out of each finding the plausible claims whose quotes a confirmed
+   claim in it already shows (`leave_out_repeated_quotes`; every rework round is over by now),
+   then writes the brief's summary (T5.4).
 7. `write`: the `Brief` record, each finding's tree, and `write_run`, which refuses to write a
    brief that breaks a rule.
 
@@ -86,7 +88,7 @@ from sec_agent.compare.materiality import (
     rank_changes,
 )
 from sec_agent.config import Settings
-from sec_agent.contracts import MetricLookup
+from sec_agent.contracts import ChunkLookup, MetricLookup
 from sec_agent.edgar.corpus import Corpus
 from sec_agent.finance.fact_store import FactStore
 from sec_agent.finance.metrics import MetricCatalog, MetricsConfig
@@ -129,7 +131,13 @@ from sec_agent.timing import (
 from sec_agent.tot.controller import StopReason, ToTContext, ToTResult, explore_change
 from sec_agent.tot.critic import Critic
 from sec_agent.tot.generator import ThoughtGenerator
-from sec_agent.tot.labeling import ClaimWriter, LabeledFinding, LabelingContext, label_result
+from sec_agent.tot.labeling import (
+    ClaimWriter,
+    LabeledFinding,
+    LabelingContext,
+    label_result,
+    leave_out_repeated_quotes,
+)
 from sec_agent.tot.rework import (
     MAX_REWORK_ROUNDS,
     ReworkContext,
@@ -271,6 +279,8 @@ class Workflow:
     runs_dir: Path
     # Stored in the audit trail beside the brief; None in tests that do not check metrics.
     metrics: MetricLookup | None = None
+    # Gives a table row quoted in the brief its table's opening lines; None shows the row alone.
+    chunks: ChunkLookup | None = None
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
     labeling_reserve_usd: float = LABELING_RESERVE_USD
     # Shown the estimate before anything is spent; False declines the run. None asks nothing
@@ -511,7 +521,10 @@ def build_graph(workflow: Workflow, checkpointer=None):
         return next_change(state)
 
     async def summarize(state: RunState) -> RunState:
-        findings = _brief_findings(state)
+        # Rework is over for every finding here, so nothing can still confirm a claim. Kept in
+        # state, so `write` and a resumed run see the same findings as the summary.
+        explored = tuple(leave_out_repeated_quotes(item) for item in state["findings"])
+        findings = _brief_findings({**state, "findings": explored})
         try:
             with workflow.timings.measure(STAGE_SUMMARY):
                 summary = await stages.summarize(findings, state["comparison"])
@@ -521,7 +534,7 @@ def build_graph(workflow: Workflow, checkpointer=None):
                 used_template=True,
                 failures=(SUMMARY_BUDGET_NOTE,),
             )
-        return {"summary": summary}
+        return {"findings": explored, "summary": summary}
 
     async def write(state: RunState) -> RunState:
         labeled = (*state["findings"], *state["unresolved"])
@@ -553,6 +566,7 @@ def build_graph(workflow: Workflow, checkpointer=None):
             ),
             summary_used_template=state["summary"].used_template,
             summary_failures=state["summary"].failures,
+            chunks=workflow.chunks,
         )
         return {"brief_path": str(files.brief), "audit_path": str(files.audit)}
 
@@ -812,6 +826,7 @@ async def run_analysis(  # noqa: PLR0913 -- the CLI's options, passed through
                 ledger=ledger,
                 runs_dir=settings.runs_dir,
                 metrics=catalog,
+                chunks=store,
                 confirm=confirm,
                 tree_run_id=attempt_id(run_id) if resume else None,
                 timings=timings,
