@@ -34,6 +34,9 @@ class LedgerEntry:
     elapsed_s: float = 0.0
     stage: str | None = None
     change_id: str | None = None
+    # True when the API never returned the call's usage (a reply the SDK failed to parse), so
+    # tokens and cost are the worst case reserved for it, not what was billed.
+    estimated: bool = False
 
 
 class CostLedger:
