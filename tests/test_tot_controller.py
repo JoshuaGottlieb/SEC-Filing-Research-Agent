@@ -1764,7 +1764,8 @@ class PlainWriter:
         return PlausibleWording(text="Cocoa prices rose; the filings do not link them.")
 
     async def restate(self, request: dict) -> Restatement:
-        return Restatement(text=None)
+        # The hypothesis is already at its quote's level.
+        return Restatement(text=request["hypothesis"])
 
 
 class Chunks:
