@@ -41,6 +41,13 @@ Searches are kept on disk (`PersistentRetriever`, `<data_dir>/eval/t64/search_ca
 rerun whose model calls replay also replays its searches, which took most of a replayed run's time
 (the user's decision, 2026-11-15). Any change to the chunks or the search code misses the cache.
 `--no-search-cache` searches afresh, for timing a run.
+
+Timing (T6.6): beside the ledger, `<out>.timings.jsonl` holds each change's search and labeling
+wall time and every search actually run (a replayed one is not), and each ledger line names the
+change it served and how long the call took. `eval/cost/cost_latency.py` reads them.
+`--worker-model` runs the generator, critic and claim writer on another model for this run only
+(T6.6's Haiku against Sonnet); the output records both models. The replay cache keys on the model,
+so a new worker model's calls are all live.
 """
 
 from __future__ import annotations
@@ -73,6 +80,7 @@ from sec_agent.retrieval.rerank import CrossEncoderScorer, Reranker
 from sec_agent.retrieval.search_cache import PersistentRetriever
 from sec_agent.retrieval.tools import SearchRetriever
 from sec_agent.schemas import Change, ChangeKind, Comparison, NodeStatus, TreeNode
+from sec_agent.timing import STAGE_LABEL, STAGE_SEARCH, TimedRetriever, TimingLog
 from sec_agent.tot.controller import StopReason, ToTContext, ToTResult, explore_change
 from sec_agent.tot.critic import Critic
 from sec_agent.tot.generator import ThoughtGenerator
@@ -184,6 +192,8 @@ def _add_labels(rows: list[dict], labeled: LabeledFinding) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     settings = get_settings()
+    if args.worker_model is not None:
+        settings = settings.model_copy(update={"model_worker": args.worker_model})
     causes = load_benchmark(args.labels).causes
     if args.only:
         causes = tuple(c for c in causes if c.item_id in args.only)
@@ -193,6 +203,7 @@ async def run(args: argparse.Namespace) -> None:
     started = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     run_id = f"t64-{args.labels.stem.lower()}-{args.form}-{started}"
     ledger = CostLedger(args.cap, path=args.out.with_suffix(".ledger.jsonl"))
+    timings = TimingLog(args.out.with_suffix(".timings.jsonl"))
     config = ScoringConfig.load()
     if args.candidate_width is not None:
         beam = config.beam.model_copy(update={"candidate_width": args.candidate_width})
@@ -214,10 +225,15 @@ async def run(args: argparse.Namespace) -> None:
                     comparison, settings.parsed_filings_dir, embedder, store
                 ).changes
             changes[cause.item_id] = text_change(alignments[cause.comparison_id], cause)
-        retriever: Retriever = SearchRetriever(
-            Reranker(
-                HybridSearcher(store, ChunkIndex(settings.chroma_dir, bge)), CrossEncoderScorer()
-            )
+        # Timed under the disk cache, so only searches actually run are logged.
+        retriever: Retriever = TimedRetriever(
+            SearchRetriever(
+                Reranker(
+                    HybridSearcher(store, ChunkIndex(settings.chroma_dir, bge)),
+                    CrossEncoderScorer(),
+                )
+            ),
+            timings,
         )
         if not args.no_search_cache:
             retriever = PersistentRetriever(retriever, work / "search_cache.sqlite", store.chunks)
@@ -243,16 +259,20 @@ async def run(args: argparse.Namespace) -> None:
         for cause in causes:
             change = changes[cause.item_id]
             before = ledger.spent_usd
-            result = await explore_change(change, comparisons[cause.comparison_id], context, run_id)
+            with timings.measure(STAGE_SEARCH, change.change_id):
+                result = await explore_change(
+                    change, comparisons[cause.comparison_id], context, run_id
+                )
             nodes = await tree.read_tree(result.tree_root_id) if result.tree_root_id else ()
             rows = _candidate_rows(nodes, result)
             capped = False
             labeled = None
             if args.label:
                 try:
-                    labeled = await label_result(
-                        result, change, comparisons[cause.comparison_id], labeling, run_id
-                    )
+                    with timings.measure(STAGE_LABEL, change.change_id):
+                        labeled = await label_result(
+                            result, change, comparisons[cause.comparison_id], labeling, run_id
+                        )
                     _add_labels(rows, labeled)
                 except BudgetExceededError:
                     capped = True
@@ -303,6 +323,7 @@ async def run(args: argparse.Namespace) -> None:
                 "run_id": run_id,
                 "labels": str(args.labels),
                 "form": args.form,
+                "models": {"worker": settings.model_worker, "strong": settings.model_strong},
                 "beam": config.beam.model_dump(),
                 "spent_usd": round(ledger.spent_usd, 4),
                 "items": items,
@@ -331,6 +352,9 @@ def main() -> int:
     parser.add_argument("--label", action="store_true", help="also label survivors (paid)")
     parser.add_argument(
         "--no-search-cache", action="store_true", help="search afresh instead of replaying"
+    )
+    parser.add_argument(
+        "--worker-model", help="worker model for this run (default: SEC_AGENT_MODEL_WORKER)"
     )
     asyncio.run(run(parser.parse_args()))
     return 0

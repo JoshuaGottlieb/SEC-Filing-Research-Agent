@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -68,6 +69,7 @@ from sec_agent.schemas import (
     Section,
     TreeNode,
 )
+from sec_agent.timing import Scope, TimingLog, current_scope, read_timings
 from sec_agent.tot.controller import Outcome, StopReason, ToTResult
 from sec_agent.tot.labeling import LabeledFinding, ReworkItem
 from sec_agent.tot.rework import MAX_REWORK_ROUNDS, ReworkResult
@@ -873,3 +875,74 @@ async def test_a_run_killed_in_a_round_resumes_it_under_new_node_ids(tree, tmp_p
     assert explored(fake) == [GM.change_id, OM.change_id]
     assert fake.prefixes == [f"{claim}:w1", f"{claim}:w1.r2", f"{claim}:w2.r2"]
     assert state["node_evaluations"] == 3 + 2 + 2 + 3
+
+
+async def test_each_step_is_timed_and_scoped_under_its_change(tree, tmp_path):
+    # T6.6: the timing log holds every step, a change's own steps under its id, and work done
+    # inside a step sees that step's scope (what the LLM client stamps ledger lines with).
+    fake = pipeline(tree, rework_on={GM.change_id: 1})
+    seen: list[Scope | None] = []
+
+    def watched(step):
+        async def call(*args):
+            seen.append(current_scope())
+            return await step(*args)
+
+        return call
+
+    stages = replace(
+        fake.stages(),
+        explore=watched(fake.explore),
+        label=watched(fake.label),
+        rework=watched(fake.rework),
+    )
+    timings = TimingLog(tmp_path / "timings.jsonl")
+    workflow = Workflow(
+        stages=stages,
+        tree=tree,
+        ledger=CostLedger(5.0),
+        runs_dir=tmp_path / "runs",
+        clock=lambda: datetime(2026, 11, 12, 12, 0, tzinfo=UTC),
+        timings=timings,
+    )
+    await build_graph(workflow).ainvoke(
+        initial_state(RUN, COMPARISON, 2), config={"recursion_limit": recursion_limit(2)}
+    )
+    steps = [(t.stage, t.change_id) for t in timings.entries]
+    assert steps == [
+        ("detect", None),
+        ("materiality", None),
+        ("search", GM.change_id),
+        ("label", GM.change_id),
+        ("rework", GM.change_id),
+        ("search", OM.change_id),
+        ("label", OM.change_id),
+        ("summary", None),
+    ]
+    assert seen == [
+        Scope("search", GM.change_id),
+        Scope("label", GM.change_id),
+        Scope("rework", GM.change_id),
+        Scope("search", OM.change_id),
+        Scope("label", OM.change_id),
+    ]
+    assert read_timings(tmp_path / "timings.jsonl") == list(timings.entries)
+    assert current_scope() is None
+
+
+async def test_a_step_stopped_by_the_budget_is_still_timed(tree, tmp_path):
+    fake = pipeline(tree, label_budget_on=GM.change_id)
+    timings = TimingLog()
+    workflow = Workflow(
+        stages=fake.stages(),
+        tree=tree,
+        ledger=CostLedger(5.0),
+        runs_dir=tmp_path / "runs",
+        clock=lambda: datetime(2026, 11, 12, 12, 0, tzinfo=UTC),
+        timings=timings,
+    )
+    await build_graph(workflow).ainvoke(
+        initial_state(RUN, COMPARISON, 2), config={"recursion_limit": recursion_limit(2)}
+    )
+    label = next(t for t in timings.entries if t.stage == "label")
+    assert (label.change_id, label.failed) == (GM.change_id, True)

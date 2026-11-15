@@ -50,6 +50,11 @@ gets an attempt id (`Workflow.tree_run_id`, `{run_id}.r{time}`), while the findi
 Its model calls replay from the cache at no cost, since no prompt holds a node or run id, and the
 ledger carries the run's earlier spend forward (`CostLedger.resume`).
 
+Timing (T6.6). Each step runs inside `Workflow.timings.measure`, so the run's `timings.jsonl`
+holds every step's wall time (a change's search, labeling and rework rounds under its change id)
+and every local evidence search, and each ledger line names the step and change its call served.
+Cost and latency per finding read back from those two files (`eval/cost/cost_latency.py`).
+
 The steps are passed in as `Stages`, so tests drive the graph with fakes. `run_analysis` builds
 the real ones.
 """
@@ -110,6 +115,16 @@ from sec_agent.schemas import (
     Finding,
     RankedChanges,
     Record,
+)
+from sec_agent.timing import (
+    STAGE_DETECT,
+    STAGE_LABEL,
+    STAGE_MATERIALITY,
+    STAGE_REWORK,
+    STAGE_SEARCH,
+    STAGE_SUMMARY,
+    TimedRetriever,
+    TimingLog,
 )
 from sec_agent.tot.controller import StopReason, ToTContext, ToTResult, explore_change
 from sec_agent.tot.critic import Critic
@@ -265,6 +280,9 @@ class Workflow:
     # The run id this process's trees are built under. None is the run id itself; a resumed run
     # gets an attempt id, so a change cut off mid-search can be run again (see the module doc).
     tree_run_id: str | None = None
+    # Times each step and sets the scope ledger lines are stamped with. In memory only by default;
+    # `run_analysis` gives it the run's `timings.jsonl`.
+    timings: TimingLog = field(default_factory=TimingLog)
 
     def free_usd(self) -> float:
         """What the cap has left, not counting reservations: none are held between steps."""
@@ -337,7 +355,8 @@ def build_graph(workflow: Workflow, checkpointer=None):
     async def detect(state: RunState) -> RunState:
         # Synchronous and CPU-bound, run on the event loop's thread: nothing else runs yet, and
         # alignment reads DuckDB, which must never be read from two threads at once.
-        text_changes, scan = stages.detect(state["comparison"])
+        with workflow.timings.measure(STAGE_DETECT):
+            text_changes, scan = stages.detect(state["comparison"])
         return {"text_changes": tuple(text_changes), "scan": scan}
 
     async def estimate(state: RunState) -> RunState:
@@ -356,7 +375,8 @@ def build_graph(workflow: Workflow, checkpointer=None):
         return {"estimate": cost}
 
     async def rank(state: RunState) -> RunState:
-        result = await stages.rank(state["comparison"], state["text_changes"], state["scan"])
+        with workflow.timings.measure(STAGE_MATERIALITY):
+            result = await stages.rank(state["comparison"], state["text_changes"], state["scan"])
         return {"materiality": result}
 
     async def select(state: RunState) -> RunState:
@@ -395,7 +415,8 @@ def build_graph(workflow: Workflow, checkpointer=None):
             # Not `out_of_budget`: nothing more is spent, so each later change gets this reason too.
             labeled = claimless(run_id, change, RESERVE_REASON)
         else:
-            result = await stages.explore(change, comparison, workflow.tree_run_id or run_id)
+            with workflow.timings.measure(STAGE_SEARCH, change.change_id):
+                result = await stages.explore(change, comparison, workflow.tree_run_id or run_id)
             evaluations += result.node_evaluations
             await workflow.tree.record_budget(
                 BudgetUse(
@@ -407,7 +428,8 @@ def build_graph(workflow: Workflow, checkpointer=None):
             )
             out_of_budget = result.stopped is StopReason.RUN_BUDGET
             try:
-                labeled = await stages.label(result, change, comparison, run_id)
+                with workflow.timings.measure(STAGE_LABEL, change.change_id):
+                    labeled = await stages.label(result, change, comparison, run_id)
             except BudgetExceededError:
                 labeled = LabeledFinding(
                     finding=Finding(
@@ -443,7 +465,8 @@ def build_graph(workflow: Workflow, checkpointer=None):
                 break
             prefix = rework_prefix(claim_id, round_number, _attempt(run_id, workflow))
             try:
-                result = await stages.rework(labeled, claim_id, comparison, prefix)
+                with workflow.timings.measure(STAGE_REWORK, labeled.finding.change.change_id):
+                    result = await stages.rework(labeled, claim_id, comparison, prefix)
             except BudgetExceededError:
                 # The finding stays as it was before this claim's round, which it already passed.
                 labeled = _with_failure(labeled, f"claim {claim_id}: {REWORK_BUDGET_NOTE}")
@@ -490,7 +513,8 @@ def build_graph(workflow: Workflow, checkpointer=None):
     async def summarize(state: RunState) -> RunState:
         findings = _brief_findings(state)
         try:
-            summary = await stages.summarize(findings, state["comparison"])
+            with workflow.timings.measure(STAGE_SUMMARY):
+                summary = await stages.summarize(findings, state["comparison"])
         except BudgetExceededError:
             summary = SummaryResult(
                 text=template_summary(findings, workflow.metrics),
@@ -716,6 +740,8 @@ async def run_analysis(  # noqa: PLR0913 -- the CLI's options, passed through
     cap = max_usd if max_usd is not None else settings.max_usd_per_run
     ledger_path = run_dir / "ledger.jsonl"
     ledger = CostLedger.resume(cap, ledger_path) if resume else CostLedger(cap, path=ledger_path)
+    # Appended to on resume, like the ledger, so the file holds every attempt's steps.
+    timings = TimingLog(run_dir / "timings.jsonl")
     cache = ReplayCache(settings.llm_cache_path) if settings.llm_cache else None
     llm = LLMClient(settings, ledger, cache=cache)
     store = FactStore(settings.duckdb_path, read_only=True)
@@ -726,8 +752,13 @@ async def run_analysis(  # noqa: PLR0913 -- the CLI's options, passed through
         catalog = MetricCatalog(store, corpus, MetricsConfig.load())
         # Rewording is off (the agent's default), so this is one plain search per call; turning
         # it on is a flag here and needs the user (decision 2, 2026-11-12).
+        # Timed inside the agent: the local search's time, apart from any rewording call.
         retriever = RetrievalAgent(
-            SearchRetriever(Reranker(HybridSearcher(store, index), CrossEncoderScorer())), llm
+            TimedRetriever(
+                SearchRetriever(Reranker(HybridSearcher(store, index), CrossEncoderScorer())),
+                timings,
+            ),
+            llm,
         )
 
         def detect(target: Comparison) -> tuple[Sequence[Change], MetricScan]:
@@ -782,6 +813,7 @@ async def run_analysis(  # noqa: PLR0913 -- the CLI's options, passed through
                 metrics=catalog,
                 confirm=confirm,
                 tree_run_id=attempt_id(run_id) if resume else None,
+                timings=timings,
             )
             try:
                 state = await run_graph(workflow, settings, run_id, comparison, max_changes, resume)
