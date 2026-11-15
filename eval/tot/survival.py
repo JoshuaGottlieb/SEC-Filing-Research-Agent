@@ -36,6 +36,11 @@ entailment judge on the strong model, the claim writer on the worker model) and 
 search alone cannot: whether a surviving distractor is confirmed, or only reaches the brief as a
 plausible claim worded without a cause (the user's question, 2026-11-13). Labeling raises on the
 dollar cap instead of stopping, so a capped run ends there and writes what it has.
+
+Searches are kept on disk (`PersistentRetriever`, `<data_dir>/eval/t64/search_cache.sqlite`), so a
+rerun whose model calls replay also replays its searches, which took most of a replayed run's time
+(the user's decision, 2026-11-15). Any change to the chunks or the search code misses the cache.
+`--no-search-cache` searches afresh, for timing a run.
 """
 
 from __future__ import annotations
@@ -53,6 +58,7 @@ from sec_agent.benchmark import StatedCause, load_benchmark
 from sec_agent.compare.align import align_comparison
 from sec_agent.compare.embedding_cache import CachedEmbedder, embedding_cache_path
 from sec_agent.config import get_settings
+from sec_agent.contracts import Retriever
 from sec_agent.edgar.corpus import Corpus
 from sec_agent.finance.fact_store import FactStore
 from sec_agent.finance.metrics import MetricCatalog, MetricsConfig
@@ -64,6 +70,7 @@ from sec_agent.llm.client import LLMClient
 from sec_agent.llm.ledger import BudgetExceededError, CostLedger
 from sec_agent.retrieval.hybrid import HybridSearcher
 from sec_agent.retrieval.rerank import CrossEncoderScorer, Reranker
+from sec_agent.retrieval.search_cache import PersistentRetriever
 from sec_agent.retrieval.tools import SearchRetriever
 from sec_agent.schemas import Change, ChangeKind, Comparison, NodeStatus, TreeNode
 from sec_agent.tot.controller import StopReason, ToTContext, ToTResult, explore_change
@@ -207,11 +214,13 @@ async def run(args: argparse.Namespace) -> None:
                     comparison, settings.parsed_filings_dir, embedder, store
                 ).changes
             changes[cause.item_id] = text_change(alignments[cause.comparison_id], cause)
-        retriever = SearchRetriever(
+        retriever: Retriever = SearchRetriever(
             Reranker(
                 HybridSearcher(store, ChunkIndex(settings.chroma_dir, bge)), CrossEncoderScorer()
             )
         )
+        if not args.no_search_cache:
+            retriever = PersistentRetriever(retriever, work / "search_cache.sqlite", store.chunks)
         tree = InProcessTreeClient(TreeStore(work / "trees.sqlite"))
         context = ToTContext(
             retriever=retriever,
@@ -304,6 +313,9 @@ async def run(args: argparse.Namespace) -> None:
         + "\n"
     )
     print(f"spent ${ledger.spent_usd:.4f} -> {args.out}")
+    if isinstance(retriever, PersistentRetriever):
+        print(f"searches: {retriever.cache_hits} replayed, {retriever.cache_misses} run")
+        retriever.close()
 
 
 def main() -> int:
@@ -317,6 +329,9 @@ def main() -> int:
         "--candidate-width", type=int, help="kept candidates for this run (default: the config's)"
     )
     parser.add_argument("--label", action="store_true", help="also label survivors (paid)")
+    parser.add_argument(
+        "--no-search-cache", action="store_true", help="search afresh instead of replaying"
+    )
     asyncio.run(run(parser.parse_args()))
     return 0
 
