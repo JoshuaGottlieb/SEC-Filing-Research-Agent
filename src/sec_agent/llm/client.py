@@ -8,6 +8,7 @@ generator and critic chains compose inside LangGraph nodes.
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -21,6 +22,7 @@ from sec_agent.config import Settings
 from sec_agent.llm.cache import ReplayCache, cache_key
 from sec_agent.llm.ledger import CostLedger, LedgerEntry
 from sec_agent.llm.pricing import cost_usd, get_price, worst_case_cost_usd
+from sec_agent.timing import current_scope
 
 # How much thinking the model does per call. Higher costs more and takes longer.
 Effort = Literal["low", "medium", "high", "xhigh", "max"]
@@ -146,7 +148,9 @@ class LLMClient:
         # A cache hit costs nothing but is still logged, so the ledger shows every call.
         if self._cache is not None and (payload := self._cache.get(key)) is not None:
             output = output_type.model_validate_json(payload)
-            self._ledger.record(LedgerEntry(role.value, model, 0, 0, 0, 0, 0.0, replayed=True))
+            self._ledger.record(
+                LedgerEntry(role.value, model, 0, 0, 0, 0, 0.0, replayed=True, **_scope_fields())
+            )
             return LLMResult(output=output, model=model, cost_usd=0.0, replayed=True)
 
         # Hold the worst-case cost before sending, so parallel calls can't overshoot the budget.
@@ -156,9 +160,12 @@ class LLMClient:
         try:
             # The semaphore is taken after reserving, so queued calls still count against the cap.
             async with self._semaphore:
+                # Timed inside the semaphore: the call's own latency, not its wait for a slot.
+                started = time.perf_counter()
                 response = await self._client.beta.messages.parse(
                     **self._request(model, system, user, output_type, effort, max_tokens)
                 )
+                elapsed = time.perf_counter() - started
             usage = response.usage
             cost = cost_usd(
                 model,
@@ -179,6 +186,8 @@ class LLMClient:
                     cost_usd=cost,
                     replayed=False,
                     fallback_used=_used_fallback(response),
+                    elapsed_s=elapsed,
+                    **_scope_fields(),
                 ),
                 reserved=reserved,
             )
@@ -299,6 +308,14 @@ class LLMClient:
             request["betas"] = [FALLBACK_BETA]
             request["fallbacks"] = "default"
         return request
+
+
+def _scope_fields() -> dict[str, str | None]:
+    """The ledger fields naming the step and change this call is made for."""
+    scope = current_scope()
+    if scope is None:
+        return {"stage": None, "change_id": None}
+    return {"stage": scope.stage, "change_id": scope.change_id}
 
 
 def _used_fallback(response: Any) -> bool:

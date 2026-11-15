@@ -28,6 +28,12 @@ class LedgerEntry:
     # True when the answer came from the replay cache and cost nothing.
     replayed: bool
     fallback_used: bool = False
+    # Seconds the request took once sent (0 for a replay), and the step and change it served
+    # (`sec_agent.timing.Scope`; None outside any). Ledgers written before these were added load
+    # with the defaults.
+    elapsed_s: float = 0.0
+    stage: str | None = None
+    change_id: str | None = None
 
 
 class CostLedger:

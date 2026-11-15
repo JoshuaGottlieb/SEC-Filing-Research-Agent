@@ -15,6 +15,7 @@ from sec_agent.llm.client import (
 )
 from sec_agent.llm.ledger import BudgetExceededError, CostLedger, LedgerEntry
 from sec_agent.llm.pricing import UnknownModelPriceError, cost_usd, worst_case_cost_usd
+from sec_agent.timing import TimingLog
 
 
 # The structured output every fake call returns. No test here makes a real API call.
@@ -228,6 +229,46 @@ def test_a_last_line_cut_off_by_a_crash_is_skipped_and_others_are_errors(tmp_pat
     path.write_text('{"role": "jud\n' + path.read_text().splitlines()[0] + "\n")
     with pytest.raises(ValueError):
         CostLedger.resume(1.0, path)
+
+
+def test_a_ledger_written_before_timing_fields_still_loads(tmp_path):
+    # T6.6 added the call's duration and scope; the Nov 13 paid runs' ledgers lack them.
+    path = tmp_path / "ledger.jsonl"
+    path.write_text(
+        '{"at": "2026-11-13T16:30:48+00:00", "role": "critic", "model": "m", "input_tokens": 1, '
+        '"output_tokens": 1, "cache_read_tokens": 0, "cache_write_tokens": 0, "cost_usd": 0.2, '
+        '"replayed": false, "fallback_used": false}\n'
+    )
+    (entry,) = CostLedger.resume(1.0, path).entries
+    assert (entry.elapsed_s, entry.stage, entry.change_id) == (0.0, None, None)
+
+
+async def test_calls_are_stamped_with_their_step_change_and_duration(settings, tmp_path):
+    fake = FakeAnthropic(response(output=Answer(value="a")), response(output=Answer(value="b")))
+    path = tmp_path / "ledger.jsonl"
+    ledger = CostLedger(1.0, path=path)
+    client = LLMClient(settings, ledger, client=fake)
+    timings = TimingLog()
+    with timings.measure("search", "HSY:change"):
+        await client.complete(Role.CRITIC, system="s", user="u", output_type=Answer)
+    await client.complete(Role.BRIEF, system="s", user="u", output_type=Answer)
+    inside, outside = ledger.entries
+    assert (inside.stage, inside.change_id) == ("search", "HSY:change")
+    assert inside.elapsed_s > 0
+    assert (outside.stage, outside.change_id) == (None, None)
+    # And they reach the file, so a run's ledger reads back by change.
+    assert [e.change_id for e in CostLedger.resume(1.0, path).entries] == ["HSY:change", None]
+
+
+async def test_a_replayed_call_is_stamped_and_takes_no_time(settings, tmp_path):
+    fake = FakeAnthropic(response(output=Answer(value="saved")))
+    client, ledger = make_client(settings, fake, cache=ReplayCache(tmp_path / "cache.sqlite"))
+    await client.complete(Role.CRITIC, system="s", user="u", output_type=Answer)
+    with TimingLog().measure("label", "HSY:change"):
+        await client.complete(Role.CRITIC, system="s", user="u", output_type=Answer)
+    replay = ledger.entries[-1]
+    assert replay.replayed
+    assert (replay.stage, replay.change_id, replay.elapsed_s) == ("label", "HSY:change", 0.0)
 
 
 async def test_repeat_call_replays_for_free(settings, tmp_path):
