@@ -28,6 +28,14 @@ test file (MAT, SWK) is run once, after any beam change is settled on HSY.
 `config/scoring.yaml` as it is. The test run used 5 (the user's decision, 2026-11-13): HSY's
 rerun showed two labeled causes passing the pre-screen but cut by the width of 4 behind candidates
 scoring 1.0, and 5 still fits the 40-node first round (6 + 5 x 6 = 36).
+
+`--label` also runs labeling (`label_result`, with the same context the workflow builds) on each
+search's survivors, and records every candidate's final label: `confirmed`, `plausible`, left out
+for having only an agreeing metric, or merged into an identical confirmed claim. It is paid (the
+entailment judge on the strong model, the claim writer on the worker model) and answers what the
+search alone cannot: whether a surviving distractor is confirmed, or only reaches the brief as a
+plausible claim worded without a cause (the user's question, 2026-11-13). Labeling raises on the
+dollar cap instead of stopping, so a capped run ends there and writes what it has.
 """
 
 from __future__ import annotations
@@ -40,6 +48,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from sec_agent.agents.verification import EntailmentJudge
 from sec_agent.benchmark import StatedCause, load_benchmark
 from sec_agent.compare.align import align_comparison
 from sec_agent.compare.embedding_cache import CachedEmbedder, embedding_cache_path
@@ -52,14 +61,15 @@ from sec_agent.ingest.chunker import EMBEDDING_MODEL
 from sec_agent.ingest.index import BgeEmbedder, ChunkIndex
 from sec_agent.llm.cache import ReplayCache
 from sec_agent.llm.client import LLMClient
-from sec_agent.llm.ledger import CostLedger
+from sec_agent.llm.ledger import BudgetExceededError, CostLedger
 from sec_agent.retrieval.hybrid import HybridSearcher
 from sec_agent.retrieval.rerank import CrossEncoderScorer, Reranker
 from sec_agent.retrieval.tools import SearchRetriever
 from sec_agent.schemas import Change, ChangeKind, Comparison, NodeStatus, TreeNode
-from sec_agent.tot.controller import ToTContext, ToTResult, explore_change
+from sec_agent.tot.controller import StopReason, ToTContext, ToTResult, explore_change
 from sec_agent.tot.critic import Critic
 from sec_agent.tot.generator import ThoughtGenerator
+from sec_agent.tot.labeling import ClaimWriter, LabeledFinding, LabelingContext, label_result
 from sec_agent.tot.scoring import ScoringConfig
 from sec_agent.tree_mcp.client import InProcessTreeClient
 from sec_agent.tree_mcp.store import TreeStore
@@ -141,6 +151,30 @@ def _candidate_rows(tree: tuple[TreeNode, ...], result: ToTResult) -> list[dict]
     return rows
 
 
+def _add_labels(rows: list[dict], labeled: LabeledFinding) -> None:
+    """Each candidate's final label, by node id (labeling keeps the candidate's node id as the
+    claim id). A survivor with no claim was left out or merged, and the failure notes say which."""
+    claims = {claim.claim_id: claim for claim in labeled.finding.claims}
+    for row in rows:
+        node_id = row["node_id"]
+        claim = claims.get(node_id)
+        if claim is not None:
+            row["label"] = claim.label.value
+            row["claim_text"] = claim.text
+            row["entailment"] = claim.entailment.value if claim.entailment else None
+            row["claim_quotes"] = [citation.quote for citation in claim.citations]
+        elif row["stage"] != "survived":
+            row["label"] = None
+        else:
+            notes = [f for f in labeled.failures if f.startswith(f"claim {node_id}:")]
+            if any("only computed metrics" in note for note in notes):
+                row["label"] = "left_out_metric_only"
+            elif any("merged" in note for note in notes):
+                row["label"] = "merged"
+            else:
+                row["label"] = "no_claim"
+
+
 async def run(args: argparse.Namespace) -> None:
     settings = get_settings()
     causes = load_benchmark(args.labels).causes
@@ -188,6 +222,13 @@ async def run(args: argparse.Namespace) -> None:
             tree=tree,
             config=config,
         )
+        labeling = LabelingContext(
+            judge=EntailmentJudge(llm),
+            writer=ClaimWriter(llm),
+            chunks=store,
+            metrics=catalog,
+            facts=store,
+        )
         print(f"run {run_id}: {len(causes)} causes, form {args.form}, cap ${args.cap:.2f}")
         items = []
         for cause in causes:
@@ -196,6 +237,16 @@ async def run(args: argparse.Namespace) -> None:
             result = await explore_change(change, comparisons[cause.comparison_id], context, run_id)
             nodes = await tree.read_tree(result.tree_root_id) if result.tree_root_id else ()
             rows = _candidate_rows(nodes, result)
+            capped = False
+            labeled = None
+            if args.label:
+                try:
+                    labeled = await label_result(
+                        result, change, comparisons[cause.comparison_id], labeling, run_id
+                    )
+                    _add_labels(rows, labeled)
+                except BudgetExceededError:
+                    capped = True
             items.append(
                 {
                     "item_id": cause.item_id,
@@ -214,6 +265,14 @@ async def run(args: argparse.Namespace) -> None:
                     "node_evaluations": result.node_evaluations,
                     "model_calls": result.model_calls,
                     "cost_usd": round(ledger.spent_usd - before, 4),
+                    "labeling": None
+                    if labeled is None
+                    else {
+                        "review_reason": labeled.finding.review_reason,
+                        "failures": list(labeled.failures),
+                        "judge_calls": labeled.judge_calls,
+                        "writer_calls": labeled.writer_calls,
+                    },
                     "candidates": rows,
                 }
             )
@@ -222,8 +281,12 @@ async def run(args: argparse.Namespace) -> None:
                 f"{cause.item_id}: {result.outcome.value}, {stages.count('survived')} of "
                 f"{len(rows)} candidates survived, ${ledger.spent_usd - before:.4f}"
             )
-            if result.stopped is not None:
-                print(f"stopped: {result.stopped.value}; later causes not run")
+            # A spent node budget ends only this change's search; the dollar cap ends the run,
+            # as in `explore_changes`.
+            if result.stopped is StopReason.NODE_BUDGET:
+                print("stopped: node_budget for this change; the next one still runs")
+            elif result.stopped is StopReason.RUN_BUDGET or capped:
+                print("stopped: run_budget; later causes not run")
                 break
     args.out.write_text(
         json.dumps(
@@ -253,6 +316,7 @@ def main() -> int:
     parser.add_argument(
         "--candidate-width", type=int, help="kept candidates for this run (default: the config's)"
     )
+    parser.add_argument("--label", action="store_true", help="also label survivors (paid)")
     asyncio.run(run(parser.parse_args()))
     return 0
 
