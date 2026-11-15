@@ -43,9 +43,10 @@ Each surviving candidate becomes one claim, labeled by the ToT design's standard
   is not among its evidence.
 - Left out: a survivor kept by an agreeing metric alone, with no quote (user's decision,
   2026-11-13). On the paid Hershey runs such claims read "no quotes were provided on litigation
-  accruals...", since another margin falling agrees with almost any cause. Also left out: a
-  survivor whose every quote the judge found unrelated (user's decision, 2026-11-15). Its tree
-  keeps it, and a finding left with no claims goes to review, saying why.
+  accruals...", since another margin falling agrees with almost any cause. Also left out (user's
+  decisions, 2026-11-15): a survivor whose every quote the judge found unrelated, and one whose
+  quotes are all table rows when no description of them passes the checks. Its tree keeps it, and
+  a finding left with no claims goes to review, saying why.
 - No survivors: the finding has no claims and carries the search's review reason, so it reaches
   the review queue. The brief shows it there by its finding id, not by a claim.
 
@@ -172,6 +173,18 @@ REFUTED_REASON = (
     "unrelated to the change"
 )
 
+# Why a finding whose every explanation was left out for citing only table rows that no wording
+# could describe goes to review (see `_plausible`). Plain words, no cause.
+TABLE_ONLY_REASON = (
+    "the explanations found had only table rows from the filings behind them, and no description "
+    "of those rows passed the checks"
+)
+
+# The writer's own word for what it is given. The reader never sees the hypothesis, so a plausible
+# claim must describe the company, not it: on the fifth paid Hershey run one read "...and the
+# hypothesis cites higher freight, logistics and energy costs" (user's decision, 2026-11-15).
+HYPOTHESIS_WORD = re.compile(r"\bhypothe\w*", re.IGNORECASE)
+
 # Attempts at a plausible claim's wording before falling back to the fixed sentence: the first, and
 # one retry told why the first was rejected. Chosen by hand: a third attempt at the same request
 # mostly repeats the second, and the fallback is always safe.
@@ -215,6 +228,7 @@ Rules:
   own title and column labels. Its figures mean only what those labels say they are. Never call
   them periods, years or anything else the labels do not name, and never compare figures in one
   row unless the labels say what each column is.
+- Write about the company. Never mention the hypothesis: the reader does not see it.
 - Write one sentence of at most 30 words.
 
 "metrics" are computed values: "value" is a fraction, so 0.335 is 33.5%. If "rejected" is present,
@@ -275,7 +289,8 @@ class Restatement(Record):
 
 # Used when no written statement passes. It names no cause and holds no figure, so it always passes
 # the checks, and it points the reader to the evidence instead of leaving the claim out of the
-# brief. It does not repeat the claim id, because the brief already links every claim to its id.
+# brief, unless that evidence is only table rows (`_plausible`). It does not repeat the claim id,
+# because the brief already links every claim to its id.
 FALLBACK_PLAUSIBLE_TEXT = (
     "The evidence is consistent with an explanation this brief did not confirm; "
     "see the audit trail for this claim."
@@ -822,14 +837,16 @@ def _wording_request(
 def _wording_problem(claim: Claim, target: _Target, context: LabelingContext) -> str | None:
     """Why a written statement cannot be used, or None if it can.
 
-    For a numeric change it must name the change (or a line moving with it), so its "did not
-    confirm a link" says to what: on the fourth paid Hershey run a net margin claim's "the margin
-    decline" read as the gross margin decline another finding confirmed (user's decision,
-    2026-11-15).
+    It must not mention the hypothesis (`HYPOTHESIS_WORD`). For a numeric change it must name the
+    change (or a line moving with it), so its "did not confirm a link" says to what: on the fourth
+    paid Hershey run a net margin claim's "the margin decline" read as the gross margin decline
+    another finding confirmed (user's decision, 2026-11-15).
     """
     flagged = find_causal_language(claim.text)
     if flagged:
         return f"it uses causal wording: {', '.join(flagged)}"
+    if HYPOTHESIS_WORD.search(claim.text):
+        return "it mentions the hypothesis, which the reader does not see"
     if target.changed is not None and not names_the_change(claim.text, target.changed):
         return f"it does not name {METRIC_WORDS[target.changed][0]}, the change being explained"
     check = check_citations(claim, target.periods, context.chunks, context.metrics, context.facts)
@@ -845,8 +862,15 @@ async def _plausible(
     target: _Target,
     context: LabelingContext,
     tally: _Tally,
-) -> Claim:
-    """A plausible claim, reworded so that it states no cause."""
+) -> Claim | None:
+    """A plausible claim, reworded so that it states no cause, or None to leave it out.
+
+    When no wording passes, the claim takes the fixed text, unless every quote it has is a table
+    row: then nothing in the brief would say what the rows show, and it is left out (user's
+    decision, 2026-11-15). On the fifth paid Hershey run a tax-rate claim fell back to the fixed
+    text citing two rows of the tax note, since the rows' percent column has no "%" sign and both
+    wordings' "4.8%" traced to nothing.
+    """
     claim_id = survivor.candidate.node_id
     request = _wording_request(survivor.candidate.thought, citations, metric_ids, target, context)
     for _ in range(WORDING_ATTEMPTS):
@@ -871,6 +895,13 @@ async def _plausible(
             problem = "it was blank"
         tally.failures.append(f"claim {claim_id}: wording rejected because {problem}")
         request = {**request, "rejected": {"text": written, "reason": problem}}
+    if all(TABLE_CELL in citation.quote for citation in citations):
+        tally.failures.append(
+            f"claim {claim_id}: no wording passed and its quotes are only table rows, so it is "
+            "left out of the brief"
+        )
+        tally.left_out.append(TABLE_ONLY_REASON)
+        return None
     tally.failures.append(f"claim {claim_id}: used the fixed wording")
     return Claim(
         claim_id=claim_id,
@@ -1005,7 +1036,10 @@ async def _label_survivor(
         )
         tally.left_out.append(REFUTED_REASON)
         return None
-    if judged.implied or judged.unjudged:
+    claim = await _plausible(survivor, citations, metric_ids, target, context, tally)
+    # A claim left out has no place in the finding for rework to replace, so it gets no rework
+    # item; a judge failure's note still sends the finding to review.
+    if claim is not None and (judged.implied or judged.unjudged):
         tally.rework.append(
             ReworkItem(
                 claim_id=survivor.candidate.node_id,
@@ -1014,7 +1048,7 @@ async def _label_survivor(
                 review_note=review_note,
             )
         )
-    return await _plausible(survivor, citations, metric_ids, target, context, tally)
+    return claim
 
 
 # A word, for comparing what two confirmed claims say: a run of letters or digits, case ignored.

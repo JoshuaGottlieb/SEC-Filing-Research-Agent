@@ -2036,3 +2036,84 @@ async def test_the_writer_never_sees_a_refuted_quote():
 
 def test_the_refuted_reason_names_no_cause():
     assert find_causal_language(labeling.REFUTED_REASON) == ()
+
+
+# -- paid5's issues (user's decisions, 2026-11-15) ----------------------------------------------
+# (1) a plausible claim never mentions the hypothesis, which the reader does not see
+
+
+@pytest.mark.parametrize(
+    "leaked",
+    [
+        "Competitors promoted more and the hypothesis cites gross margin; this brief did not "
+        "confirm a link to gross margin.",
+        "Competitors promoted more, as hypothesized; this brief did not confirm a link to gross "
+        "margin.",
+        "Hypotheses aside, competitors promoted more; this brief did not confirm a link to gross "
+        "margin.",
+    ],
+)
+async def test_wording_that_mentions_the_hypothesis_is_rejected_and_retried(leaked):
+    named = "Competitors promoted more; this brief did not confirm a link to gross margin."
+    writer = FakeWriter(leaked, named)
+    metrics = (metric("gm-2025", CURRENT, 0.335), metric("gm-2024", PRIOR, 0.473))
+    labeled = await label(
+        resolved(gross_margin_example().candidates[1]), FakeJudge({}), writer, metrics=metrics
+    )
+    assert labeled.finding.claims[0].text == named
+    reason = writer.requests[1]["rejected"]["reason"]
+    assert reason == "it mentions the hypothesis, which the reader does not see"
+
+
+def test_the_writer_is_told_never_to_mention_the_hypothesis():
+    assert "Never mention the hypothesis: the reader does not see it." in " ".join(
+        WORDING_SYSTEM.split()
+    )
+
+
+# (2) a claim whose quotes are only table rows is left out when no description of them passes
+
+CAUSAL = ("Promotions drove the decline.", "Margin fell because of promotions.")
+
+
+async def test_a_table_only_claim_with_no_passing_wording_is_left_out_and_reviewed():
+    rows = branch(PRICING, 1, EvidenceSupport.CONSISTENT, row(COST_ROW))
+    labeled = await label(resolved(survivor(PRICING, rows)), FakeJudge({}), FakeWriter(*CAUSAL))
+    assert labeled.finding.claims == ()
+    assert labeled.finding.review_reason == labeling.TABLE_ONLY_REASON
+    assert labeled.failures[-1] == (
+        f"claim {PRICING.node_id}: no wording passed and its quotes are only table rows, so it is "
+        "left out of the brief"
+    )
+    assert not any("used the fixed wording" in failure for failure in labeled.failures)
+
+
+async def test_a_left_out_claim_gets_no_rework_item():
+    # The judge finds the row only implies it, which would list a kept claim for rework.
+    rows = branch(PRICING, 1, EvidenceSupport.STATES_CAUSE, row(COST_ROW))
+    writer = FakeWriter(*CAUSAL, restated=None)
+    labeled = await label(resolved(survivor(PRICING, rows)), FakeJudge({}), writer)
+    assert labeled.finding.claims == ()
+    assert labeled.rework == ()
+
+
+async def test_a_claim_with_a_prose_quote_beside_its_rows_keeps_the_fixed_text():
+    rows = branch(PRICING, 1, EvidenceSupport.CONSISTENT, row(COST_ROW), cite("pricing"))
+    labeled = await label(resolved(survivor(PRICING, rows)), FakeJudge({}), FakeWriter(*CAUSAL))
+    (claim,) = labeled.finding.claims
+    assert claim.text == FALLBACK_PLAUSIBLE_TEXT
+    assert labeled.finding.review_reason is None
+
+
+async def test_a_table_only_claim_whose_wording_passes_is_kept():
+    rows = branch(PRICING, 1, EvidenceSupport.CONSISTENT, row(COST_ROW))
+    writer = FakeWriter(
+        "Competitors promoted more; this brief did not confirm a link to gross margin."
+    )
+    labeled = await label(resolved(survivor(PRICING, rows)), FakeJudge({}), writer)
+    (claim,) = labeled.finding.claims
+    assert claim.citations == (row(COST_ROW),)
+
+
+def test_the_table_only_reason_names_no_cause():
+    assert find_causal_language(labeling.TABLE_ONLY_REASON) == ()
