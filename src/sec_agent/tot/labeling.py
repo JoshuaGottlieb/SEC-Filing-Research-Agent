@@ -46,7 +46,9 @@ Each surviving candidate becomes one claim, labeled by the ToT design's standard
   accruals...", since another margin falling agrees with almost any cause. Also left out (user's
   decisions, 2026-11-15): a survivor whose every quote the judge found unrelated, and one whose
   quotes are all table rows when no description of them passes the checks. Its tree keeps it, and
-  a finding left with no claims goes to review, saying why.
+  a finding left with no claims goes to review, saying why. Once a finding's rework is over, a
+  plausible claim whose every quote a confirmed claim in it already shows is left out too
+  (`leave_out_repeated_quotes`, user's decision 2026-11-15).
 - No survivors: the finding has no claims and carries the search's review reason, so it reaches
   the review queue. The brief shows it there by its finding id, not by a claim.
 
@@ -78,11 +80,13 @@ from dataclasses import dataclass, field
 from langchain_core.runnables import RunnableLambda
 
 from sec_agent.agents.verification import (
+    TABLE_CELL,
     EntailmentJudge,
     EntailmentResult,
     check_citations,
     find_causal_language,
     judge_entailment,
+    table_header,
 )
 from sec_agent.contracts import ChunkLookup, FactLookup, MetricLookup
 from sec_agent.llm.client import LLMClient, LLMError, Role
@@ -127,17 +131,6 @@ STOP_AT_FIRST_CONFIRMATION = True
 # Chosen by hand: a restatement is written once per claim, and the first two such quotes are
 # usually the paragraph that states the cause and a line close to it.
 MAX_RESTATED_JUDGE_CALLS_PER_CLAIM = 2
-
-# A quoted table row means nothing without its table's title and column labels: on the first paid
-# Hershey run the writer read a segment-table row ("Cost of sales | 5,796,018 | 804,635 | 740,764",
-# columns North America Confectionery, Salty Snacks and International) as two years. The chunker
-# starts every table part with its title, scale caption and column labels (`_split_table`), so a
-# row is shown with the opening lines of its chunk that come before it (user's decision,
-# 2026-11-13). Four lines hold a title, a caption and two label rows, as in Hershey's tax note
-# ("For the year ended December 31, | 2025", then "Amount ($) | Percent (%)"). Chosen by hand.
-TABLE_HEADER_LINES = 4
-# How the parser writes table cells, so a quote holding one is a table row.
-TABLE_CELL = " | "
 
 # Words that deny or hedge a link. A restatement states a cause, so it never needs one, and on the
 # T6.4 Hershey labeling run (2026-11-13) a restatement that denied its link ("...increased net
@@ -395,25 +388,6 @@ class _Judged:
     # Quotes the judge found unrelated to the hypothesis as written: about another cause or change,
     # or showing the opposite direction. A plausible claim does not cite them.
     unrelated: list[Citation] = field(default_factory=list)
-
-
-def table_header(citation: Citation, chunks: ChunkLookup) -> str | None:
-    """The opening lines of the table a quoted row comes from, or None if it is not a table row.
-
-    Only lines before the row are taken, so a row near the top brings no rows after it.
-    """
-    if TABLE_CELL not in citation.quote:
-        return None
-    chunk = chunks.get_chunk(citation.chunk_id)
-    if chunk is None:
-        return None
-    lines = chunk.text.split("\n")
-    first = " ".join(citation.quote.split("\n")[0].split())
-    at = next((n for n, line in enumerate(lines) if first in " ".join(line.split())), None)
-    if at is None:
-        return None
-    header = [line for line in lines[: min(at, TABLE_HEADER_LINES)] if line.strip()]
-    return "\n".join(header) or None
 
 
 def _shown_quote(citation: Citation, chunks: ChunkLookup) -> dict:
@@ -1121,6 +1095,66 @@ def _merge_same_claims(claims: Sequence[Claim], tally: _Tally) -> list[Claim]:
                 )
         merged.append(claim)
     return merged
+
+
+def _shows(confirmed: Citation, quote: Citation) -> bool:
+    """Whether `confirmed` shows all of `quote`: the same chunk, and its words inside."""
+    return confirmed.chunk_id == quote.chunk_id and _quote_key(quote)[1] in _quote_key(confirmed)[1]
+
+
+def leave_out_repeated_quotes(labeled: LabeledFinding) -> LabeledFinding:
+    """`labeled` without the plausible claims whose every quote a confirmed claim already shows.
+
+    On the fifth paid Hershey run a "higher freight, logistics and energy costs" hypothesis kept
+    only the cost-of-sales sentence a confirmed tariff claim cites, since "supply chain costs,
+    including tariffs" is broader than freight. Worded as plausible, it said the brief "did not
+    confirm a link to gross margin" for that sentence, beside the claim confirming it, and the
+    summary repeated that (user's decision, 2026-11-15). Such a claim adds no evidence to the
+    brief, so it is left out, with a failure note; its tree keeps it. A quote counts as shown when
+    a confirmed claim in the same finding cites it, or a longer quote around it from the same
+    chunk. Claims in other findings explain other changes, so their quotes do not count.
+
+    The graph calls this once the finding's rework is over, so a plausible claim keeps its rework
+    rounds, and a claim confirmed in rework covers others too. The finding keeps a confirmed claim,
+    so it never goes to review for this. Calling it again changes nothing.
+    """
+    finding = labeled.finding
+    confirmed = [c for c in finding.claims if c.label is ExplanationLabel.CONFIRMED]
+    kept: list[Claim] = []
+    failures: list[str] = []
+    for claim in finding.claims:
+        repeated = (
+            claim.label is ExplanationLabel.PLAUSIBLE
+            and claim.citations
+            and all(
+                any(_shows(shown, quote) for other in confirmed for shown in other.citations)
+                for quote in claim.citations
+            )
+        )
+        if not repeated:
+            kept.append(claim)
+            continue
+        showing = [
+            other.claim_id
+            for other in confirmed
+            if any(_shows(shown, quote) for shown in other.citations for quote in claim.citations)
+        ]
+        failures.append(
+            f"claim {claim.claim_id}: every quote it cites is shown by confirmed claim "
+            f"{', '.join(showing)}, so it is left out of the brief"
+        )
+    if not failures:
+        return labeled
+    left = {claim.claim_id for claim in kept}
+    return labeled.model_copy(
+        update={
+            "finding": finding.model_copy(update={"claims": tuple(kept)}),
+            "failures": (*labeled.failures, *failures),
+            # A left-out claim's rework item, if its rounds ran out, would name a claim the finding
+            # no longer has. Its review note, if any, stays (as for any left-out claim).
+            "rework": tuple(item for item in labeled.rework if item.claim_id in left),
+        }
+    )
 
 
 async def label_result(

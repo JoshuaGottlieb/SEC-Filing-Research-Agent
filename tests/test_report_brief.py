@@ -8,11 +8,12 @@ from typing import Any
 
 import pytest
 
-from sec_agent.agents.verification import find_causal_language
+from sec_agent.agents.verification import find_causal_language, find_table_header, table_header
 from sec_agent.compare.materiality import MaterialityDecision
 from sec_agent.report.brief import (
     NO_FINDINGS_SUMMARY,
     REF,
+    SKIPPED_ROWS,
     WRAP_WIDTH,
     BriefError,
     NotExamined,
@@ -20,6 +21,7 @@ from sec_agent.report.brief import (
     assign_refs,
     audit_trail,
     check_brief,
+    cited_lines,
     escape,
     format_summary_line,
     not_examined_line,
@@ -40,6 +42,7 @@ from sec_agent.schemas import (
     Brief,
     Change,
     ChangeKind,
+    Chunk,
     Citation,
     Claim,
     Comparison,
@@ -744,3 +747,118 @@ def test_the_summary_list_ends_before_the_next_heading():
 def test_an_unknown_metric_name_is_shown_raw():
     assert metric_name("gross_margin") == "Gross margin"
     assert metric_name("segment_mix") == "segment_mix"
+
+
+# A quoted table row is shown under its table's opening lines (user's decision, 2026-11-15).
+
+# Hershey's FY2025 income statement, as the chunker writes it.
+INCOME_STATEMENT = (
+    "CONSOLIDATED STATEMENTS OF INCOME\n"
+    "(in thousands, except per share amounts)\n"
+    "For the years ended December 31, | 2025 | 2024 | 2023\n"
+    "Net sales | $ | 11,692,576 | $ | 11,202,263 | $ | 11,164,992\n"
+    "Cost of sales | 7,769,885 | 5,901,375 | 6,167,176\n"
+    "Gross profit | 3,922,691 | 5,300,888 | 4,997,816"
+)
+TABLE_LINES = INCOME_STATEMENT.split("\n")
+GROSS_PROFIT = TABLE_LINES[5]
+
+
+class Chunks:
+    """A `ChunkLookup` holding the income statement under the id `row` gives it."""
+
+    def __init__(self, text: str = INCOME_STATEMENT) -> None:
+        self.text = text
+
+    def get_chunk(self, chunk_id: str) -> Chunk | None:
+        if chunk_id != "acc-2025:t82:0":
+            return None
+        return Chunk(
+            chunk_id=chunk_id,
+            paragraph_id="p-t82",
+            ticker="HSY",
+            cik="0000047111",
+            form=FormType.FORM_10K,
+            period=CURRENT,
+            section=Section.FINANCIAL_NOTES,
+            accession="acc-2025",
+            text=self.text,
+            token_count=80,
+        )
+
+
+def row(quote: str) -> Citation:
+    return cite(quote, Section.FINANCIAL_NOTES).model_copy(update={"chunk_id": "acc-2025:t82:0"})
+
+
+def shown(*lines: str) -> list[str]:
+    return [escape(line) for line in lines]
+
+
+def test_a_table_row_comes_after_its_tables_opening_lines_with_the_rows_between_marked():
+    assert cited_lines(row(GROSS_PROFIT), Chunks()) == shown(
+        *TABLE_LINES[:4], SKIPPED_ROWS, GROSS_PROFIT
+    )
+
+
+def test_a_row_right_after_the_opening_lines_has_no_gap_marked():
+    assert cited_lines(row(TABLE_LINES[3]), Chunks()) == shown(*TABLE_LINES[:4])
+    assert cited_lines(row(TABLE_LINES[4]), Chunks()) == shown(*TABLE_LINES[:5])
+
+
+def test_blank_lines_between_the_header_and_the_row_are_not_a_gap():
+    text = "\n".join([*TABLE_LINES[:4], "", "  ", GROSS_PROFIT])
+    assert cited_lines(row(GROSS_PROFIT), Chunks(text)) == shown(*TABLE_LINES[:4], GROSS_PROFIT)
+
+
+def test_prose_an_unknown_chunk_and_no_chunks_show_the_quote_alone():
+    prose = cite("Gross margin decreased due to higher input costs.")
+    assert cited_lines(prose, Chunks()) == shown(prose.quote)
+    elsewhere = row(GROSS_PROFIT).model_copy(update={"chunk_id": "acc-2025:t99:0"})
+    assert cited_lines(elsewhere, Chunks()) == shown(GROSS_PROFIT)
+    assert cited_lines(row(GROSS_PROFIT), None) == shown(GROSS_PROFIT)
+
+
+def test_a_row_on_its_tables_first_line_has_no_header():
+    top = TABLE_LINES[0] + " | x"
+    assert find_table_header(row(top), Chunks(top)) is None
+    assert table_header(row(top), Chunks(top)) is None
+
+
+def test_a_row_at_the_top_of_its_table_shows_alone():
+    assert cited_lines(row(TABLE_LINES[0] + " | x"), Chunks(TABLE_LINES[0] + " | x")) == shown(
+        TABLE_LINES[0] + " | x"
+    )
+
+
+def table_brief() -> Brief:
+    claim = Claim(
+        claim_id="run1:chg-gm:r1:c3",
+        text="Gross profit fell; this brief did not confirm a link to gross margin.",
+        label=ExplanationLabel.PLAUSIBLE,
+        citations=(row(GROSS_PROFIT),),
+    )
+    finding = MARGIN_FINDING.model_copy(update={"claims": (*MARGIN_FINDING.claims, claim)})
+    return brief(findings=(finding,), summary="Gross margin fell. [F1]")
+
+
+def test_the_brief_shows_the_header_and_the_audit_trail_keeps_the_bare_row(tmp_path):
+    files = write_run(table_brief(), tmp_path / "run1", metrics=METRICS, chunks=Chunks())
+    markdown = files.brief.read_text(encoding="utf-8")
+    block = "\n".join(f"  > {line}" for line in shown(*TABLE_LINES[:4], SKIPPED_ROWS, GROSS_PROFIT))
+    assert block in markdown
+    claims = json.loads(files.audit.read_text(encoding="utf-8"))["brief"]["findings"][0]["claims"]
+    assert claims[-1]["citations"][0]["quote"] == GROSS_PROFIT
+
+
+def test_without_chunks_the_brief_shows_the_row_alone():
+    markdown = render_markdown(table_brief(), METRICS)
+    assert f"  > {escape(TABLE_LINES[3])}" not in markdown
+    assert f"  > {escape(GROSS_PROFIT)}" in markdown
+
+
+def test_a_header_line_cannot_change_the_markdown():
+    text = "\n".join(["# <b>Totals</b> *bold*", "- | 2025 | 2024", GROSS_PROFIT])
+    lines = cited_lines(row(GROSS_PROFIT), Chunks(text))
+    assert lines[0] == escape("# <b>Totals</b> *bold*")
+    assert not lines[1].startswith("-")

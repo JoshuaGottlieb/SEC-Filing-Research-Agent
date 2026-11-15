@@ -238,6 +238,58 @@ def _appears_in(needle: str, haystack: str) -> bool:
     return re.search(pattern, haystack) is not None
 
 
+# A quoted table row means nothing without its table's title and column labels: on the first paid
+# Hershey run the writer read a segment-table row ("Cost of sales | 5,796,018 | 804,635 | 740,764",
+# columns North America Confectionery, Salty Snacks and International) as two years. The chunker
+# starts every table part with its title, scale caption and column labels (`_split_table`), so a
+# row is shown with the opening lines of its chunk that come before it (user's decision,
+# 2026-11-13). The brief shows a row the same way, since its reader needs the columns too (user's
+# decision, 2026-11-15: the fifth paid Hershey brief showed "Gross profit | 3,922,691 | 5,300,888
+# | 4,997,816" with no years or units). Four lines hold a title, a caption and two label rows, as
+# in Hershey's tax note ("For the year ended December 31, | 2025", then "Amount ($) | Percent
+# (%)"). Chosen by hand.
+TABLE_HEADER_LINES = 4
+# How the parser writes table cells, so a quote holding one is a table row.
+TABLE_CELL = " | "
+
+
+class TableHeader(NamedTuple):
+    """The opening lines of the table a quoted row comes from."""
+
+    text: str
+    # Whether lines of the table lie between those opening lines and the row, so that a reader
+    # shown both is told something was skipped.
+    gap: bool
+
+
+def find_table_header(citation: Citation, chunks: ChunkLookup) -> TableHeader | None:
+    """The table header of a quoted row, or None if it is not a table row or has none.
+
+    Only lines before the row are taken, so a row near the top brings no rows after it.
+    """
+    if TABLE_CELL not in citation.quote:
+        return None
+    chunk = chunks.get_chunk(citation.chunk_id)
+    if chunk is None:
+        return None
+    lines = chunk.text.split("\n")
+    first = " ".join(citation.quote.split("\n")[0].split())
+    at = next((n for n, line in enumerate(lines) if first in " ".join(line.split())), None)
+    if at is None:
+        return None
+    header = [line for line in lines[: min(at, TABLE_HEADER_LINES)] if line.strip()]
+    if not header:
+        return None
+    gap = any(line.strip() for line in lines[TABLE_HEADER_LINES:at])
+    return TableHeader("\n".join(header), gap)
+
+
+def table_header(citation: Citation, chunks: ChunkLookup) -> str | None:
+    """The opening lines of the table a quoted row comes from, or None if it is not a table row."""
+    found = find_table_header(citation, chunks)
+    return found.text if found is not None else None
+
+
 class CitationFailureKind(StrEnum):
     # The cited chunk does not exist.
     UNKNOWN_CHUNK = "unknown_chunk"

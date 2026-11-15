@@ -15,7 +15,8 @@ Two kinds of text reach the brief, and they are treated differently:
 - Text the system wrote (claims, the summary, change rationales, review reasons) goes through the
   causal-language check: only a confirmed claim may say why something happened (gap 13).
 - Filing text (quotes and changed paragraphs) is shown as a block quote and never checked: a
-  filing's own "due to" is evidence, not a claim of ours.
+  filing's own "due to" is evidence, not a claim of ours. A quoted table row is shown under its
+  table's opening lines, copied from the same chunk, so its columns can be read.
 
 All of it is escaped before it reaches the Markdown. Filing text is untrusted and model text may
 repeat it, so a quote must not be able to add a link, a heading or a fake reference.
@@ -37,9 +38,13 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from pydantic import Field
 
-from sec_agent.agents.verification import check_causal_language, find_causal_language
+from sec_agent.agents.verification import (
+    check_causal_language,
+    find_causal_language,
+    find_table_header,
+)
 from sec_agent.compare.materiality import MaterialityDecision
-from sec_agent.contracts import MetricLookup
+from sec_agent.contracts import ChunkLookup, MetricLookup
 from sec_agent.report.names import (
     CHANGE_KIND_NAMES,
     COMPARISON_NAMES,
@@ -383,13 +388,32 @@ def _source(citation: Citation) -> str:
     )
 
 
-def _claim_view(claim: Claim, refs: Refs, metrics: MetricLookup | None) -> dict:
+# Stands for the table rows between a header and the quoted row, as in a quotation.
+SKIPPED_ROWS = "[...]"
+
+
+def cited_lines(citation: Citation, chunks: ChunkLookup | None) -> list[str]:
+    """A quote's block-quote lines; a table row comes after its table's opening lines.
+
+    Display only: the citation, and so the audit trail, keeps the row alone. The lines shown are
+    the ones the judge and the claim writer read with the row (`find_table_header`).
+    """
+    header = find_table_header(citation, chunks) if chunks is not None else None
+    if header is None:
+        return quote_lines(citation.quote)
+    skipped = [escape(SKIPPED_ROWS)] if header.gap else []
+    return [*quote_lines(header.text), *skipped, *quote_lines(citation.quote)]
+
+
+def _claim_view(
+    claim: Claim, refs: Refs, metrics: MetricLookup | None, chunks: ChunkLookup | None
+) -> dict:
     return {
         "ref": refs.claims[claim.claim_id],
         "label": LABEL_NAMES[claim.label],
         "text": escape(claim.text),
         "citations": [
-            {"quote": quote_lines(citation.quote), "source": _source(citation)}
+            {"quote": cited_lines(citation, chunks), "source": _source(citation)}
             for citation in claim.citations
         ],
         "metrics": [escape(metric_line(metric_id, metrics)) for metric_id in claim.metric_ids],
@@ -397,7 +421,11 @@ def _claim_view(claim: Claim, refs: Refs, metrics: MetricLookup | None) -> dict:
 
 
 def _finding_view(
-    finding: Finding, comparison: Comparison, refs: Refs, metrics: MetricLookup | None
+    finding: Finding,
+    comparison: Comparison,
+    refs: Refs,
+    metrics: MetricLookup | None,
+    chunks: ChunkLookup | None,
 ) -> dict:
     change = finding.change
     texts = []
@@ -421,7 +449,7 @@ def _finding_view(
         "heading": escape(change_heading(change, metrics)),
         "rationale": escape(rationale) if rationale else None,
         "texts": texts,
-        "claims": [_claim_view(claim, refs, metrics) for claim in ordered_claims(finding)],
+        "claims": [_claim_view(claim, refs, metrics, chunks) for claim in ordered_claims(finding)],
     }
 
 
@@ -448,8 +476,12 @@ def render_markdown(
     brief: Brief,
     metrics: MetricLookup | None = None,
     not_examined: NotExamined | None = None,
+    chunks: ChunkLookup | None = None,
 ) -> str:
-    """The brief as Markdown. Call `check_brief` first; `write_run` does."""
+    """The brief as Markdown. Call `check_brief` first; `write_run` does.
+
+    `chunks` gives a quoted table row its table's opening lines; None shows the row alone.
+    """
     refs = assign_refs(brief.findings)
     comparison = brief.comparison
     summary = []
@@ -472,7 +504,7 @@ def render_markdown(
             {
                 "title": GROUP_TITLES[label],
                 "findings": [
-                    _finding_view(finding, comparison, refs, metrics) for finding in members
+                    _finding_view(finding, comparison, refs, metrics, chunks) for finding in members
                 ],
             }
             for label, members in grouped(brief.findings)
@@ -587,6 +619,7 @@ def write_run(
     untraced_rationales: Sequence[MaterialityDecision] = (),
     summary_used_template: bool | None = None,
     summary_failures: Sequence[str] = (),
+    chunks: ChunkLookup | None = None,
 ) -> RunFiles:
     """Check the brief, then write `brief.md` and `audit.json` into `out_dir`.
 
@@ -597,7 +630,7 @@ def write_run(
     problems = check_brief(brief)
     if problems:
         raise BriefError(problems)
-    markdown = render_markdown(brief, metrics, not_examined)
+    markdown = render_markdown(brief, metrics, not_examined, chunks)
     trail = audit_trail(
         brief,
         trees=trees,
