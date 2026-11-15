@@ -48,6 +48,7 @@ from sec_agent.schemas import (
     TreeNode,
 )
 from sec_agent.tot.controller import (
+    NOT_JUDGED_REASON,
     CandidateResult,
     Outcome,
     StopReason,
@@ -1697,6 +1698,9 @@ async def test_a_budget_stop_in_a_round_is_reported_not_raised(tree, config):
     found_round = await rework_round(ctx, node, tried)
     assert found_round.stopped is StopReason.RUN_BUDGET
     assert found_round.evidence == ()
+    cut_off = await tree.read_node(f"{node.node_id}:w1:e1")
+    assert (cut_off.status, cut_off.prune_reason) == (NodeStatus.PRUNED, NOT_JUDGED_REASON)
+    assert (await tree.read_node(node.node_id)).status is NodeStatus.KEPT
 
 
 async def test_a_generator_failure_ends_the_round_with_a_note(tree, config):
@@ -1905,3 +1909,50 @@ async def test_a_round_that_finds_nothing_new_still_retries_a_failed_judge_call(
     )
     assert reworked.labeled.finding.claims[0].label is ExplanationLabel.CONFIRMED
     assert not reworked.labeled.finding.needs_review
+
+
+# -- a branch the dollar cap cut off before its rating is closed, saying so ---------------------
+
+
+def two_searches() -> FakeGenerator:
+    return FakeGenerator(
+        [candidates(COCOA)],
+        {COCOA: sources(search("cocoa"), search("tariffs", Section.FINANCIAL_NOTES))},
+    )
+
+
+TWO_FOUND = {
+    ("cocoa", Section.MDNA): found("cocoa", passage("now-1")),
+    ("tariffs", Section.FINANCIAL_NOTES): found("tariffs", passage("now-2")),
+}
+
+
+async def test_a_branch_the_dollar_cap_cut_off_is_closed_as_not_judged(tree, config):
+    # Prescreen, then the first branch's rating; the second branch's rating hits the cap.
+    critic = FakeCritic(raise_after=(2, BudgetExceededError("cap reached")))
+    result = await explore(tree, config, two_searches(), critic, FakeRetriever(TWO_FOUND))
+    assert result.stopped is StopReason.RUN_BUDGET
+    nodes = await nodes_by_id(tree, result)
+    first, second = (nodes[f"{RUN}:{CHANGE.change_id}:r1:c1:e{n}"] for n in (1, 2))
+    assert first.status is NodeStatus.KEPT
+    assert (second.status, second.prune_reason) == (NodeStatus.PRUNED, NOT_JUDGED_REASON)
+    assert result.outcome is Outcome.RESOLVED
+
+
+async def test_a_candidate_whose_branches_were_all_cut_off_is_not_closed_as_failed(tree, config):
+    critic = FakeCritic(raise_after=(1, BudgetExceededError("cap reached")))
+    result = await explore(tree, config, two_searches(), critic, FakeRetriever(TWO_FOUND))
+    nodes = await nodes_by_id(tree, result)
+    branches = [node for node in nodes.values() if node.depth == 2]
+    assert {node.prune_reason for node in branches} == {NOT_JUDGED_REASON}
+    candidate_node = nodes[f"{RUN}:{CHANGE.change_id}:r1:c1"]
+    assert candidate_node.status is NodeStatus.KEPT
+    assert candidate_node.prune_reason is None
+
+
+async def test_a_branch_the_node_budget_cut_off_is_left_as_before(tree, config):
+    small = with_budget(config, first_round_nodes=2)
+    result = await explore(tree, small, two_searches(), FakeCritic(), FakeRetriever(TWO_FOUND))
+    assert result.stopped is StopReason.NODE_BUDGET
+    second = (await nodes_by_id(tree, result))[f"{RUN}:{CHANGE.change_id}:r1:c1:e2"]
+    assert (second.status, second.prune_reason) == (NodeStatus.PENDING, None)

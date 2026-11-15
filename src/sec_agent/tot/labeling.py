@@ -15,6 +15,10 @@ Each surviving candidate becomes one claim, labeled by the ToT design's standard
   numeric change the restatement must still name the changed metric or one that moves with it
   (`names_the_change`): on the second paid run one became the quote's own "Tariffs had a material
   negative impact on results of operations", which no longer explained the operating margin.
+  Two guards come before any judge call (user's decision, 2026-11-13, from the T6.4 Hershey
+  labeling run): a quote that covers a longer span of time than the change, such as six months
+  for a quarter, cannot confirm (`span_problem`), and a restatement that denies or hedges a link
+  is not judged (`DENIAL`).
 - `plausible`: every other survivor with a verified quote. It has evidence, but nothing confirmed
   states the cause. Its text is rewritten by a worker model to say what the evidence shows
   without linking cause and change, then checked in code.
@@ -43,6 +47,7 @@ failure, send the finding to review.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -62,6 +67,7 @@ from sec_agent.schemas import (
     Citation,
     Claim,
     Comparison,
+    Duration,
     EntailmentVerdict,
     EvidenceSupport,
     ExplanationLabel,
@@ -128,6 +134,28 @@ METRIC_WORDS: dict[MetricName, tuple[str, ...]] = {
     MetricName.OPERATING_INCOME: ("operating income", "operating profit"),
     MetricName.NET_INCOME: ("net income", "net earnings"),
 }
+
+# Words that deny or hedge a link. A restatement states a cause, so it never needs one, and on the
+# T6.4 Hershey labeling run (2026-11-13) a restatement that denied its link ("...increased net
+# sales; the quotes do not tie this to gross margin") passed `names_the_change` on the very words
+# of its denial and was confirmed (user's decision: reject it, 2026-11-13). Chosen by hand.
+DENIAL = re.compile(r"\b(?:not|no|never|neither|nor|without|cannot)\b|n't\b", re.IGNORECASE)
+
+# How a quote names the span of time it covers, to check it against the change's own span. On the
+# same run a six-month cost-of-sales paragraph confirmed a cause of a second-quarter gross margin
+# change (user's decision: a quote covering another span cannot confirm, 2026-11-13; narrowed to a
+# longer span, see `span_problem`). The phrases are those of Hershey's 10-K and 10-Q MD&A ("second
+# quarter of 2026", "first six months of 2026", "year ended December 31"), chosen by hand. A quote
+# that names no span is not checked.
+QUARTER_WORDS = re.compile(r"\bquarters?\b|\bthree[- ]months?\b|\bQ[1-4]\b", re.IGNORECASE)
+YEAR_TO_DATE_WORDS = re.compile(
+    r"\b(?:six|nine)[- ]months?\b|\bfirst half\b|\byear[- ]to[- ]date\b", re.IGNORECASE
+)
+FULL_YEAR_WORDS = re.compile(
+    r"\b(?:full|fiscal|calendar)[- ]year\b|\b(?:twelve|12)[- ]months?\b|\byear ended\b"
+    r"|\bfor the year\b|\bannual\b",
+    re.IGNORECASE,
+)
 
 # Why a finding whose explanations all lacked a quote goes to review. Plain words, no cause.
 METRIC_ONLY_REASON = (
@@ -201,6 +229,8 @@ Rules:
   something else, such as results of operations in general, give null.
 - If the quotes do not state the hypothesis's cause, even in broader words, or do not tie it to
   that change, give null for "text". Do not stretch a quote to fit.
+- Never deny or hedge a link ("the quotes do not tie this to gross margin"): where you would, give
+  null instead.
 - A figure is allowed only if it appears in a quote.
 - Write one sentence of at most 30 words.
 
@@ -389,6 +419,7 @@ async def _judge_quote(
     context: LabelingContext,
     tally: _Tally,
     *,
+    span: Duration | None = None,
     described: str = "the hypothesis as written",
 ) -> EntailmentResult | None:
     """The judge's verdict on `text` against one quote, or None if the quote cannot confirm it.
@@ -405,8 +436,10 @@ async def _judge_quote(
         metric_ids=metric_ids,
     )
     check = check_citations(draft, periods, context.chunks, context.metrics, context.facts)
-    if not check.passed:
-        details = "; ".join(failure.detail for failure in check.failures)
+    details = "; ".join(failure.detail for failure in check.failures)
+    if check.passed:
+        details = span_problem(_judged_quote(citation, context.chunks), span) or ""
+    if details:
         tally.failures.append(
             f"claim {claim_id}: quote from {citation.chunk_id} cannot confirm {described}: "
             f"{details}"
@@ -443,6 +476,12 @@ async def _restate(
     restated = (restated or "").strip()
     if not restated or _normalized(restated) == _normalized(hypothesis):
         return None
+    if DENIAL.search(restated):
+        tally.failures.append(
+            f"claim {claim_id}: the restatement {restated!r} denies or hedges a link, so it "
+            "cannot be confirmed"
+        )
+        return None
     if changed is not None and not names_the_change(restated, changed):
         tally.failures.append(
             f"claim {claim_id}: the restatement {restated!r} does not name "
@@ -450,6 +489,33 @@ async def _restate(
         )
         return None
     return restated
+
+
+def change_span(change: Change, metrics: MetricLookup) -> Duration | None:
+    """The span of time a numeric change covers, from its metric; None for a text change."""
+    if change.metric_id is None:
+        return None
+    metric = metrics.get_metric(change.metric_id)
+    return metric.duration if metric is not None else None
+
+
+def span_problem(quote: str, span: Duration | None) -> str | None:
+    """Why `quote` covers a longer span of time than a change over `span`, or None.
+
+    Only a longer span is a mismatch: six-month figures cannot say what happened in the quarter, but
+    a charge "recorded in the fourth quarter" is part of the year (one such quote was cited on the
+    first paid Hershey run). A quote counts as covering a longer span only if it names that span and
+    not the change's own: a second-quarter paragraph that also gives six-month figures still speaks
+    to the quarter.
+    """
+    quarter = bool(QUARTER_WORDS.search(quote))
+    year_to_date = bool(YEAR_TO_DATE_WORDS.search(quote))
+    full_year = bool(FULL_YEAR_WORDS.search(quote))
+    if span is Duration.THREE_MONTHS and (year_to_date or full_year) and not quarter:
+        return "the quote covers a longer span than the one quarter the change covers"
+    if span is Duration.YEAR_TO_DATE and full_year and not (year_to_date or quarter):
+        return "the quote covers a full year, and the change is year to date"
+    return None
 
 
 def names_the_change(text: str, changed: MetricName) -> bool:
@@ -483,6 +549,8 @@ async def _confirm(
     changed: MetricName | None,
     context: LabelingContext,
     tally: _Tally,
+    *,
+    span: Duration | None,
 ) -> _Judged:
     """Judge a survivor's quotes: the confirmed claim, if one earns it. Failures go in `tally`."""
     candidate = survivor.candidate
@@ -496,6 +564,7 @@ async def _confirm(
         changed,
         context,
         tally,
+        span=span,
     )
 
 
@@ -509,6 +578,8 @@ async def _judge_claim(  # noqa: PLR0913 -- one claim's judging, its inputs pass
     changed: MetricName | None,
     context: LabelingContext,
     tally: _Tally,
+    *,
+    span: Duration | None = None,
 ) -> _Judged:
     """Judge `hypothesis` against `quotes`, then a restatement if any only imply it.
 
@@ -530,7 +601,7 @@ async def _judge_claim(  # noqa: PLR0913 -- one claim's judging, its inputs pass
             continue
         judged.add(key)
         result = await _judge_quote(
-            claim_id, hypothesis, citation, metric_ids, periods, context, tally
+            claim_id, hypothesis, citation, metric_ids, periods, context, tally, span=span
         )
         if result is None:
             continue
@@ -557,6 +628,7 @@ async def _judge_claim(  # noqa: PLR0913 -- one claim's judging, its inputs pass
                 periods,
                 context,
                 tally,
+                span=span,
                 described="the restated hypothesis",
             )
             if result is None:
@@ -666,6 +738,7 @@ async def _label_survivor(
     changed: MetricName | None,
     context: LabelingContext,
     tally: _Tally,
+    span: Duration | None = None,
 ) -> Claim | None:
     """The survivor's claim, or None for one kept by computed metrics alone (see the module doc)."""
     citations = _citations(survivor.evidence)
@@ -686,7 +759,7 @@ async def _label_survivor(
             text=NO_EVIDENCE_TEXT,
             label=ExplanationLabel.UNRESOLVED,
         )
-    judged = await _confirm(survivor, metric_ids, periods, changed, context, tally)
+    judged = await _confirm(survivor, metric_ids, periods, changed, context, tally, span=span)
     if judged.claim is not None:
         return judged.claim
     if judged.implied or judged.unjudged:
@@ -768,8 +841,9 @@ async def label_result(
             + "; ".join(result.failures)
         )
     changed = changed_metric(change, context.metrics)
+    span = change_span(change, context.metrics)
     labeled = [
-        await _label_survivor(survivor, periods, changed, context, tally)
+        await _label_survivor(survivor, periods, changed, context, tally, span)
         for survivor in result.candidates
     ]
     claims = _merge_same_claims([claim for claim in labeled if claim is not None], tally)
@@ -830,6 +904,7 @@ async def relabel_claim(  # noqa: PLR0913 -- one claim's rework, its inputs pass
         changed_metric(finding.change, context.metrics),
         context,
         tally,
+        span=change_span(finding.change, context.metrics),
     )
     # A judge failure's note stands until the judge rules again: dropped once the claim is
     # confirmed, replaced by this round's outcome if it made any judge call, else kept.

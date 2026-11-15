@@ -100,6 +100,10 @@ TEXTS = {
     "fits": "We continue to monitor commodity markets closely.",
     "pricing": "Competitors increased promotional activity during 2025.",
     "removed": "A shortage of cocoa beans could disrupt our supply chain.",
+    # Hershey's Q2 2026 10-Q: a six-month paragraph, which cannot speak to the quarter alone.
+    "six_months": (
+        "Gross margin was 42.2% in the first six months of 2026, driven by higher input costs."
+    ),
     # Hershey's segment table (FY2025 10-K): its columns are segments, not years.
     "segments": (
         "Our segment net sales and earnings were as follows:\n"
@@ -220,7 +224,8 @@ class FakeWriter:
 
 
 def context(judge: FakeJudge, writer: FakeWriter, *, metrics=()) -> LabelingContext:
-    chunks = [chunk(key) for key in ("states", "implies", "fits", "pricing", "segments")]
+    keys = ("states", "implies", "fits", "pricing", "segments", "six_months")
+    chunks = [chunk(key) for key in keys]
     chunks.append(chunk("removed", PRIOR))
     return LabelingContext(
         judge=judge,
@@ -1242,3 +1247,111 @@ async def test_a_round_that_finds_an_earlier_implying_quote_again_does_not_judge
     )
     assert len(judge.calls) == calls
     assert after.rework == labeled.rework
+
+
+# -- the guards from the T6.4 Hershey labeling run (user's decision, 2026-11-13) --------------
+
+QUARTER_MARGIN = metric("gm-2025", CURRENT, 0.42).model_copy(
+    update={"duration": Duration.THREE_MONTHS}
+)
+
+
+@pytest.mark.parametrize(
+    ("quote", "span", "flagged"),
+    [
+        ("Cost of sales fell in the first six months of 2026.", Duration.THREE_MONTHS, True),
+        ("Sales rose in the nine-month period, year-to-date.", Duration.THREE_MONTHS, True),
+        ("For the year ended December 31, 2025, costs rose.", Duration.THREE_MONTHS, True),
+        (
+            "Margin rose in the second quarter and in the first six months of 2026.",
+            Duration.THREE_MONTHS,
+            False,
+        ),
+        ("Higher tariff costs lowered gross margin.", Duration.THREE_MONTHS, False),
+        # A quarter is part of its year: a charge recorded then still explains the year.
+        ("The charge was recorded in the fourth quarter of 2025.", Duration.TWELVE_MONTHS, False),
+        ("For the full year, costs rose.", Duration.YEAR_TO_DATE, True),
+        ("Costs rose in the second quarter.", Duration.YEAR_TO_DATE, False),
+        ("Cost of sales fell in the first six months of 2026.", None, False),
+    ],
+)
+def test_a_quote_covering_a_longer_span_than_the_change_is_flagged(quote, span, flagged):
+    assert (labeling.span_problem(quote, span) is not None) is flagged
+
+
+def test_the_changes_span_comes_from_its_metric():
+    assert labeling.change_span(MARGIN_CHANGE, FakeMetrics(QUARTER_MARGIN)) is Duration.THREE_MONTHS
+    assert labeling.change_span(MARGIN_CHANGE, FakeMetrics()) is None
+    text_change = MARGIN_CHANGE.model_copy(update={"kind": ChangeKind.ADDED, "metric_id": None})
+    assert labeling.change_span(text_change, FakeMetrics(QUARTER_MARGIN)) is None
+
+
+async def test_a_six_month_quote_cannot_confirm_a_quarterly_change():
+    judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
+    labeled = await label(narrow("six_months"), judge, FakeWriter(), metrics=(QUARTER_MARGIN,))
+    assert judge.calls == []
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert any("longer span" in failure for failure in labeled.failures)
+
+
+async def test_the_same_quote_confirms_a_change_over_its_own_span():
+    judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
+    labeled = await label(narrow("six_months"), judge, FakeWriter(), metrics=())
+    assert labeled.finding.claims[0].label is ExplanationLabel.CONFIRMED
+
+
+async def test_a_table_rows_header_counts_toward_its_span():
+    # The row names no span; its table opens "For the year ended December 31, 2025".
+    row = cite("segments").model_copy(
+        update={"quote": "Cost of sales | 5,796,018 | 804,635 | 740,764"}
+    )
+    assert labeling.span_problem(row.quote, Duration.THREE_MONTHS) is None
+    result = resolved(survivor(NARROW, branch(NARROW, 1, EvidenceSupport.STATES_CAUSE, row)))
+    judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
+    labeled = await label(result, judge, FakeWriter(), metrics=(QUARTER_MARGIN,))
+    assert judge.calls == []
+    assert any("longer span" in failure for failure in labeled.failures)
+
+
+async def test_a_rework_round_applies_the_span_guard_too():
+    judge = ClaimJudge({})
+    ctx = context(judge, FakeWriter(restated=None), metrics=(QUARTER_MARGIN,))
+    labeled = await label_result(narrow("implies"), MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    judge.default = EntailmentVerdict.STATES_CAUSE
+    calls = len(judge.calls)
+    after = await relabel(
+        labeled, ctx, new_branch(NARROW, EvidenceSupport.STATES_CAUSE, cite("six_months"))
+    )
+    assert len(judge.calls) == calls
+    assert after.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+
+
+DENYING = "Higher input costs raised net sales; the quotes do not tie this to gross margin."
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        DENYING,
+        "Higher input costs lowered gross margin, which the filings don't link.",
+        "Higher input costs, not pricing, lowered gross margin.",
+        "Gross margin fell with no stated cause.",
+    ],
+)
+async def test_a_restatement_that_denies_or_hedges_is_never_judged(text):
+    judge = ClaimJudge({(text, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE})
+    labeled = await label(narrow("states"), judge, FakeWriter(restated=text))
+    assert [claim for claim, _ in judge.calls] == [NARROW.thought]
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert any("denies or hedges a link" in failure for failure in labeled.failures)
+
+
+@pytest.mark.parametrize(
+    "text", ["Higher input costs lowered gross margin.", "Notably higher costs knocked margins."]
+)
+def test_the_denial_check_leaves_plain_causal_sentences_alone(text):
+    assert labeling.DENIAL.search(text) is None
+
+
+def test_the_restater_is_told_to_give_null_rather_than_deny():
+    assert "Never deny or hedge a link" in RESTATE_SYSTEM
