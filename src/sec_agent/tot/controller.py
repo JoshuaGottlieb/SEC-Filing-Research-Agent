@@ -87,6 +87,9 @@ from sec_agent.tree_mcp.store import BudgetUse, NodeUpdate
 # says why results moved), financial notes (detail behind the numbers), risk factors, business,
 # then market risk. `OTHER` would not be in it: only everywhere reaches those tables.
 
+# Why a branch the run's dollar cap cut off before its rating is closed.
+NOT_JUDGED_REASON = "not judged: the run's dollar budget was reached"
+
 # Strongest first, the order of the enum (a test pins it). A branch with no level sorts last.
 _EVIDENCE_RANK = {level: rank for rank, level in enumerate(EvidenceSupport)}
 
@@ -704,8 +707,9 @@ class _Exploration:
     async def _settle(self, branches: Sequence[_Branch]) -> list[_Branch]:
         """Apply the evidence beam to one candidate's `branches`; return the kept ones, best first.
 
-        A branch still waiting for its reformulated search is pruned first. The candidate's own
-        node is not touched: `_finalize` decides it, and a rework round must leave it as it is.
+        A branch still waiting for its reformulated search is pruned first, and so is one the
+        dollar cap cut off before it was judged. The candidate's own node is not touched:
+        `_finalize` decides it, and a rework round must leave it as it is.
         """
         beam = self._config.beam
         for branch in branches:
@@ -717,6 +721,11 @@ class _Exploration:
                 await self._record(
                     branch, "no evidence, and the search ended before its reformulated attempt"
                 )
+            elif not branch.decided and self._stopped is StopReason.RUN_BUDGET:
+                # Closed so the audit trail says why it has no rating (lane 2's suggestion, the
+                # user's decision, 2026-11-13). Left undecided, so its candidate is not closed as if
+                # its evidence had been weighed and failed.
+                await self._close(branch.node, NOT_JUDGED_REASON)
         eligible = [branch for branch in branches if branch.eligible]
         kept, dropped, _ = select_beam(
             eligible,
