@@ -60,8 +60,9 @@ Rules:
   the rule as surely as "it was caused by". To say that no cause was confirmed, write "this brief
   did not confirm a link". Never say that the filings do not link them or do not say why: another
   claim may cite a filing that does.
-- For a "plausible" claim, report what was seen and say that this brief did not confirm a link. Do
-  not state an "unresolved" claim at all; you may say that a change needs review, citing it.
+- For a "plausible" claim, report what was seen and say that this brief did not confirm a link to
+  its finding's change, naming that change. Do not state an "unresolved" claim at all; you may say
+  that a change needs review, citing it.
 - Use a figure only if it appears in a claim you cite, written the same way.
 - Never give investment advice: no recommendation, rating, price target or valuation view.
 - Put references only in "refs", never in "text".

@@ -22,11 +22,13 @@ from sec_agent.agents.verification import (
 from sec_agent.finance.metrics import metric_id_for
 from sec_agent.llm.client import LLMClient, LLMError, LLMRefusalError
 from sec_agent.llm.ledger import BudgetExceededError, CostLedger
+from sec_agent.report.summary import SUMMARY_SYSTEM
 from sec_agent.schemas import (
     Change,
     ChangeKind,
     Chunk,
     Citation,
+    Claim,
     Comparison,
     ComparisonType,
     Duration,
@@ -225,7 +227,11 @@ class FakeWriter:
 
     async def write(self, request: dict) -> PlausibleWording:
         self.requests.append(request)
-        item = self.texts.pop(0) if self.texts else "Promotions rose; the filings do not link this."
+        item = (
+            self.texts.pop(0)
+            if self.texts
+            else "Promotions rose; this brief did not confirm a link to gross margin."
+        )
         if isinstance(item, Exception):
             raise item
         return PlausibleWording(text=item)
@@ -364,8 +370,10 @@ async def test_the_critics_rating_alone_does_not_confirm(verdict):
     assert input_costs.label is ExplanationLabel.PLAUSIBLE
     assert input_costs.text != INPUT_COSTS.thought
     assert input_costs.entailment is None
-    # A plausible claim cites every verified quote of its kept branches, best branch first.
-    assert input_costs.citations == (cite("states"), cite("implies"), cite("fits"))
+    # A plausible claim cites every verified quote of its kept branches, best branch first, except
+    # one the judge found unrelated (user's decision, 2026-11-15).
+    kept = (cite("states"),) if verdict is EntailmentVerdict.IMPLIES else ()
+    assert input_costs.citations == (*kept, cite("implies"), cite("fits"))
 
 
 async def test_a_branch_rated_below_implies_never_reaches_the_judge_or_the_restater():
@@ -491,7 +499,7 @@ async def test_a_hypothesis_with_an_unbacked_figure_is_not_confirmed_and_no_judg
 
 
 async def test_two_confirmed_claims_are_co_drivers():
-    tariffs = candidate(2, "Higher input costs, including cocoa and sugar, lowered gross margin.")
+    tariffs = candidate(2, "Tariffs on imports lowered gross margin.")
     result = resolved(
         survivor(INPUT_COSTS, branch(INPUT_COSTS, 1, EvidenceSupport.STATES_CAUSE, cite("states"))),
         survivor(tariffs, branch(tariffs, 1, EvidenceSupport.STATES_CAUSE, cite("states"))),
@@ -578,6 +586,7 @@ async def test_the_writer_sees_the_hypothesis_quotes_and_metric_values_only():
             {"metric": "gross_margin", "period": "FY2025", "value": 0.335},
             {"metric": "gross_margin", "period": "FY2024", "value": 0.473},
         ],
+        "change_being_explained": "gross margin",
     }
 
 
@@ -1067,7 +1076,7 @@ def test_the_writer_is_told_a_rows_figures_mean_only_what_its_labels_say():
 def test_the_fixed_texts_and_the_prompt_example_pass_the_causal_check():
     example = (
         "Cocoa prices rose and gross margin fell; "
-        "this brief did not confirm a link between the two."
+        "this brief did not confirm a link to gross margin."
     )
     assert example in " ".join(WORDING_SYSTEM.split())
     for text in (example, FALLBACK_PLAUSIBLE_TEXT, NO_EVIDENCE_TEXT):
@@ -1794,9 +1803,9 @@ async def test_no_restatement_from_the_back_reference_means_no_more_judge_calls(
 
 
 async def test_a_restatement_naming_only_the_other_line_is_not_judged():
-    judge = ClaimJudge({}, default=EntailmentVerdict.UNRELATED)
+    judge = ClaimJudge({})
     drifted = "Higher tariff costs lowered gross margin."
-    labeled = await label_operating(judge, QueuedRestater(drifted))
+    labeled = await label_operating(judge, QueuedRestater(None, drifted))
     assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
     assert any(
         "from the back-reference does not name operating margin" in failure
@@ -1806,9 +1815,9 @@ async def test_a_restatement_naming_only_the_other_line_is_not_judged():
 
 
 async def test_a_restatement_with_an_unbacked_figure_is_not_judged_on_the_back_reference():
-    judge = ClaimJudge({}, default=EntailmentVerdict.UNRELATED)
+    judge = ClaimJudge({})
     unbacked = "Tariff costs up 9% lowered operating margin."
-    labeled = await label_operating(judge, QueuedRestater(unbacked))
+    labeled = await label_operating(judge, QueuedRestater(None, unbacked))
     assert all(quote != BACK_JUDGED for _, quote in judge.calls)
     assert any("the back-reference cannot confirm" in failure for failure in labeled.failures)
 
@@ -1861,3 +1870,169 @@ async def test_a_change_whose_metric_is_unknown_is_not_looked_up():
     judge = ClaimJudge({})
     labeled = await label_operating(judge, QueuedRestater(None), metrics=())
     assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+
+
+# -- paid4's issues (user's decisions, 2026-11-15) ----------------------------------------------
+# (a) a confirmed claim saying no more than another is folded into it
+
+
+def confirmed(n: int, text: str, key: str) -> Claim:
+    return Claim(
+        claim_id=f"{RUN}:chg-gm:r1:c{n}",
+        text=text,
+        label=ExplanationLabel.CONFIRMED,
+        citations=(cite(key),),
+        metric_ids=(f"m{n}",),
+        entailment=EntailmentVerdict.STATES_CAUSE,
+    )
+
+
+TARIFF_ONLY = "Higher tariff costs lowered operating margin."
+COMMODITY_AND_TARIFF = "Higher commodity and tariff costs lowered operating margin."
+
+
+def test_a_confirmed_claim_inside_a_broader_one_is_folded_into_it():
+    tally = labeling._Tally()
+    narrow_, broad_ = (
+        confirmed(1, TARIFF_ONLY, "states"),
+        confirmed(2, COMMODITY_AND_TARIFF, "fits"),
+    )
+    (claim,) = labeling._merge_same_claims([narrow_, broad_], tally)
+    assert (claim.claim_id, claim.text) == (broad_.claim_id, COMMODITY_AND_TARIFF)
+    assert claim.citations == (cite("fits"), cite("states"))
+    assert claim.metric_ids == ("m2", "m1")
+    assert tally.failures == [
+        f"claim {narrow_.claim_id}: confirmed as saying no more than {broad_.claim_id}, so merged"
+    ]
+
+
+def test_a_quote_both_claims_cite_is_cited_once():
+    narrow_, broad_ = (
+        confirmed(1, TARIFF_ONLY, "states"),
+        confirmed(2, COMMODITY_AND_TARIFF, "states"),
+    )
+    (claim,) = labeling._merge_same_claims([narrow_, broad_], labeling._Tally())
+    assert claim.citations == (cite("states"),)
+
+
+def test_claims_nested_three_deep_end_in_the_broadest():
+    claims = [
+        confirmed(1, "Higher costs lowered operating margin.", "states"),
+        confirmed(2, TARIFF_ONLY, "implies"),
+        confirmed(3, COMMODITY_AND_TARIFF, "fits"),
+    ]
+    (claim,) = labeling._merge_same_claims(claims, labeling._Tally())
+    assert claim.text == COMMODITY_AND_TARIFF
+    assert claim.citations == (cite("fits"), cite("states"), cite("implies"))
+
+
+def test_claims_with_their_own_words_stay_co_drivers_and_keep_their_order():
+    volume = confirmed(3, "Lower volume lowered operating margin.", "implies")
+    claims = [
+        confirmed(1, TARIFF_ONLY, "states"),
+        volume,
+        confirmed(2, COMMODITY_AND_TARIFF, "fits"),
+    ]
+    merged = labeling._merge_same_claims(claims, labeling._Tally())
+    assert [claim.text for claim in merged] == [volume.text, COMMODITY_AND_TARIFF]
+
+
+def test_claims_with_the_same_words_keep_the_first():
+    first = confirmed(1, "Tariff costs, higher, lowered operating margin.", "states")
+    second = confirmed(2, "Higher tariff costs lowered operating margin.", "fits")
+    (claim,) = labeling._merge_same_claims([first, second], labeling._Tally())
+    assert claim.claim_id == first.claim_id
+    assert claim.citations == (cite("states"), cite("fits"))
+
+
+def test_a_plausible_claim_is_never_folded():
+    plausible = confirmed(1, TARIFF_ONLY, "states").model_copy(
+        update={"label": ExplanationLabel.PLAUSIBLE, "entailment": None}
+    )
+    claims = [plausible, confirmed(2, COMMODITY_AND_TARIFF, "fits")]
+    assert labeling._merge_same_claims(claims, labeling._Tally()) == claims
+
+
+# (b) the plausible wording names the change it does not confirm a link to
+
+
+async def test_plausible_wording_that_does_not_name_the_change_is_rejected_and_retried():
+    vague = "Promotions rose and the margin fell; this brief did not confirm a link."
+    named = "Promotions rose; this brief did not confirm a link to gross margin."
+    writer = FakeWriter(vague, named)
+    metrics = (metric("gm-2025", CURRENT, 0.335), metric("gm-2024", PRIOR, 0.473))
+    result = resolved(
+        survivor(PRICING, branch(PRICING, 1, EvidenceSupport.CONSISTENT, cite("pricing")))
+    )
+    labeled = await label(result, FakeJudge({}), writer, metrics=metrics)
+    assert labeled.finding.claims[0].text == named
+    reason = writer.requests[1]["rejected"]["reason"]
+    assert reason == "it does not name gross margin, the change being explained"
+
+
+def test_the_writer_is_told_to_name_the_change_being_explained():
+    prose = " ".join(WORDING_SYSTEM.split())
+    assert 'When "change_being_explained" is given, name it as written there' in prose
+    assert "this brief did not confirm a link to gross margin" in prose
+    summary = " ".join(SUMMARY_SYSTEM.split())
+    assert (
+        "this brief did not confirm a link to its finding's change, naming that change" in summary
+    )
+
+
+# (c) a quote the judge found unrelated is not the plausible claim's evidence
+
+
+# The operating margin the refuted survivor's metric agrees with, so its quote reaches the judge.
+OPERATING_2025 = (metric("om-2025", CURRENT, 0.123),)
+
+
+def refuted_only(node: TreeNode) -> TreeNode:
+    return branch(
+        node,
+        1,
+        EvidenceSupport.STATES_CAUSE,
+        cite("pricing"),
+        numeric=NumericCheck.AGREE,
+        metric_ids=("om-2025",),
+    )
+
+
+async def test_a_claim_whose_every_quote_the_judge_refuted_is_left_out_and_the_finding_reviewed():
+    writer = FakeWriter()
+    judge = FakeJudge({}, default=EntailmentVerdict.UNRELATED)
+    labeled = await label(
+        resolved(survivor(PRICING, refuted_only(PRICING))), judge, writer, metrics=OPERATING_2025
+    )
+    assert labeled.finding.claims == ()
+    assert labeled.finding.review_reason == labeling.REFUTED_REASON
+    assert writer.requests == []
+    assert labeled.rework == ()
+    assert any(
+        f"claim {PRICING.node_id}: the judge found every quote unrelated" in failure
+        for failure in labeled.failures
+    )
+
+
+async def test_a_finding_left_empty_for_both_reasons_gives_both():
+    judge = FakeJudge({}, default=EntailmentVerdict.UNRELATED)
+    result = resolved(
+        survivor(PRICING, refuted_only(PRICING)), survivor(INPUT_COSTS, metric_only(INPUT_COSTS))
+    )
+    labeled = await label(result, judge, FakeWriter(), metrics=OPERATING_2025)
+    assert labeled.finding.review_reason == (
+        f"{labeling.REFUTED_REASON}; {labeling.METRIC_ONLY_REASON}"
+    )
+
+
+async def test_the_writer_never_sees_a_refuted_quote():
+    judge = FakeJudge({TEXTS["states"]: EntailmentVerdict.UNRELATED})
+    writer = FakeWriter()
+    await label(gross_margin_example(), judge, writer)
+    quotes = [shown["quote"] for shown in writer.requests[0]["quotes"]]
+    assert TEXTS["states"] not in quotes
+    assert quotes == [TEXTS["implies"], TEXTS["fits"]]
+
+
+def test_the_refuted_reason_names_no_cause():
+    assert find_causal_language(labeling.REFUTED_REASON) == ()
