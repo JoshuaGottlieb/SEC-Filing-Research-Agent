@@ -31,8 +31,13 @@ from sec_agent.schemas import Comparison, RetrievalResult, RetrievedPassage, Sec
 
 CROSS_ENCODER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 # How many fused candidates per period the cross-encoder reads, and how many passages are kept.
-# Both are the plan's figures.
-CANDIDATES_PER_PERIOD = 20
+# The cross-encoder is most of a search's time (87%, T6.6 profile), and its time is proportional to
+# the candidates it reads. The plan's 20 became 10 (user's decision, 2026-11-15), measured on HSY
+# only: a full search 4.94 s to 2.85 s on an idle machine; the benchmark's labeled passages in the
+# top 5 stayed 17 of 21; of 62 agent searches from the T6.4 trees, 51 kept the same passages, the
+# 14 of 194 kept passages lost all sat at hybrid ranks 11 to 18 (scores -0.2 to -5.3), and none
+# came back empty. `KEEP_PER_PERIOD` is the plan's figure.
+CANDIDATES_PER_PERIOD = 10
 KEEP_PER_PERIOD = 5
 # The lowest raw score a passage may have and still be kept. Set by the user on 2026-11-06 from a
 # study with no labels (proxy labels, three companies): of 120 searches for topics a filing lacks,

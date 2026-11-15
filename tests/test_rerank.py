@@ -118,8 +118,9 @@ def texts(passages) -> list[str]:
 
 
 def test_keeps_the_top_five_best_first_with_raw_scores():
-    pool = [chunk(n, f"passage {n}") for n in range(1, 21)]
-    # Scores run from -4 down to -23: negative, and far outside any 0 to 1 range, so a sigmoid
+    # The whole default pool, reversed, so the best five come last in hybrid order.
+    pool = [chunk(n, f"passage {n}") for n in range(1, CANDIDATES_PER_PERIOD + 1)]
+    # Scores run from -4 down: negative, and far outside any 0 to 1 range, so a sigmoid
     # sneaking in anywhere would change them.
     scores = {item.text: -4.0 - n for n, item in enumerate(pool)}
     shuffled = pool[::-1]
@@ -131,16 +132,16 @@ def test_keeps_the_top_five_best_first_with_raw_scores():
     assert [passage.score for passage in kept] == [-4.0, -5.0, -6.0, -7.0, -8.0]
 
 
-def test_reads_twenty_candidates_and_keeps_five_by_default():
+def test_reads_ten_candidates_and_keeps_five_by_default():
     searcher = FakeSearcher({CURRENT: [chunk(n, f"passage {n}") for n in range(1, 31)]})
     scorer = TableScorer({}, default=1.0)
     reranker = Reranker(searcher, scorer, min_score=0)
 
     kept = reranker.rerank("q", ChunkFilter(accession=CURRENT))
 
-    assert (CANDIDATES_PER_PERIOD, KEEP_PER_PERIOD) == (20, 5)
-    assert searcher.calls[0][2] == 20
-    assert len(scorer.calls[0][1]) == 20
+    assert (CANDIDATES_PER_PERIOD, KEEP_PER_PERIOD) == (10, 5)
+    assert searcher.calls[0][2] == 10
+    assert len(scorer.calls[0][1]) == 10
     assert len(kept) == 5
 
 

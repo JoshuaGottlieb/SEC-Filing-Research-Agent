@@ -11,7 +11,9 @@ labeled passage is looked for in four lists:
 - `reranked@5`: what the agent gets, the `Reranker` as built (`MIN_SCORE`, `KEEP_PER_PERIOD`).
 - `reranked@5, no cutoff`: the reranker's top 5 with no minimum score, so the cutoff's own cost
   shows apart from the reordering.
-- `hybrid@20`: the reranker's candidate pool (`CANDIDATES_PER_PERIOD`), the most it can reach.
+- `hybrid@pool`: the reranker's candidate pool (`CANDIDATES_PER_PERIOD`), the most it can reach.
+- `hybrid@20`: the hybrid top 20, the pool before it became 10 (2026-11-15), so the table shows
+  what the smaller pool gives up.
 
 The scored unit is the labeled quote (lane 1's method, its integration hand-off section 6). A quote
 is found when any chunk holding it within the question's section is in the list; chunks overlap,
@@ -22,6 +24,10 @@ whether it did.
 Hershey is the tuning set (lane 1 measured it on 2026-11-12: 17 of 21 found at `MIN_SCORE` -6, all
 4 misses in HSY-R01, and the absent side not emptied). The test file (MAT, SWK) is run once, for
 the reported table. The fact store and the index open read-only.
+
+Results: `recall_2026-11-13.json` (HSY and test, pool of 20, the reported table) and
+`recall_hsy_2026-11-15.json` (HSY, pool of 10). The test table was not rerun for the pool of 10,
+so it describes the earlier setting.
 """
 
 from __future__ import annotations
@@ -47,7 +53,9 @@ from sec_agent.retrieval.rerank import (
 from sec_agent.schemas import Comparison
 
 NO_CUTOFF = -1e9
-LISTS = ("hybrid@5", "reranked@5", "reranked@5_no_cutoff", "hybrid@20")
+# The candidate pool before it became 10, reported for comparison.
+EARLIER_POOL = 20
+LISTS = ("hybrid@5", "reranked@5", "reranked@5_no_cutoff", "hybrid@pool", "hybrid@20")
 
 
 def _side_filter(comparison: Comparison, side: Side, question: RetrievalQuestion) -> ChunkFilter:
@@ -84,7 +92,9 @@ def run(args: argparse.Namespace) -> None:
                 where = _side_filter(comparison, side, question)
                 hybrid_ids = [
                     c.chunk.chunk_id
-                    for c in hybrid.search(question.question, where, CANDIDATES_PER_PERIOD)
+                    for c in hybrid.search(
+                        question.question, where, max(CANDIDATES_PER_PERIOD, EARLIER_POOL)
+                    )
                 ]
                 agent_ids = [p.chunk.chunk_id for p in agent.rerank(question.question, where)]
                 wide_passages = wide.rerank(question.question, where)
@@ -94,7 +104,8 @@ def run(args: argparse.Namespace) -> None:
                     "hybrid@5": hybrid_ids[:KEEP_PER_PERIOD],
                     "reranked@5": agent_ids,
                     "reranked@5_no_cutoff": wide_ids[:KEEP_PER_PERIOD],
-                    "hybrid@20": hybrid_ids[:CANDIDATES_PER_PERIOD],
+                    "hybrid@pool": hybrid_ids[:CANDIDATES_PER_PERIOD],
+                    "hybrid@20": hybrid_ids[:EARLIER_POOL],
                 }
                 quotes = [q for q in question.quotes if q.side is side]
                 gold = []
@@ -140,12 +151,16 @@ def run(args: argparse.Namespace) -> None:
         "questions": len(questions),
         "gold_quotes": len(gold),
         "min_score": MIN_SCORE,
+        "candidates_per_period": CANDIDATES_PER_PERIOD,
         "found": totals,
         "absent_sides": len(absent),
         "absent_sides_emptied": emptied,
         "answered_sides_emptied": answered_empty,
     }
-    print(f"{len(questions)} questions, {len(gold)} labeled passages, MIN_SCORE {MIN_SCORE}")
+    print(
+        f"{len(questions)} questions, {len(gold)} labeled passages, MIN_SCORE {MIN_SCORE}, "
+        f"pool {CANDIDATES_PER_PERIOD}"
+    )
     for name in LISTS:
         share = totals[name] / len(gold) if gold else 0.0
         print(f"  {name:22} {totals[name]:3}/{len(gold)}  {share:.0%}")

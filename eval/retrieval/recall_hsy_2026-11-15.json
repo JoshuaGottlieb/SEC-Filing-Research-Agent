@@ -1,0 +1,572 @@
+{
+  "summary": {
+    "labels": "eval/benchmark/HSY.json",
+    "questions": 9,
+    "gold_quotes": 21,
+    "min_score": -6.0,
+    "candidates_per_period": 10,
+    "found": {
+      "hybrid@5": 18,
+      "reranked@5": 17,
+      "reranked@5_no_cutoff": 19,
+      "hybrid@pool": 21,
+      "hybrid@20": 21
+    },
+    "absent_sides": 1,
+    "absent_sides_emptied": 0,
+    "answered_sides_emptied": 0
+  },
+  "rows": [
+    {
+      "item_id": "HSY-R01",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "mdna",
+      "question": "what drove the change in gross margin for the most recent fiscal year",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 3,
+      "top_score": -2.558,
+      "gold": [
+        {
+          "quote": "The decrease was driven by higher commodity and tariff costs, unfavorable mark-to-market activity on our commodity deriv",
+          "chunk_ids": [
+            "0001628280-26-008586:mdna:0034:0"
+          ],
+          "found": {
+            "hybrid@5": false,
+            "reranked@5": false,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 6,
+          "reranked_rank": 4,
+          "rerank_score": -7.211
+        },
+        {
+          "quote": "Despite a strategic pricing action in the third quarter combined with other specific actions taken to mitigate these gro",
+          "chunk_ids": [
+            "0001628280-26-008586:mdna:0023:0"
+          ],
+          "found": {
+            "hybrid@5": false,
+            "reranked@5": false,
+            "reranked@5_no_cutoff": false,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 8,
+          "reranked_rank": 9,
+          "rerank_score": -9.829
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R01",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "mdna",
+      "question": "what drove the change in gross margin for the most recent fiscal year",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 2,
+      "top_score": -2.939,
+      "gold": [
+        {
+          "quote": "Gross margin was 47.3% in 2024 compared with 44.8% in 2023, an increase of 250 basis points.",
+          "chunk_ids": [
+            "0000047111-25-000014:mdna:0034:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": false,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 5,
+          "reranked_rank": 5,
+          "rerank_score": -8.667
+        },
+        {
+          "quote": "Despite specific actions taken to mitigate these gross margin pressures, we continue to experience overall declines in c",
+          "chunk_ids": [
+            "0000047111-25-000014:mdna:0022:0"
+          ],
+          "found": {
+            "hybrid@5": false,
+            "reranked@5": false,
+            "reranked@5_no_cutoff": false,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 10,
+          "reranked_rank": 7,
+          "rerank_score": -9.32
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R02",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "market_risk",
+      "question": "average cocoa futures price change for the year and cocoa crop outlook",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 4,
+      "top_score": 4.516,
+      "gold": [
+        {
+          "quote": "Higher cocoa prices to the consumer have lowered consumption and a second consecutive surplus is expected in the 2025 – ",
+          "chunk_ids": [
+            "0001628280-26-008586:market_risk:0023:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": 2.474
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R02",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "market_risk",
+      "question": "average cocoa futures price change for the year and cocoa crop outlook",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 4,
+      "top_score": 4.541,
+      "gold": [
+        {
+          "quote": "During 2024, average cocoa futures contract prices increased 131.5% compared with 2023 based on the Intercontinental Exc",
+          "chunk_ids": [
+            "0000047111-25-000014:market_risk:0023:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": 2.565
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R04",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "business",
+      "question": "employee headcount and share of workforce under collective bargaining",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 1,
+      "top_score": -1.498,
+      "gold": [
+        {
+          "quote": "Collective bargaining agreements covered approximately 5,570 employees, or approximately 28% of the Company’s employees ",
+          "chunk_ids": [
+            "0001628280-26-008586:business:0033:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 1,
+          "rerank_score": -1.498
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R04",
+      "comparison_id": "HSY:yoy-10k",
+      "section": "business",
+      "question": "employee headcount and share of workforce under collective bargaining",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 1,
+      "top_score": -0.632,
+      "gold": [
+        {
+          "quote": "As of December 31, 2024, the Company employed approximately 18,540 full-time and 1,490 part-time employees worldwide.",
+          "chunk_ids": [
+            "0000047111-25-000014:business:0033:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": -0.632
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R05",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "mdna",
+      "question": "consolidated second-quarter net sales change broken down by price, volume and acquisitions",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 2.431,
+      "gold": [
+        {
+          "quote": "Net sales were $2,787.3 million in the second quarter of 2026 compared to $2,614.7 million in the same period of 2025, a",
+          "chunk_ids": [
+            "0001628280-26-050900:mdna:0014:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 3,
+          "rerank_score": 1.605
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R05",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "mdna",
+      "question": "consolidated second-quarter net sales change broken down by price, volume and acquisitions",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 3.585,
+      "gold": [
+        {
+          "quote": "The net sales increase reflects a volume increase of approximately 21%, related to everyday core U.S. confection",
+          "chunk_ids": [
+            "0000047111-25-000112:mdna:0018:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 3.585
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R06",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "market_risk",
+      "question": "foreign currency forward contracts fair value sensitivity to a 10% adverse rate move",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 3,
+      "top_score": 2.589,
+      "gold": [
+        {
+          "quote": "The potential decline in fair value of foreign currency forward exchange contracts resulting from a hypothetical near-te",
+          "chunk_ids": [
+            "0001628280-26-050900:market_risk:0000:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 2.589
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R06",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "market_risk",
+      "question": "foreign currency forward contracts fair value sensitivity to a 10% adverse rate move",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 3,
+      "top_score": 2.213,
+      "gold": [
+        {
+          "quote": "The potential decline in fair value of foreign currency forward exchange contracts resulting from a hypothetical near-te",
+          "chunk_ids": [
+            "0000047111-25-000112:market_risk:0000:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 2.213
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R07",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "mdna",
+      "question": "impact of the Middle East conflict on commodity prices, supply and results",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 4.846,
+      "gold": [
+        {
+          "quote": "For the first six months of 2026, this conflict did not have a material impact on our commodity prices or supply availab",
+          "chunk_ids": [
+            "0001628280-26-050900:mdna:0011:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 4.846
+        },
+        {
+          "quote": "as well as the conflict in the Middle East, we may continue to experience increasing supply chain costs, higher inflatio",
+          "chunk_ids": [
+            "0001628280-26-050900:mdna:0014:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 2,
+          "rerank_score": 3.845
+        },
+        {
+          "quote": "•Political, economic and/or financial market conditions, including impacts on our business arising from the ongoing conf",
+          "chunk_ids": [
+            "0001628280-26-050900:mdna:0099:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 3,
+          "reranked_rank": 3,
+          "rerank_score": 3.352
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R07",
+      "comparison_id": "HSY:yoy-10q",
+      "section": "mdna",
+      "question": "impact of the Middle East conflict on commodity prices, supply and results",
+      "side": "prior",
+      "absent": true,
+      "agent_returned": 5,
+      "top_score": -1.302,
+      "gold": []
+    },
+    {
+      "item_id": "HSY-R08",
+      "comparison_id": "HSY:seq-10q",
+      "section": "financial_notes",
+      "question": "effective income tax rate for the period and what drove it",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 2,
+      "top_score": 3.158,
+      "gold": [
+        {
+          "quote": "The 2025 effective tax rate was higher due to the impact of tax reserves and foreign rate differentials related to mark-",
+          "chunk_ids": [
+            "0001628280-26-050900:financial_notes:0097:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 3.158
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R08",
+      "comparison_id": "HSY:seq-10q",
+      "section": "financial_notes",
+      "question": "effective income tax rate for the period and what drove it",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 3,
+      "top_score": -2.864,
+      "gold": [
+        {
+          "quote": "The effective tax rates for the three months ended March 29, 2026 and March 30, 2025 were 26.6% and 30.7%, respectively.",
+          "chunk_ids": [
+            "0001628280-26-028682:financial_notes:0090:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": -2.864
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R09",
+      "comparison_id": "HSY:seq-10q",
+      "section": "financial_notes",
+      "question": "is the LesserEvil purchase price allocation final or still preliminary",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 4,
+      "top_score": 3.249,
+      "gold": [
+        {
+          "quote": "The purchase price allocation presented above has been finalized as of the second quarter of 2026.",
+          "chunk_ids": [
+            "0001628280-26-050900:financial_notes:0020:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 2,
+          "rerank_score": 2.701
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R09",
+      "comparison_id": "HSY:seq-10q",
+      "section": "financial_notes",
+      "question": "is the LesserEvil purchase price allocation final or still preliminary",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 4,
+      "top_score": 4.097,
+      "gold": [
+        {
+          "quote": "The purchase price allocation presented above is preliminary.",
+          "chunk_ids": [
+            "0001628280-26-028682:financial_notes:0018:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 4.097
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R10",
+      "comparison_id": "HSY:seq-10q",
+      "section": "mdna",
+      "question": "full-year 2026 capital expenditure guidance",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 3.196,
+      "gold": [
+        {
+          "quote": "we expect 2026 capital expenditures, including capitalized software, to be in the range of approximately $425 million to",
+          "chunk_ids": [
+            "0001628280-26-050900:mdna:0075:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 3.196
+        }
+      ]
+    },
+    {
+      "item_id": "HSY-R10",
+      "comparison_id": "HSY:seq-10q",
+      "section": "mdna",
+      "question": "full-year 2026 capital expenditure guidance",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 3.499,
+      "gold": [
+        {
+          "quote": "we expect 2026 capital expenditures, including capitalized software, to be in the range of approximately $425 million to",
+          "chunk_ids": [
+            "0001628280-26-028682:mdna:0057:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 3.499
+        }
+      ]
+    }
+  ]
+}
