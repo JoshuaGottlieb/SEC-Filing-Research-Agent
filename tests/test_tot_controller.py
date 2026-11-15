@@ -15,6 +15,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
+from sec_agent.agents.verification import EntailmentJudgment
 from sec_agent.llm.client import LLMError
 from sec_agent.llm.ledger import BudgetExceededError, CostLedger
 from sec_agent.retrieval.hybrid import IndexOutOfSyncError
@@ -26,8 +27,10 @@ from sec_agent.schemas import (
     ComparisonType,
     Direction,
     Duration,
+    EntailmentVerdict,
     EvidenceSourceRef,
     EvidenceSupport,
+    ExplanationLabel,
     Filing,
     FiscalPeriod,
     FormType,
@@ -55,7 +58,9 @@ from sec_agent.tot.controller import (
     claim_of,
     explore_change,
     explore_changes,
+    gather_evidence,
     select_beam,
+    tried_searches,
 )
 from sec_agent.tot.critic import (
     EvidenceCritique,
@@ -69,6 +74,8 @@ from sec_agent.tot.generator import (
     EvidenceGeneration,
     EvidenceSource,
 )
+from sec_agent.tot.labeling import LabelingContext, PlausibleWording, Restatement, label_result
+from sec_agent.tot.rework import ReworkContext, rework_claim, rework_prefix
 from sec_agent.tot.scoring import Contradiction, ScoringConfig, Specificity
 from sec_agent.tree_mcp.client import InProcessTreeClient
 from sec_agent.tree_mcp.store import TreeStore
@@ -206,11 +213,14 @@ class FakeGenerator:
         self,
         rounds: Sequence[CandidateGeneration],
         sources: dict[str, EvidenceGeneration] | None = None,
+        rework: dict[str, EvidenceGeneration] | None = None,
     ) -> None:
         self.rounds = list(rounds)
         self.sources = sources or {}
+        self.rework = rework or {}
         self.candidate_calls: list[dict] = []
         self.source_calls: list[str] = []
+        self.rework_calls: list[tuple[str, tuple]] = []
 
     async def propose_candidates(
         self, change, comparison, metrics, *, count: int = 6, already_tried: Sequence[str] = ()
@@ -223,6 +233,12 @@ class FakeGenerator:
     ) -> EvidenceGeneration:
         self.source_calls.append(node.thought)
         return self.sources.get(node.thought, EvidenceGeneration())
+
+    async def propose_rework_sources(
+        self, node: TreeNode, change, comparison, metrics, *, count: int = 6, already_tried=()
+    ) -> EvidenceGeneration:
+        self.rework_calls.append((node.thought, tuple(already_tried)))
+        return self.rework.get(node.thought, EvidenceGeneration())
 
 
 class FakeCritic:
@@ -1560,3 +1576,332 @@ def test_an_unresolved_result_has_no_survivors_and_says_why():
             candidates=(CandidateResult(candidate=a_node(), evidence=()),),
             review_reason="why",
         )
+
+
+# -- a rework round (T5.5) --------------------------------------------------------------------
+
+COCOA = "Cocoa costs rose"
+
+
+async def implied_survivor(
+    tree, config, rework: EvidenceGeneration, *, by_chunk=None, script=None, raise_after=None
+):  # noqa: PLR0913
+    """A search whose one survivor's quote only implies it, ready for a rework round."""
+    generator = FakeGenerator(
+        [candidates(COCOA)], {COCOA: sources(search("cocoa"))}, rework={COCOA: rework}
+    )
+    critic = FakeCritic(
+        by_chunk={"now-1": Verdict(EvidenceSupport.IMPLIES), **(by_chunk or {})},
+        raise_after=raise_after,
+    )
+    retriever = FakeRetriever(
+        {("cocoa", Section.MDNA): found("cocoa", passage("now-1")), **(script or {})}
+    )
+    ctx = context(tree, config, generator, critic, retriever)
+    result = await explore_change(CHANGE, COMPARISON, ctx, RUN)
+    (survivor,) = result.candidates
+    nodes = await nodes_by_id(tree, result)
+    tried = [node for node in nodes.values() if node.parent_id == survivor.candidate.node_id]
+    return ctx, generator, critic, survivor.candidate, tried
+
+
+async def rework_round(ctx, node, tried):
+    return await gather_evidence(node, tried, CHANGE, COMPARISON, ctx, prefix=f"{node.node_id}:w1")
+
+
+async def test_a_rework_round_keeps_a_new_quote_that_states_the_cause(tree, config):
+    ctx, generator, _, node, tried = await implied_survivor(
+        tree,
+        config,
+        sources(search("tariff costs")),
+        by_chunk={"now-2": Verdict(EvidenceSupport.STATES_CAUSE)},
+        script={("tariff costs", Section.MDNA): found("tariff costs", passage("now-2"))},
+    )
+    found_round = await rework_round(ctx, node, tried)
+
+    (kept,) = found_round.evidence
+    assert kept.node_id == f"{node.node_id}:w1:e1"
+    assert (kept.parent_id, kept.run_id, kept.depth) == (node.node_id, node.run_id, 2)
+    assert kept.status is NodeStatus.KEPT
+    assert kept.evidence is EvidenceSupport.STATES_CAUSE
+    assert [c.chunk_id for c in kept.citations] == ["now-2"]
+    # The critic judged the claim, and the generator was told the search already made.
+    assert generator.rework_calls == [(COCOA, ((Section.MDNA, "cocoa"),))]
+    assert (found_round.node_evaluations, found_round.model_calls) == (1, 2)
+    assert found_round.stopped is None
+    assert (await tree.read_node(node.node_id)).status is NodeStatus.KEPT
+
+
+async def test_a_round_that_finds_nothing_never_prunes_the_kept_candidate(tree, config):
+    ctx, _, _, node, tried = await implied_survivor(tree, config, sources(search("tariff costs")))
+    found_round = await rework_round(ctx, node, tried)
+    assert found_round.evidence == ()
+    stored = await tree.read_node(node.node_id)
+    assert (stored.status, stored.prune_reason) == (NodeStatus.KEPT, None)
+    new = await tree.read_node(f"{node.node_id}:w1:e1")
+    assert new.status is NodeStatus.PRUNED
+    assert new.prune_reason == "no evidence after one reformulated search of everywhere"
+    # The earlier branch is untouched.
+    assert [(await tree.read_node(b.node_id)).status for b in tried] == [NodeStatus.KEPT]
+
+
+async def test_every_new_search_has_room_for_its_reformulated_attempt(tree, config):
+    queries = [f"query {n}" for n in range(config.beam.sources)]
+    script = {(query, None): found(query, passage(f"wide-{n}")) for n, query in enumerate(queries)}
+    by_chunk = {f"wide-{n}": Verdict(EvidenceSupport.NONE) for n in range(len(queries))}
+    ctx, _, _, node, tried = await implied_survivor(
+        tree, config, sources(*map(search, queries)), by_chunk=by_chunk, script=script
+    )
+    found_round = await rework_round(ctx, node, tried)
+    assert found_round.stopped is None
+    assert found_round.node_evaluations == 2 * config.beam.sources
+    reasons = {
+        (await tree.read_node(f"{node.node_id}:w1:e{n}")).prune_reason
+        for n in range(1, len(queries) + 1)
+    }
+    assert reasons == {"no evidence after one reformulated search of everywhere"}
+
+
+async def test_the_new_branches_have_their_own_evidence_beam(tree, config):
+    narrow = with_beam(config, evidence_width=1)
+    ctx, _, _, node, tried = await implied_survivor(
+        tree,
+        narrow,
+        sources(search("tariff costs"), search("freight costs", Section.FINANCIAL_NOTES)),
+        by_chunk={
+            "now-2": Verdict(EvidenceSupport.STATES_CAUSE),
+            "now-3": Verdict(EvidenceSupport.IMPLIES),
+        },
+        script={
+            ("tariff costs", Section.MDNA): found("tariff costs", passage("now-2")),
+            ("freight costs", Section.FINANCIAL_NOTES): found("freight costs", passage("now-3")),
+        },
+    )
+    found_round = await rework_round(ctx, node, tried)
+    assert [n.node_id for n in found_round.evidence] == [f"{node.node_id}:w1:e1"]
+    dropped = await tree.read_node(f"{node.node_id}:w1:e2")
+    assert dropped.prune_reason.startswith("outside the beam")
+    # The candidate's earlier kept branch still counts as kept beside the new one.
+    assert [(await tree.read_node(b.node_id)).status for b in tried] == [NodeStatus.KEPT]
+
+
+async def test_a_budget_stop_in_a_round_is_reported_not_raised(tree, config):
+    # The search makes two critic calls; the round's first call is the third.
+    ctx, _, _, node, tried = await implied_survivor(
+        tree,
+        config,
+        sources(search("tariff costs")),
+        script={("tariff costs", Section.MDNA): found("tariff costs", passage("now-2"))},
+        raise_after=(2, BudgetExceededError("cap reached")),
+    )
+    found_round = await rework_round(ctx, node, tried)
+    assert found_round.stopped is StopReason.RUN_BUDGET
+    assert found_round.evidence == ()
+
+
+async def test_a_generator_failure_ends_the_round_with_a_note(tree, config):
+    failed = EvidenceGeneration(failure="the generator failed: refused")
+    ctx, _, _, node, tried = await implied_survivor(tree, config, failed)
+    found_round = await rework_round(ctx, node, tried)
+    assert found_round.evidence == ()
+    assert found_round.failures == (f"{node.node_id}: the generator failed: refused",)
+
+
+async def test_a_round_is_only_for_a_candidate_of_the_change(tree, config):
+    ctx, _, _, node, tried = await implied_survivor(tree, config, sources())
+    with pytest.raises(ValueError, match="is not a candidate"):
+        await rework_round(ctx, tried[0], tried)
+
+
+def test_tried_searches_leave_out_metrics_and_empty_queries():
+    def node(n: int, **fields) -> TreeNode:
+        return TreeNode(
+            node_id=f"n{n}",
+            run_id=RUN,
+            change_id="c",
+            parent_id="p",
+            depth=2,
+            thought="t",
+            **fields,
+        )
+
+    branches = [
+        node(1, query_plan="cocoa", source=EvidenceSourceRef(section=Section.MDNA)),
+        node(2, query_plan="wide", source=EvidenceSourceRef(section=None)),
+        node(
+            3,
+            source=EvidenceSourceRef(metric=GROSS_MARGIN_DOWN),
+            expected_metrics=(GROSS_MARGIN_DOWN,),
+        ),
+        node(4, query_plan="  ", source=EvidenceSourceRef(section=Section.MDNA)),
+    ]
+    assert tried_searches(branches) == ((Section.MDNA, "cocoa"), (None, "wide"))
+
+
+# -- a whole rework round for one claim: search, then relabel (tot/rework.py) ------------------
+
+
+class QuoteJudge:
+    """An entailment judge that finds a quote states the cause only if it names one of `states`."""
+
+    def __init__(self, *states: str) -> None:
+        self.states = states
+        self.calls: list[tuple[str, str]] = []
+
+    async def judge(self, claim: str, quote: str) -> EntailmentJudgment:
+        self.calls.append((claim, quote))
+        stated = any(key in quote for key in self.states)
+        verdict = EntailmentVerdict.STATES_CAUSE if stated else EntailmentVerdict.IMPLIES
+        return EntailmentJudgment(verdict=verdict, reason="scripted")
+
+
+class PlainWriter:
+    async def write(self, request: dict) -> PlausibleWording:
+        return PlausibleWording(text="Cocoa prices rose; the filings do not link them.")
+
+    async def restate(self, request: dict) -> Restatement:
+        return Restatement(text=None)
+
+
+class Chunks:
+    def __init__(self, *chunks: Chunk) -> None:
+        self.chunks = {chunk.chunk_id: chunk for chunk in chunks}
+
+    def get_chunk(self, chunk_id: str) -> Chunk | None:
+        return self.chunks.get(chunk_id)
+
+
+class NoFacts:
+    def find_usd_fact(self, accession: str, value: float, tolerance: float) -> str | None:
+        return None
+
+
+async def test_a_rework_round_confirms_a_claim_its_first_quote_only_implied(tree, config):
+    generator = FakeGenerator(
+        [candidates(COCOA)],
+        {COCOA: sources(search("cocoa"))},
+        rework={COCOA: sources(search("tariff costs"))},
+    )
+    critic = FakeCritic(
+        by_chunk={
+            "now-1": Verdict(EvidenceSupport.STATES_CAUSE),
+            "now-2": Verdict(EvidenceSupport.STATES_CAUSE),
+        }
+    )
+    retriever = FakeRetriever(
+        {
+            ("cocoa", Section.MDNA): found("cocoa", passage("now-1")),
+            ("tariff costs", Section.MDNA): found("tariff costs", passage("now-2")),
+        }
+    )
+    tot = context(tree, config, generator, critic, retriever)
+    judge = QuoteJudge("(now-2)")
+    labeling_context = LabelingContext(
+        judge=judge,
+        writer=PlainWriter(),
+        chunks=Chunks(passage("now-1").chunk, passage("now-2").chunk),
+        metrics=NoMetrics(),
+        facts=NoFacts(),
+    )
+    result = await explore_change(CHANGE, COMPARISON, tot, RUN)
+    labeled = await label_result(result, CHANGE, COMPARISON, labeling_context, RUN)
+    (claim,) = labeled.finding.claims
+    assert claim.label is ExplanationLabel.PLAUSIBLE
+    assert [item.claim_id for item in labeled.rework] == [claim.claim_id]
+
+    reworked = await rework_claim(
+        labeled,
+        claim.claim_id,
+        COMPARISON,
+        ReworkContext(tot=tot, labeling=labeling_context),
+        prefix=rework_prefix(claim.claim_id, 1),
+    )
+
+    (confirmed,) = reworked.labeled.finding.claims
+    assert confirmed.label is ExplanationLabel.CONFIRMED
+    assert [c.chunk_id for c in confirmed.citations] == ["now-2"]
+    assert reworked.labeled.rework == ()
+    assert (reworked.node_evaluations, reworked.stopped) == (1, None)
+    # The generator was told the first search, read back from the tree.
+    assert generator.rework_calls == [(COCOA, ((Section.MDNA, "cocoa"),))]
+    assert [quote for _, quote in judge.calls] == [
+        passage("now-1").chunk.text,
+        passage("now-2").chunk.text,
+    ]
+
+
+async def test_a_rework_round_with_nothing_new_keeps_the_claim_and_notes_the_failure(tree, config):
+    generator = FakeGenerator(
+        [candidates(COCOA)],
+        {COCOA: sources(search("cocoa"))},
+        rework={COCOA: EvidenceGeneration(failure="the generator failed: refused")},
+    )
+    critic = FakeCritic(by_chunk={"now-1": Verdict(EvidenceSupport.STATES_CAUSE)})
+    retriever = FakeRetriever({("cocoa", Section.MDNA): found("cocoa", passage("now-1"))})
+    tot = context(tree, config, generator, critic, retriever)
+    labeling_context = LabelingContext(
+        judge=QuoteJudge(),
+        writer=PlainWriter(),
+        chunks=Chunks(passage("now-1").chunk),
+        metrics=NoMetrics(),
+        facts=NoFacts(),
+    )
+    result = await explore_change(CHANGE, COMPARISON, tot, RUN)
+    labeled = await label_result(result, CHANGE, COMPARISON, labeling_context, RUN)
+    claim_id = labeled.finding.claims[0].claim_id
+    reworked = await rework_claim(
+        labeled,
+        claim_id,
+        COMPARISON,
+        ReworkContext(tot=tot, labeling=labeling_context),
+        prefix=rework_prefix(claim_id, 1),
+    )
+    assert reworked.labeled.finding.claims == labeled.finding.claims
+    assert reworked.labeled.rework == labeled.rework
+    assert reworked.labeled.failures[-1] == f"rework: {claim_id}: the generator failed: refused"
+
+
+def test_a_resumed_attempt_gets_its_own_rework_node_ids():
+    assert rework_prefix("run:c:r1:c2", 1) == "run:c:r1:c2:w1"
+    assert (
+        rework_prefix("run:c:r1:c2", 2, "r20261113T120000Z") == "run:c:r1:c2:w2.r20261113T120000Z"
+    )
+
+
+class FailingOnceJudge(QuoteJudge):
+    """Fails on its first call, then rules as `QuoteJudge` does."""
+
+    async def judge(self, claim: str, quote: str) -> EntailmentJudgment:
+        if not self.calls:
+            self.calls.append((claim, quote))
+            raise LLMError("no parsable output")
+        return await super().judge(claim, quote)
+
+
+async def test_a_round_that_finds_nothing_new_still_retries_a_failed_judge_call(tree, config):
+    generator = FakeGenerator(
+        [candidates(COCOA)], {COCOA: sources(search("cocoa"))}, rework={COCOA: sources()}
+    )
+    critic = FakeCritic(by_chunk={"now-1": Verdict(EvidenceSupport.STATES_CAUSE)})
+    retriever = FakeRetriever({("cocoa", Section.MDNA): found("cocoa", passage("now-1"))})
+    tot = context(tree, config, generator, critic, retriever)
+    labeling_context = LabelingContext(
+        judge=FailingOnceJudge("(now-1)"),
+        writer=PlainWriter(),
+        chunks=Chunks(passage("now-1").chunk),
+        metrics=NoMetrics(),
+        facts=NoFacts(),
+    )
+    result = await explore_change(CHANGE, COMPARISON, tot, RUN)
+    labeled = await label_result(result, CHANGE, COMPARISON, labeling_context, RUN)
+    assert labeled.finding.needs_review
+    claim_id = labeled.finding.claims[0].claim_id
+    reworked = await rework_claim(
+        labeled,
+        claim_id,
+        COMPARISON,
+        ReworkContext(tot=tot, labeling=labeling_context),
+        prefix=rework_prefix(claim_id, 1),
+    )
+    assert reworked.labeled.finding.claims[0].label is ExplanationLabel.CONFIRMED
+    assert not reworked.labeled.finding.needs_review

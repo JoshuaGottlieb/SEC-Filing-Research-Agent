@@ -11,6 +11,8 @@ to prune and when to stop. It follows the ToT design:
   evidence is not contradicting evidence.
 - If every candidate is pruned, one fresh round of candidates is tried. If that also fails the item
   is unresolved, for human review.
+- After labeling, a kept candidate whose quotes only implied it can get rework rounds
+  (`gather_evidence`, T5.5): new searches under the same candidate, beamed on their own.
 
 It returns what survived and how, not a `Finding`. A finding's claims need a label, and a confirmed
 label needs the entailment judge (T4.5, T5.2), so the labeling step turns this result into claims.
@@ -56,7 +58,7 @@ from sec_agent.tot.critic import (
     evaluate_evidence,
     linked_metrics,
 )
-from sec_agent.tot.generator import ThoughtGenerator
+from sec_agent.tot.generator import ThoughtGenerator, TriedSearch
 from sec_agent.tot.scoring import ScoringConfig
 from sec_agent.tree_mcp.client import TreeClient
 from sec_agent.tree_mcp.store import BudgetUse, NodeUpdate
@@ -141,6 +143,20 @@ class ToTResult(Record):
         elif self.candidates or not self.review_reason:
             raise ValueError("an unresolved result has no survivors and says why")
         return self
+
+
+class EvidenceRound(Record):
+    """What one rework round found for a kept candidate (T5.5, `gather_evidence`)."""
+
+    candidate_id: str
+    # The round's new branches that survived the evidence beam, best first, as stored. They sit
+    # beside the candidate's earlier kept branches, so after a round the tree can show more than
+    # `evidence_width` kept branches under one candidate.
+    evidence: tuple[TreeNode, ...] = ()
+    stopped: StopReason | None = None
+    failures: tuple[str, ...] = ()
+    node_evaluations: int = 0
+    model_calls: int = 0
 
 
 @dataclass(frozen=True)
@@ -317,6 +333,20 @@ def claim_of(node: TreeNode, tree: Sequence[TreeNode]) -> str:
             raise ValueError(f"the tree has no candidate {node.parent_id!r} for {node.node_id!r}")
         return parent.thought
     raise ValueError("the root is the change that was flagged, not a claim")
+
+
+def tried_searches(branches: Sequence[TreeNode]) -> tuple[TriedSearch, ...]:
+    """The searches `branches` made, as the generator's `already_tried` takes them.
+
+    Metric sources are left out: a rework round proposes no metrics.
+    """
+    return tuple(
+        (branch.source.section if branch.source else None, branch.query_plan)
+        for branch in branches
+        if (branch.source is None or branch.source.metric is None)
+        and branch.query_plan
+        and branch.query_plan.strip()
+    )
 
 
 class _Exploration:
@@ -652,36 +682,11 @@ class _Exploration:
 
     async def _finalize(self, candidates: list[_Candidate]) -> list[_Candidate]:
         """Apply the evidence beam, prune what lost, and return the candidates that survived."""
-        beam = self._config.beam
         survivors: list[_Candidate] = []
         for candidate in candidates:
             if not candidate.in_beam:
                 continue
-            for branch in candidate.branches:
-                if branch.waiting_for_retry:
-                    # The budget ended before its reformulated search, so it is pruned for lack of
-                    # evidence, which says so honestly in the audit trail.
-                    branch.waiting_for_retry = False
-                    branch.decided = True
-                    await self._record(
-                        branch, "no evidence, and the search ended before its reformulated attempt"
-                    )
-            eligible = [branch for branch in candidate.branches if branch.eligible]
-            kept, dropped, _ = select_beam(
-                eligible,
-                beam.evidence_width,
-                beam.tie_margin,
-                lambda b: b.score,
-                lambda b: b.tie_key(),
-            )
-            for branch in kept:
-                await self._update(branch.node, status=NodeStatus.KEPT)
-            for branch in dropped:
-                await self._close(
-                    branch.node,
-                    f"outside the beam: scored {branch.score:.2f}, and only the top "
-                    f"{beam.evidence_width} evidence branches per candidate stay",
-                )
+            kept = await self._settle(candidate.branches)
             candidate.kept = kept
             if kept:
                 survivors.append(candidate)
@@ -695,6 +700,99 @@ class _Exploration:
                 await self._close(candidate.node, reason)
         survivors.sort(key=lambda c: -c.kept[0].score)
         return survivors
+
+    async def _settle(self, branches: Sequence[_Branch]) -> list[_Branch]:
+        """Apply the evidence beam to one candidate's `branches`; return the kept ones, best first.
+
+        A branch still waiting for its reformulated search is pruned first. The candidate's own
+        node is not touched: `_finalize` decides it, and a rework round must leave it as it is.
+        """
+        beam = self._config.beam
+        for branch in branches:
+            if branch.waiting_for_retry:
+                # The budget ended before its reformulated search, so it is pruned for lack of
+                # evidence, which says so honestly in the audit trail.
+                branch.waiting_for_retry = False
+                branch.decided = True
+                await self._record(
+                    branch, "no evidence, and the search ended before its reformulated attempt"
+                )
+        eligible = [branch for branch in branches if branch.eligible]
+        kept, dropped, _ = select_beam(
+            eligible,
+            beam.evidence_width,
+            beam.tie_margin,
+            lambda b: b.score,
+            lambda b: b.tie_key(),
+        )
+        for branch in kept:
+            await self._update(branch.node, status=NodeStatus.KEPT)
+        for branch in dropped:
+            await self._close(
+                branch.node,
+                f"outside the beam: scored {branch.score:.2f}, and only the top "
+                f"{beam.evidence_width} evidence branches per candidate stay",
+            )
+        return kept
+
+    # -- a rework round (T5.5) ----------------------------------------------------------------
+
+    async def gather(
+        self, candidate: TreeNode, tried: Sequence[TreeNode], prefix: str
+    ) -> EvidenceRound:
+        """One rework round for a kept `candidate`: new searches, judged and beamed on their own.
+
+        Twice `beam.sources` node evaluations, so that every new search can still have its
+        reformulated attempt, which takes a second evaluation when it finds a passage from the
+        claim's period. With only `beam.sources`, each retry would hit the cap. Chosen by hand.
+        """
+        self._used, self._limit = 0, 2 * self._config.beam.sources
+        branches: list[_Branch] = []
+        try:
+            proposal = await self._context.generator.propose_rework_sources(
+                candidate,
+                self._change,
+                self._comparison,
+                self._context.metrics,
+                count=self._config.beam.sources,
+                already_tried=tried_searches(tried),
+            )
+            self._model_calls += 1
+            if proposal.failure:
+                self._failures.append(f"{candidate.node_id}: {proposal.failure}")
+            for number, source in enumerate(proposal.sources, start=1):
+                node = TreeNode(
+                    node_id=f"{prefix}:e{number}",
+                    run_id=candidate.run_id,
+                    change_id=candidate.change_id,
+                    parent_id=candidate.node_id,
+                    depth=2,
+                    thought=source.description,
+                    query_plan=source.query,
+                    expected_metrics=candidate.expected_metrics,
+                    source=EvidenceSourceRef(section=source.section),
+                )
+                await self._context.tree.create_node(node)
+                branches.append(_Branch(node=node, claim=claim_node(candidate, node)))
+            for branch in branches:
+                await self._evaluate(branch)
+            for branch in branches:
+                if branch.waiting_for_retry:
+                    await self._retry(branch)
+        except _NodeCap:
+            self._stop(StopReason.NODE_BUDGET)
+        except BudgetExceededError:
+            self._stop(StopReason.RUN_BUDGET)
+        kept = await self._settle(branches)
+        tree = self._context.tree
+        return EvidenceRound(
+            candidate_id=candidate.node_id,
+            evidence=tuple([await tree.read_node(branch.node.node_id) for branch in kept]),
+            stopped=self._stopped,
+            failures=tuple(self._failures),
+            node_evaluations=self._node_evaluations,
+            model_calls=self._model_calls,
+        )
 
     async def _result(self, survivors: list[_Candidate], fresh_round: bool) -> ToTResult:
         common = {
@@ -764,6 +862,30 @@ async def explore_change(
     reason, so the caller can stop and flag the changes it did not reach.
     """
     return await _Exploration(change, comparison, context, run_id).run()
+
+
+async def gather_evidence(  # noqa: PLR0913 -- one rework round, its inputs passed through
+    candidate: TreeNode,
+    tried: Sequence[TreeNode],
+    change: Change,
+    comparison: Comparison,
+    context: ToTContext,
+    *,
+    prefix: str,
+) -> EvidenceRound:
+    """Search again for evidence on a kept candidate whose quotes only implied it (T5.5 rework).
+
+    `candidate` is the depth 1 node as stored, and `tried` every evidence branch it already has,
+    kept or pruned; the generator is told their searches and proposes new ones only. The new
+    branches are created under the candidate as `{prefix}:e{n}` and go through the usual critic,
+    reformulated search and evidence beam, on their own. The candidate's node is never changed,
+    since it is kept and already labeled, and a pruned node cannot come back. `BudgetExceededError`
+    is caught as in `explore_change`: `stopped` says so.
+    """
+    if candidate.depth != 1 or candidate.change_id != change.change_id:
+        raise ValueError(f"node {candidate.node_id!r} is not a candidate for {change.change_id!r}")
+    exploration = _Exploration(change, comparison, context, candidate.run_id)
+    return await exploration.gather(candidate, tried, prefix)
 
 
 async def explore_changes(

@@ -1020,3 +1020,225 @@ async def test_the_real_writer_sends_json_to_the_worker_model(settings):
     assert sent["model"] == settings.model_worker
     assert sent["system"][0]["text"] == WORDING_SYSTEM
     assert json.loads(sent["messages"][0]["content"]) == request
+
+
+# -- the rework loop (T5.5): which claims go back, and relabeling on a round's evidence -------
+
+
+async def test_a_claim_its_quote_only_implied_is_listed_for_rework():
+    labeled = await label(narrow("states"), ClaimJudge({}), FakeWriter(restated=None))
+    (item,) = labeled.rework
+    assert item.claim_id == NARROW.node_id
+    assert item.implied == (cite("states"),)
+    assert (item.unjudged, item.review_note) == ((), None)
+
+
+async def test_a_judge_failure_is_listed_for_rework_with_its_review_note():
+    judge = ClaimJudge({(NARROW.thought, TEXTS["states"]): LLMError("no parsable output")})
+    labeled = await label(narrow("states"), judge, FakeWriter())
+    (item,) = labeled.rework
+    assert item.unjudged == (cite("states"),)
+    assert item.review_note is not None and NARROW.node_id in item.review_note
+    assert labeled.review_notes == (item.review_note,)
+    assert labeled.finding.review_reason == item.review_note
+
+
+@pytest.mark.parametrize("verdict", [EntailmentVerdict.UNRELATED, EntailmentVerdict.STATES_CAUSE])
+async def test_an_unrelated_or_confirmed_claim_is_not_listed(verdict):
+    labeled = await label(narrow("states"), ClaimJudge({}, default=verdict), FakeWriter())
+    assert labeled.rework == ()
+
+
+async def test_a_claim_the_judge_never_saw_is_not_listed():
+    # Its critic rated no quote as stating the cause, so there was nothing close to confirm.
+    result = resolved(
+        survivor(PRICING, branch(PRICING, 1, EvidenceSupport.CONSISTENT, cite("pricing")))
+    )
+    labeled = await label(result, ClaimJudge({}), FakeWriter())
+    assert labeled.rework == ()
+
+
+def new_branch(parent: TreeNode, evidence: EvidenceSupport, *citations: Citation) -> TreeNode:
+    found = branch(parent, 1, evidence, *citations)
+    return found.model_copy(update={"node_id": f"{parent.node_id}:w1:e1"})
+
+
+async def relabel(labeled, ctx, *evidence: TreeNode, node: TreeNode = NARROW):
+    return await labeling.relabel_claim(labeled, node.node_id, node, evidence, COMPARISON, ctx)
+
+
+async def test_a_new_quote_that_states_the_cause_confirms_the_claim():
+    judge = ClaimJudge({(NARROW.thought, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE})
+    ctx = context(judge, FakeWriter(restated=None))
+    labeled = await label_result(narrow("implies"), MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    before = labeled.judge_calls
+
+    after = await relabel(
+        labeled, ctx, new_branch(NARROW, EvidenceSupport.STATES_CAUSE, cite("states"))
+    )
+
+    (claim,) = after.finding.claims
+    assert claim.label is ExplanationLabel.CONFIRMED
+    assert claim.text == NARROW.thought
+    assert claim.citations == (cite("states"),)
+    assert after.rework == ()
+    # The quote judged in the first round is not judged as written again.
+    as_written = [quote for text, quote in judge.calls if text == NARROW.thought]
+    assert as_written == [TEXTS["implies"], TEXTS["states"]]
+    assert after.judge_calls == before + 1
+
+
+async def test_a_new_quote_rated_below_states_cause_is_not_judged():
+    judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
+    ctx = context(judge, FakeWriter(restated=None))
+    labeled = await label_result(
+        narrow("implies"),
+        MARGIN_CHANGE,
+        COMPARISON,
+        context(ClaimJudge({}), FakeWriter()),
+        RUN,
+    )
+    after = await relabel(labeled, ctx, new_branch(NARROW, EvidenceSupport.IMPLIES, cite("states")))
+    assert judge.calls == []
+    assert after.finding.claims == labeled.finding.claims
+    assert after.rework == labeled.rework
+
+
+async def test_a_restatement_is_written_from_new_and_earlier_implied_quotes():
+    judge = ClaimJudge({(BROAD, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE})
+    writer = FakeWriter(restated=None)
+    ctx = context(judge, writer)
+    labeled = await label_result(narrow("implies"), MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    writer.restated = BROAD
+
+    after = await relabel(
+        labeled, ctx, new_branch(NARROW, EvidenceSupport.STATES_CAUSE, cite("states"))
+    )
+
+    quotes = [shown["quote"] for shown in writer.restate_requests[-1]["quotes"]]
+    assert quotes == [TEXTS["states"], TEXTS["implies"]]
+    (claim,) = after.finding.claims
+    assert (claim.label, claim.text) == (ExplanationLabel.CONFIRMED, BROAD)
+
+
+async def test_without_a_new_implying_quote_no_restatement_is_made():
+    writer = FakeWriter(restated=BROAD)
+    ctx = context(ClaimJudge({}, default=EntailmentVerdict.UNRELATED), writer)
+    labeled = await label_result(
+        narrow("implies"), MARGIN_CHANGE, COMPARISON, context(ClaimJudge({}), FakeWriter()), RUN
+    )
+    after = await relabel(
+        labeled, ctx, new_branch(NARROW, EvidenceSupport.STATES_CAUSE, cite("states"))
+    )
+    assert writer.restate_requests == []
+    # What the earlier round found still stands for the next one.
+    assert after.rework[0].implied == (cite("implies"),)
+
+
+async def test_a_quote_the_judge_failed_on_is_judged_again_first_and_its_note_cleared():
+    judge = ClaimJudge({(NARROW.thought, TEXTS["states"]): LLMError("no parsable output")})
+    ctx = context(judge, FakeWriter())
+    labeled = await label_result(narrow("states"), MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    assert labeled.finding.needs_review
+    judge.by_claim[(NARROW.thought, TEXTS["states"])] = EntailmentVerdict.STATES_CAUSE
+
+    after = await relabel(labeled, ctx)
+
+    assert after.finding.claims[0].label is ExplanationLabel.CONFIRMED
+    assert after.finding.review_reason is None
+    assert after.review_notes == ()
+    assert after.rework == ()
+
+
+async def test_a_judge_failure_that_repeats_keeps_the_finding_under_review():
+    judge = ClaimJudge({(NARROW.thought, TEXTS["states"]): LLMError("no parsable output")})
+    ctx = context(judge, FakeWriter())
+    labeled = await label_result(narrow("states"), MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    after = await relabel(labeled, ctx)
+    assert after.finding.review_reason == labeled.finding.review_reason
+    assert after.rework[0].unjudged == (cite("states"),)
+
+
+async def test_the_judge_ruling_on_a_failed_quote_clears_its_note_without_confirming():
+    judge = ClaimJudge({(NARROW.thought, TEXTS["states"]): LLMError("no parsable output")})
+    ctx = context(judge, FakeWriter())
+    labeled = await label_result(narrow("states"), MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    judge.by_claim[(NARROW.thought, TEXTS["states"])] = EntailmentVerdict.UNRELATED
+    after = await relabel(labeled, ctx)
+    assert after.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert after.finding.review_reason is None
+    assert after.rework == ()
+
+
+async def test_a_note_stands_when_the_round_made_no_judge_call():
+    # A restatement's judge failure leaves no quote to retry as written, so nothing rules again.
+    judge = ClaimJudge({(BROAD, TEXTS["states"]): LLMRefusalError("claude-opus-5-5", None)})
+    ctx = context(judge, FakeWriter(restated=BROAD))
+    labeled = await label_result(narrow("states"), MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    after = await relabel(labeled, ctx)
+    assert after.finding.review_reason == labeled.finding.review_reason
+    assert after.rework[0].review_note == labeled.rework[0].review_note
+
+
+async def test_the_review_note_keeps_its_place_among_the_others():
+    result = narrow("states").model_copy(update={"failures": ("node x: refused",)})
+    judge = ClaimJudge({(NARROW.thought, TEXTS["states"]): LLMError("no parsable output")})
+    ctx = context(judge, FakeWriter())
+    labeled = await label_result(result, MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    lost, failed = labeled.review_notes
+    judge.by_claim[(NARROW.thought, TEXTS["states"])] = LLMError("still no parsable output")
+    after = await relabel(labeled, ctx)
+    assert after.review_notes[0] == lost
+    assert "still no parsable output" in after.review_notes[1]
+    assert after.finding.review_reason == "; ".join(after.review_notes)
+
+
+async def test_relabeling_a_claim_not_waiting_for_rework_is_refused():
+    labeled = await label(
+        narrow("states"), ClaimJudge({}, default=EntailmentVerdict.UNRELATED), FakeWriter()
+    )
+    with pytest.raises(ValueError, match="not waiting for rework"):
+        await relabel(labeled, context(ClaimJudge({}), FakeWriter()))
+
+
+async def test_relabeling_with_another_candidate_is_refused():
+    labeled = await label(narrow("states"), ClaimJudge({}), FakeWriter())
+    with pytest.raises(ValueError, match="is not the candidate"):
+        await labeling.relabel_claim(
+            labeled, NARROW.node_id, PRICING, (), COMPARISON, context(ClaimJudge({}), FakeWriter())
+        )
+
+
+async def test_a_reworked_claim_confirmed_as_an_existing_sentence_is_merged():
+    other = candidate(4, "Tariffs on imported packaging raised costs and lowered gross margin.")
+    result = resolved(
+        survivor(other, branch(other, 1, EvidenceSupport.STATES_CAUSE, cite("states"))),
+        survivor(NARROW, branch(NARROW, 1, EvidenceSupport.STATES_CAUSE, cite("implies"))),
+    )
+    judge = ClaimJudge({(BROAD, TEXTS["states"]): EntailmentVerdict.STATES_CAUSE})
+    writer = FakeWriter("Costs rose; the filings do not link them.", restated=BROAD)
+    ctx = context(judge, writer)
+    labeled = await label_result(result, MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    assert [c.label for c in labeled.finding.claims] == [
+        ExplanationLabel.CONFIRMED,
+        ExplanationLabel.PLAUSIBLE,
+    ]
+    judge.by_claim[(BROAD, TEXTS["fits"])] = EntailmentVerdict.STATES_CAUSE
+    after = await relabel(
+        labeled, ctx, new_branch(NARROW, EvidenceSupport.STATES_CAUSE, cite("fits"))
+    )
+    (claim,) = after.finding.claims
+    assert claim.claim_id == other.node_id
+    assert claim.citations == (cite("states"), cite("fits"))
+
+
+async def test_a_round_that_finds_an_earlier_implying_quote_again_does_not_judge_it_again():
+    judge = ClaimJudge({})
+    ctx = context(judge, FakeWriter(restated=None))
+    labeled = await label_result(narrow("implies"), MARGIN_CHANGE, COMPARISON, ctx, RUN)
+    calls = len(judge.calls)
+    after = await relabel(
+        labeled, ctx, new_branch(NARROW, EvidenceSupport.STATES_CAUSE, cite("implies"))
+    )
+    assert len(judge.calls) == calls
+    assert after.rework == labeled.rework

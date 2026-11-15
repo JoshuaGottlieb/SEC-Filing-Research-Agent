@@ -25,6 +25,11 @@ Each surviving candidate becomes one claim, labeled by the ToT design's standard
 - No survivors: the finding has no claims and carries the search's review reason, so it reaches
   the review queue. The brief shows it there by its finding id, not by a claim.
 
+Rework (T5.5, user's decision 2026-11-13): an unconfirmed claim that a quote only implied, or whose
+judge call failed, is listed in `LabeledFinding.rework`. The graph sends it back for more evidence
+(at most `rework.MAX_REWORK_ROUNDS` rounds), and `relabel_claim` judges what each round found. A
+claim still unconfirmed after the last round stays plausible: it was worded for that label already.
+
 The critic's rating alone never confirms a claim: it only decides which quotes are worth the judge's
 call. Co-drivers need no field of their own: two or more confirmed claims in one finding are
 co-drivers, and the judge has already narrowed the search's list to them.
@@ -253,6 +258,24 @@ class LabelingContext:
     facts: FactLookup
 
 
+class ReworkItem(Record):
+    """A claim that more evidence might confirm, and what judging it has found so far.
+
+    Made for a claim left unconfirmed when the judge found a quote only implies it, or failed on
+    one (T5.5 rework loop, `relabel_claim`). Other unconfirmed claims are not sent back: their
+    critic rated no quote as stating the cause, or the judge found the quotes unrelated.
+    """
+
+    claim_id: str
+    # Quotes the judge found only imply the hypothesis. A later restatement is written from them as
+    # well as from new ones, and they are not judged as written again.
+    implied: tuple[Citation, ...] = ()
+    # Quotes whose judge call failed. The next round tries them again.
+    unjudged: tuple[Citation, ...] = ()
+    # The note a judge failure added to the finding's review reason; the next round replaces it.
+    review_note: str | None = None
+
+
 class LabeledFinding(Record):
     """A finding, with what labeling could not do, for the audit trail and the rework loop."""
 
@@ -263,6 +286,11 @@ class LabeledFinding(Record):
     failures: tuple[str, ...] = ()
     judge_calls: int = 0
     writer_calls: int = 0
+    # Claims the rework loop may send back for more evidence, in claim order.
+    rework: tuple[ReworkItem, ...] = ()
+    # The notes joined into the finding's review reason, kept apart so that a rework round can
+    # replace its claim's note without parsing the joined text.
+    review_notes: tuple[str, ...] = ()
 
 
 class _Tally:
@@ -271,8 +299,22 @@ class _Tally:
     def __init__(self) -> None:
         self.failures: list[str] = []
         self.review_notes: list[str] = []
+        self.rework: list[ReworkItem] = []
         self.judge_calls = 0
         self.writer_calls = 0
+
+
+@dataclass
+class _Judged:
+    """What judging one claim found: the confirmed claim, or what a rework round would need."""
+
+    claim: Claim | None
+    # Every quote that only implied the hypothesis, this round's first.
+    implied: list[Citation]
+    # Quotes whose judge call failed when judging the hypothesis as written.
+    unjudged: list[Citation]
+    # The review note for a judge failure, when nothing was confirmed.
+    review_note: str | None
 
 
 def table_header(citation: Citation, chunks: ChunkLookup) -> str | None:
@@ -420,6 +462,20 @@ def _normalized(text: str) -> str:
     return " ".join(text.split()).casefold()
 
 
+def _cause_quotes(evidence: Sequence[TreeNode]) -> list[Citation]:
+    """The quotes of the branches the critic rated as stating the cause, best branch first.
+
+    Only these can confirm: the critic decides which quotes are worth an Opus call, and the judge
+    decides whether they confirm.
+    """
+    return [
+        citation
+        for branch in evidence
+        if branch.evidence is EvidenceSupport.STATES_CAUSE
+        for citation in branch.citations
+    ]
+
+
 async def _confirm(
     survivor: CandidateResult,
     metric_ids: tuple[str, ...],
@@ -427,49 +483,72 @@ async def _confirm(
     changed: MetricName | None,
     context: LabelingContext,
     tally: _Tally,
-) -> Claim | None:
-    """The confirmed claim, if a quote earns it; None otherwise. Failures are noted in `tally`.
+) -> _Judged:
+    """Judge a survivor's quotes: the confirmed claim, if one earns it. Failures go in `tally`."""
+    candidate = survivor.candidate
+    return await _judge_claim(
+        candidate.node_id,
+        candidate.thought,
+        _cause_quotes(survivor.evidence),
+        (),
+        metric_ids,
+        periods,
+        changed,
+        context,
+        tally,
+    )
+
+
+async def _judge_claim(  # noqa: PLR0913 -- one claim's judging, its inputs passed through
+    claim_id: str,
+    hypothesis: str,
+    quotes: Sequence[Citation],
+    implied_before: Sequence[Citation],
+    metric_ids: tuple[str, ...],
+    periods: frozenset[FiscalPeriod],
+    changed: MetricName | None,
+    context: LabelingContext,
+    tally: _Tally,
+) -> _Judged:
+    """Judge `hypothesis` against `quotes`, then a restatement if any only imply it.
 
     The hypothesis as written is judged first. If no quote confirms it and some only imply it, the
     hypothesis restated at those quotes' level is judged against them (see the module doc).
+    `implied_before` holds what an earlier round found only implied it (`relabel_claim`): those are
+    not judged as written again, and a restatement, made only when this round finds a new implying
+    quote, is written from them as well, new ones first.
     """
-    candidate = survivor.candidate
-    claim_id, hypothesis = candidate.node_id, candidate.thought
-    judged: set[tuple[str, str]] = set()
+    judged = {_quote_key(citation) for citation in implied_before}
     confirming: list[Citation] = []
     implied: list[Citation] = []
+    unjudged: list[Citation] = []
     judge_failure: str | None = None
     calls = 0
-    for branch in survivor.evidence:
-        # Only a branch the critic rated as stating the cause can confirm: the critic decides which
-        # quotes are worth an Opus call, and the judge decides whether they confirm.
-        if branch.evidence is not EvidenceSupport.STATES_CAUSE:
+    for citation in quotes:
+        key = _quote_key(citation)
+        if key in judged or calls >= MAX_JUDGE_CALLS_PER_CLAIM:
             continue
-        for citation in branch.citations:
-            key = _quote_key(citation)
-            if key in judged or calls >= MAX_JUDGE_CALLS_PER_CLAIM:
-                continue
-            judged.add(key)
-            result = await _judge_quote(
-                claim_id, hypothesis, citation, metric_ids, periods, context, tally
-            )
-            if result is None:
-                continue
-            calls += 1
-            if result.failure is not None:
-                judge_failure = result.failure
-            elif result.verdict is EntailmentVerdict.STATES_CAUSE:
-                confirming.append(citation)
-                if STOP_AT_FIRST_CONFIRMATION:
-                    break
-            elif result.verdict is EntailmentVerdict.IMPLIES:
-                implied.append(citation)
-        if confirming and STOP_AT_FIRST_CONFIRMATION:
-            break
+        judged.add(key)
+        result = await _judge_quote(
+            claim_id, hypothesis, citation, metric_ids, periods, context, tally
+        )
+        if result is None:
+            continue
+        calls += 1
+        if result.failure is not None:
+            judge_failure = result.failure
+            unjudged.append(citation)
+        elif result.verdict is EntailmentVerdict.STATES_CAUSE:
+            confirming.append(citation)
+            if STOP_AT_FIRST_CONFIRMATION:
+                break
+        elif result.verdict is EntailmentVerdict.IMPLIES:
+            implied.append(citation)
+    every_implied = [*implied, *implied_before]
     text = hypothesis
     if not confirming and implied:
-        restated = await _restate(claim_id, hypothesis, implied, changed, context, tally)
-        for citation in implied[:MAX_RESTATED_JUDGE_CALLS_PER_CLAIM] if restated else ():
+        restated = await _restate(claim_id, hypothesis, every_implied, changed, context, tally)
+        for citation in every_implied[:MAX_RESTATED_JUDGE_CALLS_PER_CLAIM] if restated else ():
             result = await _judge_quote(
                 claim_id,
                 restated,
@@ -489,7 +568,7 @@ async def _confirm(
                 text = restated
                 break
     if confirming:
-        return Claim(
+        claim = Claim(
             claim_id=claim_id,
             text=text,
             label=ExplanationLabel.CONFIRMED,
@@ -497,13 +576,14 @@ async def _confirm(
             metric_ids=metric_ids,
             entailment=EntailmentVerdict.STATES_CAUSE,
         )
+        return _Judged(claim, every_implied, unjudged, None)
+    note = None
     if judge_failure is not None:
         # The evidence may well state the cause; only the check that could say so failed. A person
         # can confirm it, so the finding goes to review (the user's decision, 2026-11-10).
-        tally.review_notes.append(
-            f"claim {claim_id} could not be confirmed because {judge_failure}"
-        )
-    return None
+        note = f"claim {claim_id} could not be confirmed because {judge_failure}"
+        tally.review_notes.append(note)
+    return _Judged(None, every_implied, unjudged, note)
 
 
 def _wording_request(
@@ -606,9 +686,18 @@ async def _label_survivor(
             text=NO_EVIDENCE_TEXT,
             label=ExplanationLabel.UNRESOLVED,
         )
-    confirmed = await _confirm(survivor, metric_ids, periods, changed, context, tally)
-    if confirmed is not None:
-        return confirmed
+    judged = await _confirm(survivor, metric_ids, periods, changed, context, tally)
+    if judged.claim is not None:
+        return judged.claim
+    if judged.implied or judged.unjudged:
+        tally.rework.append(
+            ReworkItem(
+                claim_id=survivor.candidate.node_id,
+                implied=tuple(judged.implied),
+                unjudged=tuple(judged.unjudged),
+                review_note=judged.review_note,
+            )
+        )
     return await _plausible(survivor, citations, metric_ids, periods, context, tally)
 
 
@@ -697,4 +786,93 @@ async def label_result(
         failures=tuple(tally.failures),
         judge_calls=tally.judge_calls,
         writer_calls=tally.writer_calls,
+        rework=tuple(tally.rework),
+        review_notes=tuple(tally.review_notes),
+    )
+
+
+async def relabel_claim(  # noqa: PLR0913 -- one claim's rework, its inputs passed through
+    labeled: LabeledFinding,
+    claim_id: str,
+    candidate: TreeNode,
+    evidence: Sequence[TreeNode],
+    comparison: Comparison,
+    context: LabelingContext,
+) -> LabeledFinding:
+    """`labeled` after one rework round for `claim_id`, judged on the round's new branches.
+
+    `evidence` is what the round kept (`controller.gather_evidence`). Its quotes the critic rated
+    as stating the cause are judged against the hypothesis as written, after the quotes the judge
+    failed on before; nothing judged in an earlier round is judged again, except those. If none
+    confirms and a new quote implies it, the hypothesis is restated from every implying quote and
+    judged again. A confirmed claim replaces the plausible one. Otherwise the plausible claim stands
+    as worded, since its wording already passed its checks, and its rework item carries what this
+    round found to the next. The claim's judge-failure note is replaced by this round's.
+    """
+    item = next((entry for entry in labeled.rework if entry.claim_id == claim_id), None)
+    if item is None:
+        raise ValueError(f"claim {claim_id!r} is not waiting for rework")
+    if candidate.node_id != claim_id:
+        raise ValueError(f"node {candidate.node_id!r} is not the candidate of claim {claim_id!r}")
+    finding = labeled.finding
+    position = next((n for n, c in enumerate(finding.claims) if c.claim_id == claim_id), None)
+    if position is None:
+        raise ValueError(f"the finding has no claim {claim_id!r}")
+    claim = finding.claims[position]
+    tally = _Tally()
+    judged = await _judge_claim(
+        claim_id,
+        candidate.thought,
+        [*item.unjudged, *_cause_quotes(evidence)],
+        item.implied,
+        tuple(dict.fromkeys((*claim.metric_ids, *_agreeing_metric_ids(evidence)))),
+        claim_periods(finding.change, comparison),
+        changed_metric(finding.change, context.metrics),
+        context,
+        tally,
+    )
+    # A judge failure's note stands until the judge rules again: dropped once the claim is
+    # confirmed, replaced by this round's outcome if it made any judge call, else kept.
+    if judged.claim is not None:
+        note = None
+    elif tally.judge_calls:
+        note = judged.review_note
+    else:
+        note = item.review_note
+    claims = list(finding.claims)
+    rework = list(labeled.rework)
+    at = rework.index(item)
+    if judged.claim is not None:
+        claims[position] = judged.claim
+        del rework[at]
+    elif judged.implied or judged.unjudged or note:
+        rework[at] = ReworkItem(
+            claim_id=claim_id,
+            implied=tuple(judged.implied),
+            unjudged=tuple(judged.unjudged),
+            review_note=note,
+        )
+    else:
+        del rework[at]
+    notes = list(labeled.review_notes)
+    if item.review_note in notes:
+        # In the old note's place, so the review reason keeps the order labeling gave it.
+        at = notes.index(item.review_note)
+        notes[at : at + 1] = [note] if note else []
+    elif note:
+        notes.append(note)
+    merged = _merge_same_claims(claims, tally)
+    return LabeledFinding(
+        finding=Finding(
+            finding_id=finding.finding_id,
+            change=finding.change,
+            claims=tuple(merged),
+            tree_root_id=finding.tree_root_id,
+            review_reason="; ".join(notes) or None,
+        ),
+        failures=(*labeled.failures, *tally.failures),
+        judge_calls=labeled.judge_calls + tally.judge_calls,
+        writer_calls=labeled.writer_calls + tally.writer_calls,
+        rework=tuple(rework),
+        review_notes=tuple(notes),
     )

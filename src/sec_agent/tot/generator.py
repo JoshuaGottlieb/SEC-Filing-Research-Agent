@@ -135,6 +135,32 @@ means revenue fell. Slowing growth is not "revenue_growth" "down" while revenue 
 {_UNTRUSTED}"""
 
 
+# The rework loop's own prompt (T5.5), so SOURCE_SYSTEM and every reply cached for it stay as they
+# were.
+REWORK_SYSTEM = f"""\
+You propose new searches for evidence on one explanation of a change between two of a company's SEC
+filings. Earlier searches found passages that fit the explanation but none that states its cause
+produced the change. Look for a passage that says so outright, as a filing does when it explains
+its results ("gross margin decreased, driven by higher tariff costs").
+
+Return "count" searches. In each:
+- "query": the text to search for, worded the way a filing would state the cause and the change
+  together, and different from every query in "already_tried".
+- "section": where to search, one of {_SECTIONS}, or null to search everywhere, including tables
+  outside the named sections. A section searched before may be searched again with a new query.
+- "metric": always null. A computed metric cannot state a cause.
+- "description": one sentence on what it should show.
+
+"already_tried" lists the searches made so far, each as "section: query". Do not repeat one, even
+reworded slightly.
+
+{_UNTRUSTED}"""
+
+# What `already_tried` holds for a rework round: where each earlier search looked (None for
+# everywhere) and its query.
+TriedSearch = tuple[Section | None, str]
+
+
 class CandidateExplanation(Record):
     """One proposed explanation for a change: a depth 1 thought."""
 
@@ -283,6 +309,51 @@ def _source_prompt(request: dict) -> str:
     )
 
 
+def _rework_prompt(request: dict) -> str:
+    node: TreeNode = request["node"]
+    return json.dumps(
+        {
+            **_change_context(request["change"], request["comparison"], request["metrics"]),
+            "explanation": node.thought,
+            "expected_evidence": node.expected_evidence,
+            "count": request["count"],
+            "already_tried": [
+                f"{section.value if section else 'everywhere'}: {query}"
+                for section, query in request["already_tried"]
+            ],
+        },
+        ensure_ascii=False,
+    )
+
+
+def _query_key(query: str) -> str:
+    # The search cache's normalization (`retrieval.tools._normalize`), so a query that would hit
+    # the same cached search counts as the same query.
+    return " ".join(query.split()).casefold()
+
+
+def _tidy_rework_sources(
+    sources: Sequence[EvidenceSource], count: int, already_tried: Sequence[TriedSearch]
+) -> tuple[EvidenceSource, ...]:
+    """Keep searches with a new query, at most `count`.
+
+    A metric is dropped, since it cannot state a cause. A query is new only if no earlier search
+    used it, in any section: every search that found nothing was already retried everywhere, so the
+    same query elsewhere would mostly return what was seen. Sections may repeat, unlike in
+    `_tidy_sources`: a new query in the section where causes are stated is the point of a round.
+    """
+    seen = {_query_key(query) for _, query in already_tried}
+    kept: list[EvidenceSource] = []
+    for source in sources:
+        if source.metric is not None or source.query is None:
+            continue
+        key = _query_key(source.query)
+        if key and key not in seen:
+            seen.add(key)
+            kept.append(source)
+    return tuple(kept[:count])
+
+
 def _claim_key(claim: str) -> str:
     return " ".join(claim.casefold().split())
 
@@ -342,6 +413,9 @@ class ThoughtGenerator:
         self._sources = RunnableLambda(_source_prompt) | llm.runnable(
             Role.GENERATOR, system=SOURCE_SYSTEM, output_type=EvidenceSourceSet
         )
+        self._rework = RunnableLambda(_rework_prompt) | llm.runnable(
+            Role.GENERATOR, system=REWORK_SYSTEM, output_type=EvidenceSourceSet
+        )
 
     async def propose_candidates(
         self,
@@ -397,3 +471,35 @@ class ThoughtGenerator:
         except LLMError as error:
             return EvidenceGeneration(failure=f"the generator failed: {error}")
         return EvidenceGeneration(sources=_tidy_sources(output.sources, count))
+
+    async def propose_rework_sources(
+        self,
+        node: TreeNode,
+        change: Change,
+        comparison: Comparison,
+        metrics: MetricMoveLookup,
+        *,
+        count: int = DEFAULT_SOURCES,
+        already_tried: Sequence[TriedSearch] = (),
+    ) -> EvidenceGeneration:
+        """Propose new searches for a kept candidate whose quotes only implied it (T5.5 rework).
+
+        `already_tried` is every search its branches made. Searches repeating one are removed from
+        the result, and so are metrics (`_tidy_rework_sources`).
+        """
+        try:
+            output = await self._rework.ainvoke(
+                {
+                    "node": node,
+                    "change": change,
+                    "comparison": comparison,
+                    "metrics": metrics,
+                    "count": count,
+                    "already_tried": tuple(already_tried),
+                }
+            )
+        except LLMError as error:
+            return EvidenceGeneration(failure=f"the generator failed: {error}")
+        return EvidenceGeneration(
+            sources=_tidy_rework_sources(output.sources, count, already_tried)
+        )
