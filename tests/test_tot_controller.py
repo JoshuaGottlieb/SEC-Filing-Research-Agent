@@ -455,13 +455,23 @@ def test_the_beam_and_budgets_come_from_the_config(config):
     beam, budget = config.beam, config.budget
     assert (beam.candidates, beam.candidate_width, beam.sources, beam.evidence_width) == (
         6,
-        4,
+        6,
         6,
         3,
     )
     assert beam.tie_margin == 0.05
-    # The user's decision, 2026-11-06: a fresh round of its own beside the design's about 40.
-    assert (budget.first_round_nodes, budget.fresh_round_nodes) == (40, 30)
+    # The user's decisions: a fresh round of its own (2026-11-06), and the full width with budgets
+    # of 55 and 45 (2026-11-15).
+    assert (budget.first_round_nodes, budget.fresh_round_nodes) == (55, 45)
+
+
+def test_each_rounds_budget_covers_its_own_use_at_the_full_width(config):
+    # Proposing every candidate, keeping all of them and testing each one's sources must fit the
+    # budget, or the last candidate kept would be cut short by the node cap.
+    beam, budget = config.beam, config.budget
+    own_use = beam.candidates + beam.candidate_width * beam.sources
+    assert own_use <= budget.first_round_nodes
+    assert own_use <= budget.fresh_round_nodes
 
 
 # -- a search that works ----------------------------------------------------------------------
@@ -603,7 +613,29 @@ async def test_one_stated_cause_is_the_answer_and_not_a_co_driver(tree, config):
 # -- the depth 1 pre-screen -------------------------------------------------------------------
 
 
-async def test_the_beam_keeps_four_candidates_and_prunes_the_rest_with_a_reason(tree, config):
+async def test_a_beam_of_four_keeps_four_candidates_and_prunes_the_rest_with_a_reason(tree, config):
+    # The config keeps every candidate now; a width of 4 still prunes the rest in generator order.
+    claims = [f"claim {i}" for i in range(1, 7)]
+    generator = FakeGenerator(
+        [candidates(*claims)], {c: sources(search(f"q{i}")) for i, c in enumerate(claims, 1)}
+    )
+    retriever = FakeRetriever(
+        {(f"q{i}", Section.MDNA): found(f"q{i}", passage(f"now-{i}")) for i in range(1, 7)}
+    )
+    narrow = with_beam(config, candidate_width=4)
+    result = await explore(tree, narrow, generator, FakeCritic(), retriever)
+    nodes = await nodes_by_id(tree, result)
+    first_round = {n.thought: n for n in nodes.values() if n.depth == 1}
+    # All equally specific, so the generator's order decides: depth 1 has no evidence to compare.
+    assert [first_round[c].status for c in claims] == [NodeStatus.KEPT] * 4 + [
+        NodeStatus.PRUNED
+    ] * 2
+    assert "outside the beam" in first_round["claim 5"].prune_reason
+    assert generator.source_calls == claims[:4]
+    assert len(result.candidates) == 4
+
+
+async def test_the_configured_beam_takes_every_candidate_past_the_threshold(tree, config):
     claims = [f"claim {i}" for i in range(1, 7)]
     generator = FakeGenerator(
         [candidates(*claims)], {c: sources(search(f"q{i}")) for i, c in enumerate(claims, 1)}
@@ -614,13 +646,10 @@ async def test_the_beam_keeps_four_candidates_and_prunes_the_rest_with_a_reason(
     result = await explore(tree, config, generator, FakeCritic(), retriever)
     nodes = await nodes_by_id(tree, result)
     first_round = {n.thought: n for n in nodes.values() if n.depth == 1}
-    # All equally specific, so the generator's order decides: depth 1 has no evidence to compare.
-    assert [first_round[c].status for c in claims] == [NodeStatus.KEPT] * 4 + [
-        NodeStatus.PRUNED
-    ] * 2
-    assert "outside the beam" in first_round["claim 5"].prune_reason
-    assert generator.source_calls == claims[:4]
-    assert len(result.candidates) == 4
+    assert [first_round[c].status for c in claims] == [NodeStatus.KEPT] * 6
+    assert generator.source_calls == claims
+    assert len(result.candidates) == 6
+    assert result.stopped is None
 
 
 async def test_a_vague_candidate_is_pruned_below_the_threshold(tree, config):
