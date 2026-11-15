@@ -37,11 +37,15 @@ Each surviving candidate becomes one claim, labeled by the ToT design's standard
   confirmed citing both. Hershey explains its operating margin only this way.
 - `plausible`: every other survivor with a verified quote. It has evidence, but nothing confirmed
   states the cause. Its text is rewritten by a worker model to say what the evidence shows
-  without linking cause and change, then checked in code.
+  without linking cause and change, then checked in code; it says this brief did not confirm a
+  link to the change, naming the change (user's decision, 2026-11-15: on the fourth paid Hershey
+  run "the margin decline" was left for the reader to resolve). A quote the judge found unrelated
+  is not among its evidence.
 - Left out: a survivor kept by an agreeing metric alone, with no quote (user's decision,
   2026-11-13). On the paid Hershey runs such claims read "no quotes were provided on litigation
-  accruals...", since another margin falling agrees with almost any cause. Its tree keeps it, and
-  a finding left with no claims goes to review.
+  accruals...", since another margin falling agrees with almost any cause. Also left out: a
+  survivor whose every quote the judge found unrelated (user's decision, 2026-11-15). Its tree
+  keeps it, and a finding left with no claims goes to review, saying why.
 - No survivors: the finding has no claims and carries the search's review reason, so it reaches
   the review queue. The brief shows it there by its finding id, not by a claim.
 
@@ -53,7 +57,9 @@ plausible: it was worded for that label already.
 
 The critic's rating alone never confirms a claim: it only decides which quotes are worth the judge's
 call. Co-drivers need no field of their own: two or more confirmed claims in one finding are
-co-drivers, and the judge has already narrowed the search's list to them.
+co-drivers, and the judge has already narrowed the search's list to them. A confirmed claim that
+says no more than another is folded into it (`_merge_same_claims`), so one cause is not listed
+twice.
 
 Labeling never lets one claim crash the run. A judge or writer failure is recorded and the claim
 keeps the label its evidence supports; `BudgetExceededError` and API errors propagate on purpose.
@@ -66,7 +72,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from langchain_core.runnables import RunnableLambda
 
@@ -159,6 +165,13 @@ METRIC_ONLY_REASON = (
     "the explanations found had only computed metrics behind them and no quote from the filings"
 )
 
+# Why a finding whose every explanation the judge found unrelated goes to review. Plain words, no
+# cause.
+REFUTED_REASON = (
+    "the explanations found had quotes from the filings, but the entailment judge found every one "
+    "unrelated to the change"
+)
+
 # Attempts at a plausible claim's wording before falling back to the fixed sentence: the first, and
 # one retry told why the first was rejected. Chosen by hand: a third attempt at the same request
 # mostly repeats the second, and the fallback is always safe.
@@ -179,11 +192,11 @@ hypothesis about why something changed and the evidence found for it. The eviden
 hypothesis, but checking it did not confirm that the cause produced the change, so your statement
 must not say or suggest that it did.
 
-Say what the evidence shows, and say plainly that this brief did not confirm a link between the
-two. Never say that the filings do not link them: you see only some of their text. For example,
-for the hypothesis "Higher cocoa costs lowered gross margin", with quotes about rising cocoa prices
-and a computed fall in gross margin: "Cocoa prices rose and gross margin fell; this brief did not
-confirm a link between the two."
+Say what the evidence shows, and say plainly that this brief did not confirm a link to the change
+being explained, naming that change. Never say that the filings do not link them: you see only
+some of their text. For example, for the hypothesis "Higher cocoa costs lowered gross margin",
+with quotes about rising cocoa prices and a computed fall in gross margin: "Cocoa prices rose and
+gross margin fell; this brief did not confirm a link to gross margin."
 
 Rules:
 - Do not use wording that assigns a cause, even to deny or hedge it, such as "because", "due to",
@@ -194,6 +207,9 @@ Rules:
 - Mention only the hypothesis's cause and its change, and only what the quotes and metrics show
   about them. If they show only one of the two, say only that one. Do not add what you know about
   the company or its industry.
+- When "change_being_explained" is given, name it as written there ("this brief did not confirm a
+  link to net margin"), even if the evidence shows only the cause. Never leave it to words such as
+  "the margin decline", which could be read as another change the brief does explain.
 - A figure is allowed only if it appears in a quote or follows from a metric's value.
 - A quote that is a table row ("Label | figure | figure") comes with "table_header", the table's
   own title and column labels. Its figures mean only what those labels say they are. Never call
@@ -344,6 +360,8 @@ class _Tally:
         self.failures: list[str] = []
         self.review_notes: list[str] = []
         self.rework: list[ReworkItem] = []
+        # Why each claim left out of the brief was left out, for a finding left with none.
+        self.left_out: list[str] = []
         self.judge_calls = 0
         self.writer_calls = 0
 
@@ -359,6 +377,9 @@ class _Judged:
     unjudged: list[Citation]
     # The review note for a judge failure, when nothing was confirmed.
     review_note: str | None
+    # Quotes the judge found unrelated to the hypothesis as written: about another cause or change,
+    # or showing the opposite direction. A plausible claim does not cite them.
+    unrelated: list[Citation] = field(default_factory=list)
 
 
 def table_header(citation: Citation, chunks: ChunkLookup) -> str | None:
@@ -675,6 +696,7 @@ async def _judge_claim(  # noqa: PLR0913 -- one claim's judging, its inputs pass
     confirming: list[Citation] = []
     implied: list[Citation] = []
     unjudged: list[Citation] = []
+    unrelated: list[Citation] = []
     judge_failure: str | None = None
     calls = 0
     for citation in quotes:
@@ -704,6 +726,8 @@ async def _judge_claim(  # noqa: PLR0913 -- one claim's judging, its inputs pass
                 break
         elif result.verdict is EntailmentVerdict.IMPLIES:
             implied.append(citation)
+        else:
+            unrelated.append(citation)
     # The critic's implying quotes not met before, as written or in an earlier round.
     fresh = [citation for citation in critic_implied if _quote_key(citation) not in judged]
     fresh = list({_quote_key(citation): citation for citation in fresh}.values())
@@ -760,7 +784,7 @@ async def _judge_claim(  # noqa: PLR0913 -- one claim's judging, its inputs pass
             metric_ids=metric_ids,
             entailment=EntailmentVerdict.STATES_CAUSE,
         )
-        return _Judged(claim, every_implied, unjudged, None)
+        return _Judged(claim, every_implied, unjudged, None, unrelated)
     # A quote that confirmed the hypothesis only as written still bears on it: the rework loop
     # treats it as implying the claim.
     every_implied = [*confirming, *every_implied]
@@ -770,13 +794,14 @@ async def _judge_claim(  # noqa: PLR0913 -- one claim's judging, its inputs pass
         # can confirm it, so the finding goes to review (the user's decision, 2026-11-10).
         note = f"claim {claim_id} could not be confirmed because {judge_failure}"
         tally.review_notes.append(note)
-    return _Judged(None, every_implied, unjudged, note)
+    return _Judged(None, every_implied, unjudged, note, unrelated)
 
 
 def _wording_request(
     hypothesis: str,
     citations: Sequence[Citation],
     metric_ids: Sequence[str],
+    target: _Target,
     context: LabelingContext,
 ) -> dict:
     metrics = [
@@ -784,21 +809,30 @@ def _wording_request(
         for metric_id in metric_ids
         if (value := context.metrics.get_metric(metric_id)) is not None
     ]
-    return {
+    request: dict = {
         "hypothesis": hypothesis,
         "quotes": [_shown_quote(citation, context.chunks) for citation in citations],
         "metrics": metrics,
     }
+    if target.explained is not None:
+        request["change_being_explained"] = target.explained
+    return request
 
 
-def _wording_problem(
-    claim: Claim, periods: frozenset[FiscalPeriod], context: LabelingContext
-) -> str | None:
-    """Why a written statement cannot be used, or None if it can."""
+def _wording_problem(claim: Claim, target: _Target, context: LabelingContext) -> str | None:
+    """Why a written statement cannot be used, or None if it can.
+
+    For a numeric change it must name the change (or a line moving with it), so its "did not
+    confirm a link" says to what: on the fourth paid Hershey run a net margin claim's "the margin
+    decline" read as the gross margin decline another finding confirmed (user's decision,
+    2026-11-15).
+    """
     flagged = find_causal_language(claim.text)
     if flagged:
         return f"it uses causal wording: {', '.join(flagged)}"
-    check = check_citations(claim, periods, context.chunks, context.metrics, context.facts)
+    if target.changed is not None and not names_the_change(claim.text, target.changed):
+        return f"it does not name {METRIC_WORDS[target.changed][0]}, the change being explained"
+    check = check_citations(claim, target.periods, context.chunks, context.metrics, context.facts)
     if not check.passed:
         return "; ".join(failure.detail for failure in check.failures)
     return None
@@ -808,13 +842,13 @@ async def _plausible(
     survivor: CandidateResult,
     citations: tuple[Citation, ...],
     metric_ids: tuple[str, ...],
-    periods: frozenset[FiscalPeriod],
+    target: _Target,
     context: LabelingContext,
     tally: _Tally,
 ) -> Claim:
     """A plausible claim, reworded so that it states no cause."""
     claim_id = survivor.candidate.node_id
-    request = _wording_request(survivor.candidate.thought, citations, metric_ids, context)
+    request = _wording_request(survivor.candidate.thought, citations, metric_ids, target, context)
     for _ in range(WORDING_ATTEMPTS):
         tally.writer_calls += 1
         try:
@@ -830,7 +864,7 @@ async def _plausible(
                 citations=citations,
                 metric_ids=metric_ids,
             )
-            problem = _wording_problem(claim, periods, context)
+            problem = _wording_problem(claim, target, context)
             if problem is None:
                 return claim
         else:
@@ -928,6 +962,7 @@ async def _label_survivor(
             f"claim {survivor.candidate.node_id}: only computed metrics support it, with no quote, "
             "so it is left out of the brief"
         )
+        tally.left_out.append(METRIC_ONLY_REASON)
         return None
     if not citations and not metric_ids:
         # The controller keeps a branch only with a verified quote or an agreeing metric, so this
@@ -956,6 +991,20 @@ async def _label_survivor(
             tally.review_notes.append(note)
             # A rework round that rules on the claim replaces one note; the first stands for it.
             review_note = review_note or note
+    # A quote the judge found unrelated (another cause or change, or the opposite direction) is not
+    # evidence for the claim, whatever the critic rated it (user's decision, 2026-11-15): on the
+    # fourth paid Hershey run a claim that a non-operating loss lowered net margin cited other
+    # expense falling by 85.7%.
+    refuted = {_quote_key(citation) for citation in judged.unrelated}
+    citations = tuple(citation for citation in citations if _quote_key(citation) not in refuted)
+    if not citations:
+        # Every quote it had was judged, so it has nothing implied or unjudged for rework either.
+        tally.failures.append(
+            f"claim {survivor.candidate.node_id}: the judge found every quote unrelated to it, "
+            "so it is left out of the brief"
+        )
+        tally.left_out.append(REFUTED_REASON)
+        return None
     if judged.implied or judged.unjudged:
         tally.rework.append(
             ReworkItem(
@@ -965,38 +1014,78 @@ async def _label_survivor(
                 review_note=review_note,
             )
         )
-    return await _plausible(survivor, citations, metric_ids, target.periods, context, tally)
+    return await _plausible(survivor, citations, metric_ids, target, context, tally)
+
+
+# A word, for comparing what two confirmed claims say: a run of letters or digits, case ignored.
+WORD = re.compile(r"[a-z0-9]+")
+
+
+def _words(text: str) -> frozenset[str]:
+    return frozenset(WORD.findall(text.casefold()))
+
+
+def _fold(kept: Claim, other: Claim) -> Claim:
+    """`kept` with `other`'s quotes and metrics added after its own."""
+    seen = {_quote_key(citation) for citation in kept.citations}
+    return kept.model_copy(
+        update={
+            "citations": kept.citations
+            + tuple(c for c in other.citations if _quote_key(c) not in seen),
+            "metric_ids": tuple(dict.fromkeys((*kept.metric_ids, *other.metric_ids))),
+        }
+    )
 
 
 def _merge_same_claims(claims: Sequence[Claim], tally: _Tally) -> list[Claim]:
-    """One claim per confirmed sentence, keeping the first and adding the others' quotes.
+    """One claim per confirmed cause: a confirmed claim saying no more than another is folded in.
 
     Two hypotheses restated at the same quote's level can come out alike ("Higher tariff costs
-    lowered gross margin."), and the brief would list one confirmed cause twice as co-drivers.
+    lowered gross margin."), or one inside the other: on the fourth paid Hershey run "Higher tariff
+    costs lowered operating margin" stood beside "Higher commodity and tariff costs lowered
+    operating margin", and the brief listed tariffs twice as co-drivers (user's decision,
+    2026-11-15). A confirmed claim whose words are all among another's is folded into that one,
+    which keeps its text and place and gains the other's quotes and metrics. Of two with the same
+    words, the first is kept. Plausible claims are never merged.
     """
+    confirmed = [n for n, claim in enumerate(claims) if claim.label is ExplanationLabel.CONFIRMED]
+    words = {n: _words(claims[n].text) for n in confirmed}
+    into: dict[int, int] = {}
+    for n in confirmed:
+        broader = next(
+            (
+                m
+                for m in confirmed
+                if m != n and (words[n] < words[m] or (words[n] == words[m] and m < n))
+            ),
+            None,
+        )
+        if broader is not None:
+            into[n] = broader
+
+    def keeper(n: int) -> int:
+        # Strict subsets and earlier equals only ever point one way, so this ends.
+        while n in into:
+            n = into[n]
+        return n
+
     merged: list[Claim] = []
-    first: dict[str, int] = {}
-    for claim in claims:
-        key = _normalized(claim.text)
-        if claim.label is not ExplanationLabel.CONFIRMED:
-            merged.append(claim)
+    for n, claim in enumerate(claims):
+        if n in into:
             continue
-        if key not in first:
-            first[key] = len(merged)
-            merged.append(claim)
-            continue
-        kept = merged[first[key]]
-        seen = {_quote_key(citation) for citation in kept.citations}
-        merged[first[key]] = kept.model_copy(
-            update={
-                "citations": kept.citations
-                + tuple(c for c in claim.citations if _quote_key(c) not in seen),
-                "metric_ids": tuple(dict.fromkeys((*kept.metric_ids, *claim.metric_ids))),
-            }
-        )
-        tally.failures.append(
-            f"claim {claim.claim_id}: confirmed as the same sentence as {kept.claim_id}, so merged"
-        )
+        for k in confirmed:
+            if k in into and keeper(k) == n:
+                other = claims[k]
+                claim = _fold(claim, other)
+                how = (
+                    "the same sentence as"
+                    if _normalized(other.text) == _normalized(claim.text)
+                    else "saying no more than"
+                )
+                tally.failures.append(
+                    f"claim {other.claim_id}: confirmed as {how} {claim.claim_id}, so merged"
+                )
+        merged.append(claim)
     return merged
 
 
@@ -1044,8 +1133,8 @@ async def label_result(
         for survivor in result.candidates
     ]
     claims = _merge_same_claims([claim for claim in labeled if claim is not None], tally)
-    if not claims and None in labeled:
-        tally.review_notes.append(METRIC_ONLY_REASON)
+    if not claims and tally.left_out:
+        tally.review_notes.append("; ".join(dict.fromkeys(tally.left_out)))
     return LabeledFinding(
         finding=Finding(
             finding_id=finding_id,
