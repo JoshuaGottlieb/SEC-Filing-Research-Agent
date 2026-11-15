@@ -24,7 +24,7 @@ from sec_agent.schemas import Chunk
 # The constant from the paper introducing reciprocal rank fusion (Cormack et al., 2009). It keeps a
 # single first place from outweighing broad agreement between the two lists.
 RRF_K = 60
-# How far down each list fusion looks. It is more than the 20 candidates the reranker reads, so a
+# How far down each list fusion looks. It is more than the 10 candidates the reranker reads, so a
 # chunk ranked modestly by both lists can still beat one ranked highly by only one. Chosen by hand.
 RANKED_LIST_SIZE = 50
 # Whole numbers keep their separators, so "11,692.6" stays one token. Letters split at everything
