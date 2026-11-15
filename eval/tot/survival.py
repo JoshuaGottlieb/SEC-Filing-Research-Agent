@@ -27,7 +27,9 @@ test file (MAT, SWK) is run once, after any beam change is settled on HSY.
 `--candidate-width` overrides the beam's kept-candidate count for this run only, leaving
 `config/scoring.yaml` as it is. The test run used 5 (the user's decision, 2026-11-13): HSY's
 rerun showed two labeled causes passing the pre-screen but cut by the width of 4 behind candidates
-scoring 1.0, and 5 still fits the 40-node first round (6 + 5 x 6 = 36).
+scoring 1.0, and 5 still fits the 40-node first round (6 + 5 x 6 = 36). The config's width became
+6, with budgets of 55 and 45, on 2026-11-15 (the user's decision), so the reported runs (HSY 4,
+test 5, both with 40 and 30) predate it.
 
 `--label` also runs labeling (`label_result`, with the same context the workflow builds) on each
 search's survivors, and records every candidate's final label: `confirmed`, `plausible`, left out

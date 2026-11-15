@@ -54,8 +54,13 @@ beam:
   # Candidates proposed at depth 1. The design says 6 to 8 and keeps 4; the low end leaves node
   # budget for the retries and the one fresh round (gap 5).
   candidates: 6
-  # Candidates that go on to depth 2. The design's width.
-  candidate_width: 4
+  # Candidates that go on to depth 2. Was the design's 4; now every candidate (the user's decision,
+  # 2026-11-15). On HSY the pre-screen gave 1.0 to more candidates than a width of 4 held in all
+  # six labeled changes, and with nothing retrieved yet a tie falls back to the generator's order,
+  # so the beam kept the first ones written. Two labeled causes were cut that way. At the full width
+  # only the threshold prunes at depth 1, which is the pre-screen's intended job. The pool of 10
+  # (rerank.py) roughly halved a search's time, which pays for the extra branches.
+  candidate_width: 6
   # Evidence sources proposed for each kept candidate. The design says 6 to 8; the low end again.
   sources: 6
   # Evidence branches kept per candidate. The design's width.
@@ -67,11 +72,14 @@ beam:
 # Node evaluations per finding. Counted as evaluated nodes, not retrieve calls: a reformulated
 # search can make up to five of those for one evaluation.
 budget:
-  # The design says about 40. The first round's own use is at most 30 (6 candidates plus 4 kept
-  # times 6 sources), which leaves 10 for retries.
-  first_round_nodes: 40
+  # Was the design's about 40, with a width of 4: 30 for the round's own use (6 candidates plus 4
+  # kept times 6 sources) and 10 for retries; HSY used 28 to 38. A width of 6 uses 42 (6 plus 6
+  # times 6), so 55 leaves 13 for retries (the user's decision, 2026-11-15).
+  first_round_nodes: 55
   # The one fresh round gets its own allowance (the user's decision, 2026-11-06), so a first round
-  # that used its 40 cannot leave the second too few to test anything. It differs from the design,
-  # which has one budget of about 40 for the finding. The worst case is 70 and an ordinary finding
-  # still costs what it did. 30 is the first round's own use. Chosen by hand.
-  fresh_round_nodes: 30
+  # that used its budget cannot leave the second too few to test anything. It differs from the
+  # design, which has one budget of about 40 for the finding. Was 30, the round's own use at a width
+  # of 4; 45 covers the 42 a width of 6 uses, with 3 for retries (the user's decision, 2026-11-15).
+  # The worst case is 100 node evaluations; it runs only when the first round leaves no survivor,
+  # which no HSY T6.4 change needed.
+  fresh_round_nodes: 45

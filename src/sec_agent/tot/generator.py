@@ -37,7 +37,8 @@ from sec_agent.schemas import (
 )
 
 # Gap 5 in the plan: the design's range is 6 to 8, and the low end leaves budget for retries and the
-# regeneration round. 6 candidates plus 4 kept times 6 sources is 30 of the 40 node evaluations.
+# regeneration round. 6 candidates plus all 6 kept times 6 sources is 42 of the first round's 55
+# node evaluations (config/scoring.yaml).
 DEFAULT_CANDIDATES = 6
 DEFAULT_SOURCES = 6
 
