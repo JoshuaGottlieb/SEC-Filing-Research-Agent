@@ -4,13 +4,14 @@ from types import SimpleNamespace
 
 import pytest
 from langchain_core.runnables import RunnableLambda
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from sec_agent.llm.cache import ReplayCache
 from sec_agent.llm.client import (
     LLMClient,
     LLMRefusalError,
     LLMTruncatedError,
+    LLMUnparsableError,
     Role,
 )
 from sec_agent.llm.ledger import BudgetExceededError, CostLedger, LedgerEntry
@@ -160,6 +161,40 @@ async def test_truncation_raises(settings):
         await client.complete(Role.CRITIC, system="s", user="u", output_type=Answer)
 
 
+def parse_error(text: str) -> ValidationError:
+    """What the SDK's `parse` raises when the reply's text does not validate."""
+    with pytest.raises(ValidationError) as error:
+        Answer.model_validate_json(text)
+    return error.value
+
+
+async def test_a_reply_cut_off_mid_json_raises_truncation_and_is_charged_its_worst_case(
+    settings, tmp_path
+):
+    # The SDK validates inside `parse`, so the reply's usage and stop reason never arrive.
+    cache = ReplayCache(tmp_path / "replay.sqlite")
+    fake = FakeAnthropic(parse_error('{"value": "half'), response(output=Answer(value="ok")))
+    client, ledger = make_client(settings, fake, cache=cache)
+    with pytest.raises(LLMTruncatedError, match="Answer JSON was complete"):
+        await client.complete(Role.CRITIC, system="s", user="u", output_type=Answer)
+    worst = worst_case_cost_usd("claude-haiku-5-5", estimated_input_tokens=1, max_tokens=2_000)
+    (entry,) = ledger.entries
+    assert (entry.estimated, entry.replayed, entry.output_tokens) == (True, False, 2_000)
+    assert entry.cost_usd == pytest.approx(worst)
+    assert ledger.spent_usd == pytest.approx(worst)
+    # Not cached: the same request goes out again.
+    result = await client.complete(Role.CRITIC, system="s", user="u", output_type=Answer)
+    assert (result.output.value, result.replayed) == ("ok", False)
+
+
+async def test_a_complete_reply_that_fails_validation_is_unparsable_not_truncated(settings):
+    fake = FakeAnthropic(parse_error('{"value": 3}'))
+    client, ledger = make_client(settings, fake)
+    with pytest.raises(LLMUnparsableError):
+        await client.complete(Role.CRITIC, system="s", user="u", output_type=Answer)
+    assert ledger.entries[0].estimated
+
+
 async def test_budget_stops_call_before_it_is_sent(settings):
     # The cap ($0.0001) is below even the worst-case cost of one Opus call.
     fake = FakeAnthropic(response(output=Answer(value="never")))
@@ -240,7 +275,12 @@ def test_a_ledger_written_before_timing_fields_still_loads(tmp_path):
         '"replayed": false, "fallback_used": false}\n'
     )
     (entry,) = CostLedger.resume(1.0, path).entries
-    assert (entry.elapsed_s, entry.stage, entry.change_id) == (0.0, None, None)
+    assert (entry.elapsed_s, entry.stage, entry.change_id, entry.estimated) == (
+        0.0,
+        None,
+        None,
+        False,
+    )
 
 
 async def test_calls_are_stamped_with_their_step_change_and_duration(settings, tmp_path):

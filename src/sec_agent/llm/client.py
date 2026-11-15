@@ -15,6 +15,7 @@ from enum import StrEnum
 from typing import Any, Literal
 
 import anthropic
+import pydantic
 from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel
 
@@ -85,6 +86,10 @@ class LLMRefusalError(LLMError):
 
 class LLMTruncatedError(LLMError):
     """The response hit max_tokens before the structured output was complete."""
+
+
+class LLMUnparsableError(LLMError):
+    """The response's text did not validate as the requested output type."""
 
 
 @dataclass(frozen=True)
@@ -162,9 +167,29 @@ class LLMClient:
             async with self._semaphore:
                 # Timed inside the semaphore: the call's own latency, not its wait for a slot.
                 started = time.perf_counter()
-                response = await self._client.beta.messages.parse(
-                    **self._request(model, system, user, output_type, effort, max_tokens)
-                )
+                try:
+                    response = await self._client.beta.messages.parse(
+                        **self._request(model, system, user, output_type, effort, max_tokens)
+                    )
+                except pydantic.ValidationError as error:
+                    # The SDK validates the reply inside `parse`, so a reply cut off mid-JSON
+                    # raises here, before its usage or stop reason can be read. It was billed,
+                    # so it is charged at the worst case reserved for it (the full max_tokens of
+                    # output, which a cut-off reply did use) and marked estimated.
+                    self._ledger.record(
+                        self._estimated_entry(
+                            role,
+                            model,
+                            system,
+                            user,
+                            max_tokens,
+                            reserved,
+                            time.perf_counter() - started,
+                        ),
+                        reserved=reserved,
+                    )
+                    recorded = True
+                    raise _unparsable(model, role, output_type, max_tokens, error) from error
                 elapsed = time.perf_counter() - started
             usage = response.usage
             cost = cost_usd(
@@ -262,9 +287,34 @@ class LLMClient:
 
     @staticmethod
     def _worst_case(model: str, system: str, user: str, max_tokens: int) -> float:
-        estimated_input = (len(system) + len(user)) // CHARS_PER_TOKEN_ESTIMATE
         return worst_case_cost_usd(
-            model, estimated_input_tokens=estimated_input, max_tokens=max_tokens
+            model, estimated_input_tokens=_estimated_input(system, user), max_tokens=max_tokens
+        )
+
+    @staticmethod
+    def _estimated_entry(
+        role: Role,
+        model: str,
+        system: str,
+        user: str,
+        max_tokens: int,
+        cost: float,
+        elapsed: float,
+    ) -> LedgerEntry:
+        """A billed call whose usage the SDK never returned, at the worst case reserved for it."""
+        # The same split as `worst_case_cost_usd`: all input written to the cache, full output.
+        return LedgerEntry(
+            role=role.value,
+            model=model,
+            input_tokens=0,
+            output_tokens=max_tokens,
+            cache_read_tokens=0,
+            cache_write_tokens=_estimated_input(system, user),
+            cost_usd=cost,
+            replayed=False,
+            elapsed_s=elapsed,
+            estimated=True,
+            **_scope_fields(),
         )
 
     def runnable[T: BaseModel](
@@ -308,6 +358,29 @@ class LLMClient:
             request["betas"] = [FALLBACK_BETA]
             request["fallbacks"] = "default"
         return request
+
+
+def _estimated_input(system: str, user: str) -> int:
+    return (len(system) + len(user)) // CHARS_PER_TOKEN_ESTIMATE
+
+
+def _unparsable(
+    model: str,
+    role: Role,
+    output_type: type[BaseModel],
+    max_tokens: int,
+    error: pydantic.ValidationError,
+) -> LLMError:
+    """A truncation error if the JSON ended early (the usual cause), else an unparsable one."""
+    if any(detail["type"] == "json_invalid" for detail in error.errors()):
+        return LLMTruncatedError(
+            f"{model} stopped before its {output_type.__name__} JSON was complete "
+            f"(max_tokens={max_tokens}, role {role.value})."
+        )
+    return LLMUnparsableError(
+        f"{model} returned a {output_type.__name__} that failed validation (role {role.value}): "
+        f"{error.error_count()} errors."
+    )
 
 
 def _scope_fields() -> dict[str, str | None]:

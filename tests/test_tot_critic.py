@@ -739,6 +739,16 @@ async def test_truncated_output_ends_the_branch_instead_of_the_run(settings, con
     assert "max_tokens" in result.failure
 
 
+async def test_a_reply_cut_off_mid_json_ends_the_branch_instead_of_the_run(settings, config):
+    # The SDK validates inside `parse`, so a cut-off reply arrives as a pydantic error, not as a
+    # max_tokens stop. It ended a whole HSY survival run (2026-11-15).
+    with pytest.raises(ValidationError) as cut_off:
+        EvidenceCritique.model_validate_json('{"evidence": "states_cause", "quote": "$491.0 mil')
+    result = await judge(settings, config, cut_off.value)
+    assert result.score is None
+    assert "JSON was complete" in result.failure
+
+
 def outcome(metric: MetricName, check: NumericCheck) -> MetricOutcome:
     cited = () if check is NumericCheck.NOT_APPLICABLE else ("m-now", "m-before")
     return MetricOutcome(metric=metric, check=check, metric_ids=cited)
