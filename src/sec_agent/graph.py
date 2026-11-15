@@ -786,6 +786,7 @@ async def run_analysis(  # noqa: PLR0913 -- the CLI's options, passed through
                 chunks=store,
                 metrics=catalog,
                 facts=store,
+                filing=store,
             )
             summary = SummaryContext(
                 writer=SummaryWriter(llm), chunks=store, metrics=catalog, facts=store
