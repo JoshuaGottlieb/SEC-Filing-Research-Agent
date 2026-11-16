@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Annotated
@@ -39,6 +41,9 @@ from sec_agent.schemas import ComparisonType
 CORPUS_PATH = REPO_ROOT / "config" / "corpus.yaml"
 
 CorpusOption = Annotated[Path, typer.Option("--corpus", help="Corpus file to use.")]
+
+# The Streamlit app (T7), started by `sec-agent app`.
+APP_SCRIPT = Path(__file__).parent / "ui" / "streamlit_app.py"
 
 app = typer.Typer(no_args_is_help=True, help="SEC filing research agent.")
 # The Phase 6 evaluations, in their own module (`eval_cli.py`).
@@ -333,6 +338,28 @@ def search_facts(
                 f"[{fact.source}] {fact.end_date} {fact.duration or '-':8} "
                 f"{fact.value:>20,.2f} {fact.unit or '':8} {fact.name}{detail}"
             )
+
+
+@app.command("app")
+def app_command(
+    port: Annotated[int, typer.Option(help="Port to serve the app on.")] = 8501,
+) -> None:
+    """Open the app on saved runs: briefs, evidence trees, the review queue and cost.
+
+    It reads the run folders in the data directory and calls no model, so browsing costs nothing.
+    """
+    command = [
+        sys.executable,
+        "-m",
+        "streamlit",
+        "run",
+        str(APP_SCRIPT),
+        "--server.port",
+        str(port),
+        "--browser.gatherUsageStats",
+        "false",
+    ]
+    raise typer.Exit(subprocess.run(command, check=False).returncode)
 
 
 @app.command("parse-report")
