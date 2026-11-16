@@ -145,7 +145,7 @@ Early observations, from runs before the beam was widened:
 | Agent runs on Hershey, then both systems on the test split | Paid | Final version of the agent |
 | Blinded hand check of 30 claims | Free (a person's time) | The runs above |
 | Cost and latency at current settings | Paid | Final version of the agent |
-| Materiality table on the test split | Paid | A runner, then a cost estimate |
+| Materiality table on the test split | Paid, about $5 | Approval of its spend |
 | Survival on the test split at width 6 | Paid | A decision to rerun |
 | Retrieval test table at rerank pool 10 | Free | Not scheduled |
 | Full-corpus run (9 comparisons) | Paid | Approval of its spend |

@@ -18,7 +18,8 @@ Two guards apply before a script starts:
 Outputs default to `<data_dir>/eval/results/<task>-<split>-<UTC time>.json` (a directory for the
 baseline), so runs never overwrite each other; `--out` overrides.
 
-T6.3 (materiality on the test set) has no script yet; it gets a command when it does.
+T6.3 (`materiality`) runs the pipeline's own materiality step, so it spends what `analyze` spends
+on that step; its dry run prints the batches and their cost first.
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ SCRIPTS = {
     "retrieval": EVAL_DIR / "retrieval" / "recall.py",
     "redundancy": EVAL_DIR / "retrieval" / "redundancy.py",
     "judge": EVAL_DIR / "judge" / "agreement.py",
+    "materiality": EVAL_DIR / "materiality" / "materiality.py",
     "survival": EVAL_DIR / "tot" / "survival.py",
     "match-causes": EVAL_DIR / "tot" / "match_causes.py",
     "baseline": EVAL_DIR / "baseline" / "baseline.py",
@@ -51,6 +53,7 @@ SCRIPTS = {
 TASKS = (
     ("retrieval", "T6.2", "free", "recall@5 with and without the reranker (local models)"),
     ("redundancy", "T2.4", "free", "near-duplicate passages in the search's top 5"),
+    ("materiality", "T6.3", "paid", "missed changes and false positives of the materiality step"),
     ("judge", "T5.2", "paid", "entailment judge against the labeled judge examples (Opus)"),
     ("survival", "T6.4", "paid", "known causes kept by the Tree-of-Thought search (worker model)"),
     ("match-causes", "T6.4", "paid", "match a survival run's candidates to labeled causes (Opus)"),
@@ -131,7 +134,6 @@ def tasks() -> None:
     """List the evaluation commands, the plan task each serves, and whether it spends money."""
     for name, task, cost, what in TASKS:
         typer.echo(f"{name:13} {task:5} {cost:5} {what}")
-    typer.echo("T6.3 (materiality on the test set) has no command yet.")
 
 
 @app.command()
@@ -220,6 +222,27 @@ def match_causes(
     _confirm(split=None, cap=cap, yes=yes)
     out = out or run.with_name(f"{run.stem}_matcher.json")
     _finish("match-causes", [str(run), str(out), "--cap", str(cap)])
+
+
+@app.command()
+def materiality(
+    cap: CapOption,
+    split: SplitOption = Split.TUNE,
+    out: OutOption = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Print batches and expected cost; send nothing."),
+    ] = False,
+    yes: YesOption = False,
+):
+    """T6.3: missed changes and false positives of the materiality step (paid, Opus)."""
+    if not dry_run:
+        _confirm(split=split, cap=cap, yes=yes)
+    out = out or _default_out("materiality", split, suffix="")
+    args = [str(LABELS[split]), str(out), "--cap", str(cap)]
+    if dry_run:
+        args.append("--dry-run")
+    _finish("materiality", args)
 
 
 @app.command()
