@@ -23,7 +23,10 @@ from sec_agent.edgar.corpus import (
 )
 from sec_agent.eval_cli import app as eval_app
 from sec_agent.finance.fact_store import FactStore
+from sec_agent.ingest.chunker import chunk_corpus, load_token_counter
+from sec_agent.ingest.index import BgeEmbedder, ChunkIndex
 from sec_agent.ingest.pipeline import (
+    FilingRejectedError,
     ParsedFiling,
     parse_filing,
     parsed_filing_path,
@@ -174,6 +177,38 @@ def ingest(corpus_path: CorpusOption = CORPUS_PATH) -> None:
     # A non-zero exit lets scripts and CI notice rejections.
     if rejected:
         raise typer.Exit(code=1)
+
+
+@app.command()
+def index(corpus_path: CorpusOption = CORPUS_PATH) -> None:
+    """Chunk the pinned filings and bring the search index in line with them. Run after `ingest`.
+
+    Only chunks that changed are embedded: the first build took about 15 minutes on a 4-core
+    machine, and a rebuild after a small change takes a few minutes. Exits 1 if a filing was
+    rejected or has no facts loaded, since its text would otherwise silently go unsearched.
+    """
+    settings = get_settings()
+    settings.ensure_dirs()
+    corpus = Corpus.load(corpus_path)
+    try:
+        with FactStore(settings.duckdb_path) as store:
+            counts = chunk_corpus(corpus, settings.parsed_filings_dir, store, load_token_counter())
+            chunks = store.chunks()
+    except FilingRejectedError as error:
+        typer.echo(f"Not indexed: {error}")
+        raise typer.Exit(code=1) from error
+    typer.echo(f"Chunked {len(counts)} filing(s) into {sum(counts.values())} chunks.")
+    # Embedding starts only once the store is closed: an open store blocks every other process
+    # from the DuckDB file for the whole build.
+    search_index = ChunkIndex(settings.chroma_dir, BgeEmbedder())
+    try:
+        summary = search_index.sync(chunks)
+    finally:
+        search_index.close()
+    typer.echo(
+        f"Index: {summary.added} added, {summary.updated} updated, "
+        f"{summary.removed} removed, {summary.unchanged} unchanged."
+    )
 
 
 @app.command()
