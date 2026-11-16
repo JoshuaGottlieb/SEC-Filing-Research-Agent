@@ -24,6 +24,14 @@ compares the quarter with the same quarter a year before, so for a sequential co
 
 Only ratio metrics are matched: their values are written one way ("33.5%"), while dollar figures
 are written many ("$1,441.5 million", "$1.4 billion"). Labeling decides what to do with the pair.
+
+The same test finds the filing's own explanation of the change (`find_own_explanation`): the
+paragraph that names the changed line itself, gives both its values and states a cause. On the
+seventh paid Hershey run (yoy-10q) the 10-Q said "Gross margin was 45.3% in the second quarter of
+2026 compared to 30.5% ... driven by favorable net price realization and net savings related to
+our AAA Initiative", but the searches for those causes retrieved the six-month paragraphs, which
+cannot speak to the quarter, so gross margin was left unconfirmed (user's decision, 2026-11-15).
+Found from the filing alone, the paragraph does not depend on what the search retrieved.
 """
 
 from __future__ import annotations
@@ -90,6 +98,23 @@ class BackReference:
         return f"{self.referenced.quote}\n\n{OMITTED}\n\n{self.sentence.quote}"
 
 
+@dataclass(frozen=True)
+class OwnExplanation:
+    """The filing's own paragraph explaining the change: the line, both its values and a cause."""
+
+    paragraph: Citation
+
+    @property
+    def citations(self) -> tuple[Citation]:
+        """What a claim confirmed on it cites: the paragraph."""
+        return (self.paragraph,)
+
+    @property
+    def judged_text(self) -> str:
+        """What the judge reads: the paragraph."""
+        return self.paragraph.quote
+
+
 def shown_percent(value: float) -> str:
     """A ratio as filings write it, to one decimal place: 0.1233 is "12.3%"."""
     return f"{value * 100:.1f}%"
@@ -154,6 +179,40 @@ def _citation(chunk: Chunk, quote: str, comparison: Comparison) -> Citation:
     )
 
 
+def _mdna_passages(comparison: Comparison, filing: FilingChunks) -> list[tuple[Chunk, str]]:
+    """Every paragraph of the current filing's MD&A in reading order, with its chunk."""
+    return [
+        (chunk, paragraph)
+        for chunk in filing.chunks(comparison.current.accession)
+        if chunk.section is Section.MDNA
+        for paragraph in _paragraphs(chunk)
+    ]
+
+
+def find_own_explanation(
+    change: Change,
+    comparison: Comparison,
+    changed: MetricName,
+    metrics: MetricLookup,
+    filing: FilingChunks,
+) -> OwnExplanation | None:
+    """The first paragraph of the current filing's MD&A that explains `change` itself, or None.
+
+    It names `changed`, gives its current and prior values as the filing rounds them, and states a
+    cause (`_explains`). None for a text change, a dollar metric, or a filing that explains the
+    change only some other way, such as by another line's factors.
+    """
+    if change.metric_id is None:
+        return None
+    values = _shown_values(comparison, changed, metrics)
+    if values is None:
+        return None
+    for chunk, paragraph in _mdna_passages(comparison, filing):
+        if _explains(paragraph, changed, values):
+            return OwnExplanation(_citation(chunk, paragraph, comparison))
+    return None
+
+
 def find_back_reference(
     change: Change,
     comparison: Comparison,
@@ -171,13 +230,8 @@ def find_back_reference(
     values = _shown_values(comparison, changed, metrics)
     if values is None:
         return None
-    mdna = [
-        chunk
-        for chunk in filing.chunks(comparison.current.accession)
-        if chunk.section is Section.MDNA
-    ]
     # Every paragraph in reading order, so "noted above" can be looked up among those before.
-    passages = [(chunk, paragraph) for chunk in mdna for paragraph in _paragraphs(chunk)]
+    passages = _mdna_passages(comparison, filing)
     linked = linked_metrics(changed)
     for at, (chunk, paragraph) in enumerate(passages):
         for sentence in SENTENCE_END.split(paragraph):
