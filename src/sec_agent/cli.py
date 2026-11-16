@@ -21,6 +21,7 @@ from sec_agent.edgar.corpus import (
     discover_corpus,
     download_corpus,
 )
+from sec_agent.eval_cli import app as eval_app
 from sec_agent.finance.fact_store import FactStore
 from sec_agent.ingest.pipeline import (
     ParsedFiling,
@@ -37,6 +38,8 @@ CORPUS_PATH = REPO_ROOT / "config" / "corpus.yaml"
 CorpusOption = Annotated[Path, typer.Option("--corpus", help="Corpus file to use.")]
 
 app = typer.Typer(no_args_is_help=True, help="SEC filing research agent.")
+# The Phase 6 evaluations, in their own module (`eval_cli.py`).
+app.add_typer(eval_app, name="eval")
 
 
 @app.callback()
