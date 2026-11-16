@@ -16,8 +16,10 @@ Time inside model calls and searches is summed over calls, so where calls overla
 candidates) it can exceed the step's wall time. A run's wall time is the sum of its steps; process
 start-up (loading the search models, a few seconds) is outside every step.
 
-Costs are what the ledger recorded, so a replayed call counts $0. Ledgers written before T6.6 have
-no step or change on their lines; their calls are reported under `unscoped`.
+Costs are what the ledger recorded, so a replayed call counts $0, and a reply that could not be
+parsed counts the worst case reserved for it; every table counts those (`estimated_calls`,
+`estimated_usd`). Ledgers written before T6.6 have no step or change on their lines; their calls
+are reported under `unscoped`.
 """
 
 from __future__ import annotations
@@ -87,11 +89,16 @@ def _spread(values: list[float]) -> dict[str, float | None]:
 
 def _calls(entries: list[LedgerEntry]) -> dict[str, float | int]:
     live = [e for e in entries if not e.replayed]
+    estimated = [e for e in entries if e.estimated]
     return {
         "calls": len(entries),
         "live_calls": len(live),
         "replayed_calls": len(entries) - len(live),
         "cost_usd": sum(e.cost_usd for e in entries),
+        # Replies that could not be parsed, charged their reserved worst case rather than their
+        # actual use (`LLMClient.complete`); their share of `cost_usd` is an upper bound.
+        "estimated_calls": len(estimated),
+        "estimated_usd": sum(e.cost_usd for e in estimated),
         "model_s": sum(e.elapsed_s for e in live),
     }
 

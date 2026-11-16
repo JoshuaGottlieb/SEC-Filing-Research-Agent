@@ -43,6 +43,11 @@ def print_run(report: dict) -> None:
         f"cost {_money(report['cost_usd'])}, {report['live_calls']} live / "
         f"{report['replayed_calls']} replayed calls, wall {_secs(report['wall_s'])}{note}"
     )
+    if report["estimated_calls"]:
+        print(
+            f"{report['estimated_calls']} unparsable replies charged their worst case: "
+            f"{_money(report['estimated_usd'])} of the cost is an upper bound"
+        )
     print("| step | runs | wall | live | replayed | cost | in model calls | searches | in search |")
     print("|---|---|---|---|---|---|---|---|---|")
     for step, row in report["steps"].items():

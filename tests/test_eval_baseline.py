@@ -550,3 +550,49 @@ def test_hand_check_tally():
     assert result["baseline"]["user supported, judge did not"] == 1
     with pytest.raises(SystemExit):
         hand_check.tally(key, {"H01": "yes"})
+
+
+# Whether the baseline's changes are real
+
+import grounding  # noqa: E402
+
+from sec_agent.schemas import Change, ChangeKind  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Gross margin collapsed from 47.3% to 33.5% as cost of sales rose 31.7%.", -1),
+        ("Net sales slipped 0.6% as sales adjustments jumped.", -1),
+        ("Segment margin improved from 6.9% to 10.9%.", 1),
+        ("Net income swung to a loss, with net margin falling to -1.6%.", -1),
+        ("Inventory stood at $1.2 billion.", 0),
+    ],
+)
+def test_grounding_reads_the_first_direction_word(text, expected):
+    assert grounding.direction(text) == expected
+
+
+def test_a_numeric_change_is_grounded_when_its_metric_moved_the_stated_way():
+    assert grounding.numeric_verdict("Gross margin fell 2.1 points.", -0.021) == grounding.GROUNDED
+    assert grounding.numeric_verdict("Gross margin rose 2.1 points.", -0.021) == grounding.DISAGREES
+    assert grounding.numeric_verdict("Gross margin was 48.7%.", -0.021) == grounding.NO_DIRECTION
+    assert grounding.numeric_verdict("Segment loss widened.", None) == grounding.NO_VALUES
+
+
+def test_a_text_change_is_grounded_only_by_a_quote_in_a_changed_passage():
+    changed = Change(
+        change_id="HSY:yoy-10k:modified:x",
+        comparison_id="HSY:yoy-10k",
+        kind=ChangeKind.MODIFIED,
+        section=Section.MDNA,
+        current_text="Tariffs had a material negative impact on our results of operations.",
+        prior_text="Tariffs had no material impact on our results of operations.",
+    )
+    quote = {"filing": "current", "text": "a material negative impact on our results"}
+    assert grounding.text_verdict([quote], [changed]) == (grounding.GROUNDED, ["modified"])
+    elsewhere = {"filing": "current", "text": "Net sales rose on price realization."}
+    assert grounding.text_verdict([elsewhere], [changed]) == (grounding.NOT_IN_CHANGE, [])
+    # The right words from the other filing do not count.
+    wrong_side = {"filing": "prior", "text": "a material negative impact on our results"}
+    assert grounding.text_verdict([wrong_side], [changed])[0] == grounding.NOT_IN_CHANGE

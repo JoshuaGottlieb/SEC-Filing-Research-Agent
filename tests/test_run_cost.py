@@ -102,6 +102,40 @@ def test_models_report_latency_from_sent_calls_only(run_dir) -> None:
     assert models[OPUS]["latency_s_p90"] == 20.0
 
 
+def test_worst_case_charges_are_counted_wherever_calls_are(tmp_path) -> None:
+    folder = tmp_path / "runs" / "cut-off"
+    ledger = CostLedger(10.0, path=folder / "ledger.jsonl")
+    ledger.record(call("critic", HAIKU, 0.02, "search", "A"))
+    ledger.record(
+        LedgerEntry(
+            "critic",
+            HAIKU,
+            10,
+            2000,
+            0,
+            0,
+            0.011,
+            False,
+            elapsed_s=5.0,
+            stage="search",
+            change_id="A",
+            estimated=True,
+        )
+    )
+    TimingLog(folder / "timings.jsonl").add(Timing("search", "A", 10.0))
+    report = report_run(locate(folder))
+    assert (report["estimated_calls"], report["estimated_usd"]) == (1, pytest.approx(0.011))
+    assert report["steps"]["search"]["estimated_calls"] == 1
+    assert report["finding_rows"]["A"]["estimated_calls"] == 1
+    assert report["models"][HAIKU]["estimated_usd"] == pytest.approx(0.011)
+    assert report["cost_usd"] == pytest.approx(0.031)
+
+
+def test_a_run_with_no_worst_case_charges_counts_none(run_dir) -> None:
+    report = report_run(locate(run_dir))
+    assert (report["estimated_calls"], report["estimated_usd"]) == (0, 0)
+
+
 def test_a_ledger_from_before_timing_is_reported_unscoped(tmp_path) -> None:
     folder = tmp_path / "old-run"
     CostLedger(1.0, path=folder / "ledger.jsonl").record(

@@ -174,3 +174,14 @@ def test_hand_check_and_cost_run_free(scripts, tmp_path):
 def test_a_failing_script_fails_the_command(monkeypatch, settings, tmp_path):
     monkeypatch.setattr(eval_cli, "run_script", FakeScripts(code=3))
     assert invoke("cost", str(tmp_path)).exit_code == 3
+
+
+def test_grounding_passes_every_baseline_folder_and_does_not_ask(scripts, tmp_path):
+    first, second = tmp_path / "hsy", tmp_path / "test"
+    first.mkdir()
+    second.mkdir()
+    result = invoke("grounding", str(first), str(second), "--out", str(tmp_path / "g.json"))
+    assert result.exit_code == 0, result.output
+    ((script, args),) = scripts.calls
+    assert script.name == "grounding.py"
+    assert args == [str(first), str(second), "--out", str(tmp_path / "g.json")]
