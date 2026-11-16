@@ -61,7 +61,7 @@ def sample(scores: dict, per_system: int, seed: int) -> tuple[list[dict], dict]:
             {
                 "id": item_id,
                 "comparison": claim["comparison_id"],
-                "change": claim["change"],
+                "change": _change(claim),
                 "claim": claim["text"],
                 "quotes": [
                     {"filing": citation["side"], "section": citation["section"], "quote": q}
@@ -76,6 +76,19 @@ def sample(scores: dict, per_system: int, seed: int) -> tuple[list[dict], dict]:
             "judge_supported": claim["supported"],
         }
     return sheet, key
+
+
+def _change(claim: dict) -> str:
+    """The change as one sentence for either system. The agent's heading names only a text
+    change's kind and section ("Changed paragraph in Management's Discussion and Analysis"),
+    which would mark its claims as the agent's, so its materiality rationale is shown instead,
+    the counterpart of the baseline's description. `score.py` saves it in `coverage_text` as
+    "<heading>: <rationale>"."""
+    heading, described = claim["change"], claim.get("coverage_text")
+    prefix = f"{heading}: "
+    if described and described.startswith(prefix):
+        return described[len(prefix) :]
+    return heading
 
 
 def _valid(citation: dict) -> bool:
