@@ -132,9 +132,15 @@ A reply cut off mid-JSON is charged its worst case, and only that branch ends.
 - **An evaluation CLI.** `sec-agent eval` runs each evaluation. It requires a dollar cap on paid commands, and asks before any test-set run.
 - **A persistent search cache, for evaluation only.** Repeated evaluation runs replay searches instead of recomputing them on the CPU. The pipeline does not use it.
 
+## Known limitations
+
+- **An explanation can be pruned for one wrong extra expectation.** Agreeing with the metric being explained earns an explanation nothing, so that it cannot survive on the change alone. If the only other metric it expects contradicts the filings, its numerical consistency is 0. The depth-1 pre-screen then prunes it, at a score of 0.25 against a threshold of 0.30.
+  - On HSY's 10-K comparison, "lower sales volume compressed gross margin" was pruned this way. It also expected revenue to fall, but revenue rose on price. Lower volume still reached that brief, as a confirmed cause of the operating margin change.
+  - In the cached HSY runs this happened to 5 of 90 numeric explanations, all in the 10-K comparison. The other four expected SG&A's share of revenue to rise, which it did not.
+  - Counting the agreement whenever another metric is checked would score such an explanation 0.625, as the text form of a change already does. Because the problem is rare, this was left unchanged.
+
 ## Still open
 
-- **One pre-screen question.** An explanation that expects an extra metric to move scores 0.625 when that metric contradicts the filings, and passes only when the beam has room. Whether to change this is undecided.
 - **Rewording.** It stays off until it is measured against the labeled findings.
 - **Cost settings.** The per-change cost estimate (`PER_CHANGE_USD`) predates the wider search, and will be updated from the cost measurements.
 - **Parser rejections.** The gate still rejects some sound filings from very small companies (see the README's known limits).
