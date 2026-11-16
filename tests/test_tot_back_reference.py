@@ -25,7 +25,12 @@ from sec_agent.schemas import (
     MetricValue,
     Section,
 )
-from sec_agent.tot.back_reference import OMITTED, find_back_reference, shown_percent
+from sec_agent.tot.back_reference import (
+    OMITTED,
+    find_back_reference,
+    find_own_explanation,
+    shown_percent,
+)
 
 CURRENT = FiscalPeriod(fiscal_year=2025, fiscal_period="FY", period_end=date(2025, 12, 31))
 PRIOR = FiscalPeriod(fiscal_year=2024, fiscal_period="FY", period_end=date(2024, 12, 31))
@@ -287,5 +292,62 @@ def test_a_linked_ratio_is_not_another_lines_factors():
         chunk(2, sentence),
         name=MetricName.GROSS_MARGIN,
         metrics=FakeMetrics(values),
+    )
+    assert found is None
+
+
+# -- the filing's own explanation of the change (user's decision, 2026-11-15) -------------------
+
+
+def own(*chunks: Chunk, name=MetricName.GROSS_MARGIN, metrics=None):
+    return find_own_explanation(
+        change(name), COMPARISON, name, metrics or FakeMetrics(), FakeFiling(*chunks)
+    )
+
+
+def test_hersheys_gross_margin_paragraph_is_its_own_explanation():
+    found = own(chunk(1, "Net sales rose."), chunk(2, "Some other paragraph.", GROSS))
+    assert found is not None
+    assert found.paragraph.chunk_id == f"{NOW_ACC}:mdna:0002:0"
+    assert found.paragraph.quote == GROSS
+    assert found.citations == (found.paragraph,)
+    assert found.judged_text == GROSS
+    assert found.paragraph.url == COMPARISON.current.url
+
+
+def test_the_first_explaining_paragraph_in_reading_order_is_taken():
+    later = GROSS.replace("tariff", "packaging")
+    assert own(chunk(1, GROSS), chunk(2, later)).paragraph.quote == GROSS
+    assert own(chunk(1, later, GROSS)).paragraph.quote == later
+
+
+def test_the_paragraph_must_give_both_values_and_a_cause():
+    one_value = GROSS.replace("47.3%", "the year before")
+    assert own(chunk(1, one_value)) is None
+    no_cause = "Gross margin was 33.5% in 2025 compared with 47.3% in 2024."
+    assert own(chunk(1, no_cause)) is None
+
+
+def test_the_paragraph_must_name_the_changed_line_itself():
+    # Operating margin's change: the gross margin paragraph explains another line.
+    assert own(chunk(1, GROSS), name=MetricName.OPERATING_MARGIN) is None
+
+
+def test_a_same_factors_sentence_a_table_row_or_another_section_is_not_its_own_explanation():
+    assert own(chunk(1, SENTENCE), name=MetricName.OPERATING_MARGIN) is None
+    assert own(chunk(1, "Gross margin | 33.5% | 47.3% | driven by tariffs")) is None
+    assert own(chunk(1, GROSS, section=Section.RISK_FACTORS)) is None
+
+
+def test_another_filings_chunks_are_not_read():
+    other = chunk(1, GROSS).model_copy(update={"accession": "acc-2024"})
+    assert own(other) is None
+
+
+def test_a_dollar_metric_or_a_text_change_gives_no_own_explanation():
+    assert own(chunk(1, GROSS), metrics=FakeMetrics(unit="USD")) is None
+    text_change = change(MetricName.GROSS_MARGIN).model_copy(update={"metric_id": None})
+    found = find_own_explanation(
+        text_change, COMPARISON, MetricName.GROSS_MARGIN, FakeMetrics(), FakeFiling(chunk(1, GROSS))
     )
     assert found is None

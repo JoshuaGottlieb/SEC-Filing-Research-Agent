@@ -31,7 +31,15 @@ Each surviving candidate becomes one claim, labeled by the ToT design's standard
   2026-11-15). On the third paid Hershey run the critic rated "The decrease was driven by higher
   commodity and tariff costs" as implying "commodity costs rose and price increases lagged them",
   for the detail the quote does not state, so the judge never saw the quote that states the cause.
-  A claim still unconfirmed is tried once more when the filing explains the change "by the same
+  A claim still unconfirmed is tried on the filing's own explanation of the change: an MD&A
+  paragraph that names the changed ratio, gives both its values and states a cause
+  (`find_own_explanation`, user's decision 2026-11-15). Restated from that paragraph and judged
+  against it, the claim is confirmed citing it. On the seventh paid Hershey run the 10-Q's
+  "Gross margin was 45.3% in the second quarter of 2026 compared to 30.5% ..." was never
+  retrieved; the searches found the six-month paragraphs, which the span guard rightly refused,
+  so the brief had no confirmed gross margin cause. A paragraph the claim's own states-cause or
+  implies quotes already overlap is not tried again, since the judge has ruled on it.
+  Failing that, the claim is tried once more when the filing explains the change "by the same
   factors" as another line (`back_reference`, user's decision 2026-11-15, option A): restated from
   that sentence and the paragraph it points to, and judged against both together, it is
   confirmed citing both. Hershey explains its operating margin only this way.
@@ -40,12 +48,15 @@ Each surviving candidate becomes one claim, labeled by the ToT design's standard
   without linking cause and change, then checked in code; it says this brief did not confirm a
   link to the change, naming the change (user's decision, 2026-11-15: on the fourth paid Hershey
   run "the margin decline" was left for the reader to resolve). A quote the judge found unrelated
-  is not among its evidence.
+  is not among its evidence, and neither is a quote covering a longer span than the change
+  (`span_problem`, user's decision 2026-11-15): the seventh paid run's quarterly brief cited
+  six-month figures beside the quarter's change.
 - Left out: a survivor kept by an agreeing metric alone, with no quote (user's decision,
   2026-11-13). On the paid Hershey runs such claims read "no quotes were provided on litigation
   accruals...", since another margin falling agrees with almost any cause. Also left out (user's
-  decisions, 2026-11-15): a survivor whose every quote the judge found unrelated, and one whose
-  quotes are all table rows when no description of them passes the checks. Its tree keeps it, and
+  decisions, 2026-11-15): a survivor whose every quote the judge found unrelated or covers a
+  longer span than the change, and one whose quotes are all table rows when no description of
+  them passes the checks. Its tree keeps it, and
   a finding left with no claims goes to review, saying why. Once a finding's rework is over, a
   plausible claim whose every quote a confirmed claim in it already shows is left out too
   (`leave_out_repeated_quotes`, user's decision 2026-11-15).
@@ -106,7 +117,13 @@ from sec_agent.schemas import (
     Record,
     TreeNode,
 )
-from sec_agent.tot.back_reference import BackReference, FilingChunks, find_back_reference
+from sec_agent.tot.back_reference import (
+    BackReference,
+    FilingChunks,
+    OwnExplanation,
+    find_back_reference,
+    find_own_explanation,
+)
 from sec_agent.tot.controller import (
     CandidateResult,
     Outcome,
@@ -171,6 +188,13 @@ REFUTED_REASON = (
 TABLE_ONLY_REASON = (
     "the explanations found had only table rows from the filings behind them, and no description "
     "of those rows passed the checks"
+)
+
+# Why a finding whose every explanation was left out for citing only quotes about a longer span
+# than the change goes to review (see `_label_survivor`). Plain words, no cause.
+SPAN_REASON = (
+    "the explanations found had only quotes from the filings about a longer span of time than the "
+    "change, such as six months for a quarter"
 )
 
 # The writer's own word for what it is given. The reader never sees the hypothesis, so a plausible
@@ -886,52 +910,61 @@ async def _plausible(
     )
 
 
-async def _confirm_by_back_reference(
+# How failure notes name the filing passages a claim can be confirmed on after its own quotes.
+OWN_EXPLANATION = "filing's own explanation"
+BACK_REFERENCE = "back-reference"
+
+
+async def _confirm_on_filing(  # noqa: PLR0913 -- one claim's try, its inputs passed through
     candidate: TreeNode,
-    back_reference: BackReference,
+    passages: OwnExplanation | BackReference,
+    source: str,
     metric_ids: tuple[str, ...],
     target: _Target,
     context: LabelingContext,
     tally: _Tally,
 ) -> tuple[Claim | None, str | None]:
-    """The claim confirmed on the filing's back-reference, if it earns it, and any review note.
+    """The claim confirmed on passages labeling found in the filing, if it earns it, and any note.
 
-    The hypothesis is restated from both passages; the restatement must pass the checks any
-    confirmed text passes, and the judge rules on it against both passages read together. That
-    is the one judge call that sees two quotes (user's decision, 2026-11-15): the sentence names no
-    cause and the paragraph explains another line, so neither alone could state it. The confirmed
-    claim cites both. A judge failure gives the review note a failure on one quote gives.
+    `passages` is the filing's own explanation of the change (one paragraph) or its back-reference
+    (a sentence and the paragraph it points to); `source` names it in failure notes. The
+    hypothesis is restated from the passages; the restatement must pass the checks any confirmed
+    text passes, and the judge rules on it against the passages read together. For a
+    back-reference that is the one judge call that sees two quotes (user's decision, 2026-11-15):
+    the sentence names no cause and the paragraph explains another line, so neither alone could
+    state it. The confirmed claim cites every passage. A judge failure gives the review note a
+    failure on one quote gives.
     """
     claim_id = candidate.node_id
     restated = await _restate(
-        claim_id, candidate.thought, back_reference.citations, target, context, tally
+        claim_id, candidate.thought, passages.citations, target, context, tally
     )
     if restated is None:
         return None, None
     problem = _fit_problem(restated, target)
     if problem is not None:
         tally.failures.append(
-            f"claim {claim_id}: the restatement {restated!r} from the back-reference {problem}"
+            f"claim {claim_id}: the restatement {restated!r} from the {source} {problem}"
         )
         return None, None
     draft = Claim(
         claim_id=claim_id,
         text=restated,
         label=ExplanationLabel.PLAUSIBLE,
-        citations=back_reference.citations,
+        citations=passages.citations,
         metric_ids=metric_ids,
     )
     check = check_citations(draft, target.periods, context.chunks, context.metrics, context.facts)
     details = "; ".join(failure.detail for failure in check.failures)
     if check.passed:
-        details = span_problem(back_reference.judged_text, target.span) or ""
+        details = span_problem(passages.judged_text, target.span) or ""
     if details:
         tally.failures.append(
-            f"claim {claim_id}: the back-reference cannot confirm {restated!r}: {details}"
+            f"claim {claim_id}: the {source} cannot confirm {restated!r}: {details}"
         )
         return None, None
     tally.judge_calls += 1
-    result = await judge_entailment(restated, back_reference.judged_text, context.judge)
+    result = await judge_entailment(restated, passages.judged_text, context.judge)
     if result.failure is not None:
         tally.failures.append(f"claim {claim_id}: {result.failure}")
         return None, f"claim {claim_id} could not be confirmed because {result.failure}"
@@ -941,11 +974,21 @@ async def _confirm_by_back_reference(
         claim_id=claim_id,
         text=restated,
         label=ExplanationLabel.CONFIRMED,
-        citations=back_reference.citations,
+        citations=passages.citations,
         metric_ids=metric_ids,
         entailment=EntailmentVerdict.STATES_CAUSE,
     )
     return claim, None
+
+
+def _overlaps(paragraph: Citation, quotes: Sequence[Citation]) -> bool:
+    """Whether a quote shares text with `paragraph`: from its chunk, inside it or around it."""
+    text = _quote_key(paragraph)[1]
+    return any(
+        quote.chunk_id == paragraph.chunk_id
+        and (_quote_key(quote)[1] in text or text in _quote_key(quote)[1])
+        for quote in quotes
+    )
 
 
 async def _label_survivor(
@@ -954,11 +997,15 @@ async def _label_survivor(
     context: LabelingContext,
     tally: _Tally,
     back_reference: BackReference | None = None,
+    own_explanation: OwnExplanation | None = None,
 ) -> Claim | None:
-    """The survivor's claim, or None for one kept by computed metrics alone (see the module doc).
+    """The survivor's claim, or None to leave it out (see the module doc).
 
-    A claim its own quotes leave unconfirmed is tried on `back_reference`, the filing's sentence
-    explaining the change by another line's factors, before it is worded as plausible.
+    A claim its own quotes leave unconfirmed is tried on `own_explanation`, the filing's paragraph
+    explaining the change itself, then on `back_reference`, the filing's sentence explaining it by
+    another line's factors, before it is worded as plausible. The own explanation is skipped when
+    a quote the critic rated as stating or implying the cause shares text with it: judging the
+    claim's quotes has dealt with that paragraph already.
     """
     citations = _citations(survivor.evidence)
     metric_ids = _agreeing_metric_ids(survivor.evidence)
@@ -983,17 +1030,25 @@ async def _label_survivor(
     if judged.claim is not None:
         return judged.claim
     review_note = judged.review_note
+    notes = [review_note] if review_note is not None else []
+    tries: list[tuple[str, OwnExplanation | BackReference]] = []
+    rated = [*_cause_quotes(survivor.evidence), *_implying_quotes(survivor.evidence)]
+    if own_explanation is not None and not _overlaps(own_explanation.paragraph, rated):
+        tries.append((OWN_EXPLANATION, own_explanation))
     if back_reference is not None:
-        chained, note = await _confirm_by_back_reference(
-            survivor.candidate, back_reference, metric_ids, target, context, tally
+        tries.append((BACK_REFERENCE, back_reference))
+    for source, passages in tries:
+        chained, note = await _confirm_on_filing(
+            survivor.candidate, passages, source, metric_ids, target, context, tally
         )
         if chained is not None:
-            # Confirmed after all, so a judge failure on its own quotes no longer needs a person.
-            if review_note is not None:
-                tally.review_notes.remove(review_note)
+            # Confirmed after all, so a judge failure on the way no longer needs a person.
+            for earlier in notes:
+                tally.review_notes.remove(earlier)
             return chained
         if note is not None:
             tally.review_notes.append(note)
+            notes.append(note)
             # A rework round that rules on the claim replaces one note; the first stands for it.
             review_note = review_note or note
     # A quote the judge found unrelated (another cause or change, or the opposite direction) is not
@@ -1010,6 +1065,29 @@ async def _label_survivor(
         )
         tally.left_out.append(REFUTED_REASON)
         return None
+    # Nor is a quote about a longer span than the change (user's decision, 2026-11-15): on the
+    # seventh paid Hershey run (yoy-10q) plausible claims on the quarter's gross margin stated
+    # six-month figures, which the span guard keeps from confirming but nothing kept from the
+    # brief. Dropped before wording, so the wording rests only on quotes about the change's span.
+    spanned = [
+        citation
+        for citation in citations
+        if span_problem(_judged_quote(citation, context.chunks), target.span)
+    ]
+    if spanned:
+        citations = tuple(citation for citation in citations if citation not in spanned)
+        for citation in spanned:
+            tally.failures.append(
+                f"claim {survivor.candidate.node_id}: the quote from {citation.chunk_id} covers a "
+                "longer span than the change, so the claim does not cite it"
+            )
+        if not citations:
+            tally.failures.append(
+                f"claim {survivor.candidate.node_id}: every quote it has covers a longer span "
+                "than the change, so it is left out of the brief"
+            )
+            tally.left_out.append(SPAN_REASON)
+            return None
     claim = await _plausible(survivor, citations, metric_ids, target, context, tally)
     # A claim left out has no place in the finding for rework to replace, so it gets no rework
     # item; a judge failure's note still sends the finding to review.
@@ -1191,13 +1269,19 @@ async def label_result(
             f"the search lost {len(result.failures)} branch(es) to a model failure: "
             + "; ".join(result.failures)
         )
+    findable = context.filing is not None and target.changed is not None
     back_reference = (
         find_back_reference(change, comparison, target.changed, context.metrics, context.filing)
-        if context.filing is not None and target.changed is not None
+        if findable
+        else None
+    )
+    own_explanation = (
+        find_own_explanation(change, comparison, target.changed, context.metrics, context.filing)
+        if findable
         else None
     )
     labeled = [
-        await _label_survivor(survivor, target, context, tally, back_reference)
+        await _label_survivor(survivor, target, context, tally, back_reference, own_explanation)
         for survivor in result.candidates
     ]
     claims = _merge_same_claims([claim for claim in labeled if claim is not None], tally)

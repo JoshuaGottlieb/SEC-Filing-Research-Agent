@@ -1446,7 +1446,10 @@ async def test_a_six_month_quote_cannot_confirm_a_quarterly_change():
     judge = ClaimJudge({}, default=EntailmentVerdict.STATES_CAUSE)
     labeled = await label(narrow("six_months"), judge, FakeWriter(), metrics=(QUARTER_MARGIN,))
     assert judge.calls == []
-    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    # Nor can it back a plausible claim (user's decision, 2026-11-15), so with no other quote the
+    # claim is left out and the finding goes to review.
+    assert labeled.finding.claims == ()
+    assert labeled.finding.review_reason == labeling.SPAN_REASON
     assert any("longer span" in failure for failure in labeled.failures)
 
 
@@ -2284,3 +2287,285 @@ def test_the_left_out_note_names_no_cause():
         )
     )
     assert find_causal_language(labeled.failures[-1]) == ()
+
+
+# -- the filing's own explanation of the change (user's decision, 2026-11-15) -------------------
+# A claim its own quotes leave unconfirmed is tried on the paragraph that explains the change
+# itself, found in code, before the back-reference.
+
+GROSS_CHANGE = OPERATING_CHANGE.model_copy(
+    update={"metric_id": metric_id_for(COMPARISON.current, MetricName.GROSS_MARGIN)}
+)
+COCOA = candidate(5, "Cocoa and tariff costs rose and lowered gross margin.")
+OWN_TEXT = "Higher tariff costs lowered gross margin."
+OWN_OPERATING = (
+    "Operating margin was 12.3% in 2025 compared with 25.9% in 2024, driven by lower gross profit."
+)
+OWN_OPERATING_TEXT = "Lower gross profit lowered operating margin."
+
+
+def own_context(
+    judge: FakeJudge, writer: FakeWriter, paragraphs, *, filing: bool = True
+) -> LabelingContext:
+    store = FilingStore(chunk("fits"), *(back_chunk(n, text) for n, text in paragraphs))
+    return LabelingContext(
+        judge=judge,
+        writer=writer,
+        chunks=store,
+        metrics=FakeMetrics(*BACK_METRICS),
+        facts=NoFacts(),
+        filing=store if filing else None,
+    )
+
+
+async def label_own(  # noqa: PLR0913 -- the test's knobs
+    judge: FakeJudge,
+    writer: FakeWriter,
+    *branches: TreeNode,
+    node: TreeNode = COCOA,
+    change: Change = GROSS_CHANGE,
+    paragraphs=((1, BACK_GROSS),),
+    filing: bool = True,
+):
+    branches = branches or (branch(node, 1, EvidenceSupport.STATES_CAUSE, cite("fits")),)
+    return await label_result(
+        resolved(survivor(node, *branches)),
+        change,
+        COMPARISON,
+        own_context(judge, writer, paragraphs, filing=filing),
+        RUN,
+    )
+
+
+async def test_a_claim_its_quotes_leave_unconfirmed_is_confirmed_on_the_filings_own_explanation():
+    judge = ClaimJudge({(OWN_TEXT, BACK_GROSS): EntailmentVerdict.STATES_CAUSE})
+    writer = QueuedRestater(None, OWN_TEXT)
+    labeled = await label_own(judge, writer)
+    (claim,) = labeled.finding.claims
+    assert (claim.label, claim.text) == (ExplanationLabel.CONFIRMED, OWN_TEXT)
+    assert claim.citations == (back_cite(1, BACK_GROSS),)
+    assert judge.calls == [(COCOA.thought, TEXTS["fits"]), (OWN_TEXT, BACK_GROSS)]
+    assert [shown["quote"] for shown in writer.restate_requests[-1]["quotes"]] == [BACK_GROSS]
+    assert labeled.rework == ()
+    assert labeled.finding.review_reason is None
+
+
+async def test_a_claim_confirmed_on_its_own_quotes_never_reaches_its_own_explanation():
+    judge = ClaimJudge({(COCOA.thought, TEXTS["fits"]): EntailmentVerdict.STATES_CAUSE})
+    writer = QueuedRestater(ECHO)
+    labeled = await label_own(judge, writer)
+    assert labeled.finding.claims[0].citations == (cite("fits"),)
+    assert len(writer.restate_requests) == 1
+
+
+@pytest.mark.parametrize(
+    ("rating", "quote"),
+    [
+        (EvidenceSupport.STATES_CAUSE, BACK_GROSS),
+        (EvidenceSupport.STATES_CAUSE, BACK_GROSS.split(". ")[0] + "."),
+        (EvidenceSupport.IMPLIES, BACK_GROSS),
+        (EvidenceSupport.STATES_CAUSE, BACK_GROSS + "\n\nCocoa costs rose."),
+    ],
+)
+async def test_a_paragraph_the_claims_rated_quotes_overlap_is_not_tried_again(rating, quote):
+    # The chunk holds the paragraph and one more, so a quote can run past the paragraph.
+    paragraphs = ((1, BACK_GROSS + "\n\nCocoa costs rose."),)
+    judge = ClaimJudge({})
+    writer = QueuedRestater(None)  # a second restatement would empty the queue and raise
+    labeled = await label_own(
+        judge, writer, branch(COCOA, 1, rating, back_cite(1, quote)), paragraphs=paragraphs
+    )
+    assert len(writer.restate_requests) == 1
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+
+
+async def test_a_paragraph_quoted_only_as_consistent_or_from_another_chunk_is_still_tried():
+    consistent = branch(COCOA, 1, EvidenceSupport.CONSISTENT, back_cite(1, BACK_GROSS))
+    cause = branch(COCOA, 2, EvidenceSupport.STATES_CAUSE, cite("fits"))
+    writer = QueuedRestater(None, None)
+    await label_own(ClaimJudge({}), writer, consistent, cause)
+    assert len(writer.restate_requests) == 2
+    elsewhere = back_cite(9, BACK_GROSS)
+    writer = QueuedRestater(None, None)
+    await label_own(
+        ClaimJudge({}),
+        writer,
+        branch(COCOA, 1, EvidenceSupport.STATES_CAUSE, elsewhere),
+        paragraphs=((1, BACK_GROSS), (9, BACK_GROSS)),
+    )
+    assert len(writer.restate_requests) == 2
+
+
+async def test_the_own_explanation_is_tried_before_the_back_reference():
+    judge = ClaimJudge(
+        {
+            (OWN_OPERATING_TEXT, OWN_OPERATING): EntailmentVerdict.IMPLIES,
+            (CHAINED, BACK_JUDGED): EntailmentVerdict.STATES_CAUSE,
+        }
+    )
+    writer = QueuedRestater(None, OWN_OPERATING_TEXT, CHAINED)
+    labeled = await label_own(
+        judge,
+        writer,
+        node=TARIFFS,
+        change=OPERATING_CHANGE,
+        paragraphs=((1, BACK_GROSS), (2, BACK_SENTENCE), (3, OWN_OPERATING)),
+    )
+    assert labeled.finding.claims[0].text == CHAINED
+    assert judge.calls == [
+        (TARIFFS.thought, TEXTS["fits"]),
+        (OWN_OPERATING_TEXT, OWN_OPERATING),
+        (CHAINED, BACK_JUDGED),
+    ]
+
+
+async def test_confirming_on_the_back_reference_clears_a_judge_failure_on_the_own_explanation():
+    judge = ClaimJudge(
+        {
+            (OWN_OPERATING_TEXT, OWN_OPERATING): LLMError("no parsable output"),
+            (CHAINED, BACK_JUDGED): EntailmentVerdict.STATES_CAUSE,
+        }
+    )
+    labeled = await label_own(
+        judge,
+        QueuedRestater(None, OWN_OPERATING_TEXT, CHAINED),
+        node=TARIFFS,
+        change=OPERATING_CHANGE,
+        paragraphs=((1, BACK_GROSS), (2, BACK_SENTENCE), (3, OWN_OPERATING)),
+    )
+    assert labeled.finding.claims[0].label is ExplanationLabel.CONFIRMED
+    assert labeled.finding.review_reason is None
+    assert labeled.review_notes == ()
+
+
+async def test_confirming_on_the_back_reference_clears_every_judge_failure_on_the_way():
+    judge = ClaimJudge(
+        {
+            (TARIFFS.thought, TEXTS["fits"]): LLMError("no parsable output"),
+            (OWN_OPERATING_TEXT, OWN_OPERATING): LLMError("no parsable output"),
+            (CHAINED, BACK_JUDGED): EntailmentVerdict.STATES_CAUSE,
+        }
+    )
+    # A judge failure on its own quote leaves nothing to restate from it.
+    labeled = await label_own(
+        judge,
+        QueuedRestater(OWN_OPERATING_TEXT, CHAINED),
+        node=TARIFFS,
+        change=OPERATING_CHANGE,
+        paragraphs=((1, BACK_GROSS), (2, BACK_SENTENCE), (3, OWN_OPERATING)),
+    )
+    assert labeled.finding.claims[0].label is ExplanationLabel.CONFIRMED
+    assert len(judge.calls) == 3
+    assert labeled.finding.review_reason is None
+    assert labeled.review_notes == ()
+
+
+async def test_a_judge_failure_on_the_own_explanation_sends_the_finding_to_review():
+    judge = ClaimJudge({(OWN_TEXT, BACK_GROSS): LLMError("no parsable output")})
+    labeled = await label_own(judge, QueuedRestater(None, OWN_TEXT))
+    assert labeled.finding.needs_review
+    assert COCOA.node_id in labeled.finding.review_reason
+    assert labeled.rework[0].review_note == labeled.finding.review_reason
+
+
+async def test_a_restatement_from_the_own_explanation_must_name_the_change():
+    judge = ClaimJudge({})
+    labeled = await label_own(judge, QueuedRestater(None, "Tariffs hurt results."))
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert any(
+        "from the filing's own explanation does not name gross margin" in failure
+        for failure in labeled.failures
+    )
+    assert judge.calls == [(COCOA.thought, TEXTS["fits"])]
+
+
+async def test_an_unbacked_figure_is_not_judged_on_the_own_explanation():
+    judge = ClaimJudge({})
+    labeled = await label_own(
+        judge, QueuedRestater(None, "Tariff costs up 9% lowered gross margin.")
+    )
+    assert judge.calls == [(COCOA.thought, TEXTS["fits"])]
+    assert any(
+        "the filing's own explanation cannot confirm" in failure for failure in labeled.failures
+    )
+
+
+async def test_without_the_filings_chunks_no_own_explanation_is_looked_for():
+    judge = ClaimJudge({(OWN_TEXT, BACK_GROSS): EntailmentVerdict.STATES_CAUSE})
+    writer = QueuedRestater(None)
+    labeled = await label_own(judge, writer, filing=False)
+    assert labeled.finding.claims[0].label is ExplanationLabel.PLAUSIBLE
+    assert len(writer.restate_requests) == 1
+
+
+# -- a quote about a longer span than the change is not a plausible claim's evidence -----------
+# (user's decision, 2026-11-15)
+
+
+async def test_a_plausible_claim_drops_a_six_month_quote_and_keeps_the_rest():
+    rows = branch(PRICING, 1, EvidenceSupport.CONSISTENT, cite("pricing"), cite("six_months"))
+    writer = FakeWriter()
+    labeled = await label(
+        resolved(survivor(PRICING, rows)), FakeJudge({}), writer, metrics=(QUARTER_MARGIN,)
+    )
+    (claim,) = labeled.finding.claims
+    assert claim.citations == (cite("pricing"),)
+    assert [shown["quote"] for shown in writer.requests[0]["quotes"]] == [TEXTS["pricing"]]
+    assert (
+        f"claim {PRICING.node_id}: the quote from six_months covers a longer span than the "
+        "change, so the claim does not cite it"
+    ) in labeled.failures
+    assert labeled.finding.review_reason is None
+
+
+async def test_a_change_over_the_quotes_own_span_keeps_it():
+    rows = branch(PRICING, 1, EvidenceSupport.CONSISTENT, cite("pricing"), cite("six_months"))
+    labeled = await label(resolved(survivor(PRICING, rows)), FakeJudge({}), FakeWriter())
+    assert labeled.finding.claims[0].citations == (cite("pricing"), cite("six_months"))
+
+
+async def test_a_claim_left_with_only_longer_span_quotes_is_left_out_with_no_rework():
+    # The critic found the six-month quote implies it, which would list a kept claim for rework.
+    rows = branch(PRICING, 1, EvidenceSupport.IMPLIES, cite("six_months"))
+    labeled = await label(
+        resolved(survivor(PRICING, rows)),
+        FakeJudge({}),
+        FakeWriter(restated=None),
+        metrics=(QUARTER_MARGIN,),
+    )
+    assert labeled.finding.claims == ()
+    assert labeled.rework == ()
+    assert labeled.failures[-1] == (
+        f"claim {PRICING.node_id}: every quote it has covers a longer span than the change, so it "
+        "is left out of the brief"
+    )
+
+
+async def test_a_row_whose_table_header_names_a_longer_span_is_dropped():
+    table = chunk("pricing").model_copy(
+        update={
+            "chunk_id": "half-year",
+            "text": (
+                "For the six months ended June 28, 2026 | 2026 | 2025\nCost of sales | 1,000 | 900"
+            ),
+        }
+    )
+    half_row = cite("pricing").model_copy(
+        update={"chunk_id": "half-year", "quote": "Cost of sales | 1,000 | 900"}
+    )
+    rows = branch(PRICING, 1, EvidenceSupport.CONSISTENT, cite("pricing"), half_row)
+    context_ = LabelingContext(
+        judge=FakeJudge({}),
+        writer=FakeWriter(),
+        chunks=FakeChunks(chunk("pricing"), table),
+        metrics=FakeMetrics(QUARTER_MARGIN),
+        facts=NoFacts(),
+    )
+    labeled = await label_result(
+        resolved(survivor(PRICING, rows)), MARGIN_CHANGE, COMPARISON, context_, RUN
+    )
+    assert labeled.finding.claims[0].citations == (cite("pricing"),)
+
+
+def test_the_span_reason_names_no_cause():
+    assert find_causal_language(labeling.SPAN_REASON) == ()
