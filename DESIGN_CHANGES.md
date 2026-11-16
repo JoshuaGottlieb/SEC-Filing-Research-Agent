@@ -64,7 +64,7 @@ The benchmark also found that 10-Qs state no causes for sequential moves; their 
 **12. Human escalation.** Planned: non-blocking; unresolved items go to the brief and a Streamlit review queue. The run never pauses:
 - The review queue is the brief's "Needs review" section, with the details in `audit.json`.
 - The Streamlit app (`sec-agent app`) has a fuller review queue, read from `audit.json`. It also lists explanations that labeling left out or annotated, with their evidence, searches that never finished, dropped rationales, and the changes past the cap.
-- The app shows saved runs only. Runs start from the CLI: the planned "launch a run from the app" view was not built, so a paid run is always started and confirmed in the terminal.
+- The app shows saved runs only. Live runs from the app (planned as T7.4: start `analyze` from the app, show its progress, and confirm the cost estimate there) are a future enhancement and are not currently included. A paid run is started and confirmed in the terminal.
 
 **13. Causal-language rule.** Planned: a deterministic check that fails phrases such as "due to" unless the finding is `confirmed`. Built as planned (`find_causal_language`). It runs when claims are labeled, and again on the whole brief, which is refused if it breaks the rule. Each phrase in the list carries the reason it is there.
 
@@ -150,4 +150,5 @@ A reply cut off mid-JSON is charged its worst case, and only that branch ends.
 ## Still open
 
 - **Rewording.** It stays off until it is measured against the labeled findings.
+- **Live runs from the app.** A future enhancement, not currently included: the Streamlit app shows saved runs only, and runs start from `sec-agent analyze` (see gap 12).
 - **Parser rejections.** The gate still rejects some sound filings from very small companies (see the README's known limits).

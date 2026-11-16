@@ -138,6 +138,8 @@ A Streamlit app over the saved runs in `<data dir>/runs/`. It reads each run's `
 - **Review queue:** what to check by hand. Findings that need review, explanations left out of the brief or annotated by labeling (with the reason and the evidence found), searches that did not finish, rationales left out, and the changes past the `--max-changes` cap. Nothing in it stopped the run.
 - **Cost and time:** the run's cost, wall time and calls by step and model, as `sec-agent eval cost` reports them.
 
+The app shows saved runs only. Starting a run from the app is a future enhancement and is not currently included; start runs with `sec-agent analyze`.
+
 The full passages come from the DuckDB store, opened read-only. While `ingest` or `index` holds it for writing, the app shows the quotes alone.
 
 ## Evaluation

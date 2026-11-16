@@ -1,0 +1,1246 @@
+{
+  "summary": {
+    "labels": "eval/benchmark/test.json",
+    "questions": 19,
+    "gold_quotes": 48,
+    "min_score": -6.0,
+    "candidates_per_period": 10,
+    "found": {
+      "hybrid@5": 46,
+      "reranked@5": 44,
+      "reranked@5_no_cutoff": 47,
+      "hybrid@pool": 47,
+      "hybrid@20": 48
+    },
+    "absent_sides": 3,
+    "absent_sides_emptied": 2,
+    "answered_sides_emptied": 1
+  },
+  "rows": [
+    {
+      "item_id": "MAT-R01",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "business",
+      "question": "upcoming film releases the company is tying new toy lines to",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 3,
+      "top_score": 1.016,
+      "gold": [
+        {
+          "quote": "Die-cast pioneer Matchbox expects to continue to bring exciting new products to market, including new die-cast offerings",
+          "chunk_ids": [
+            "0001628280-26-010716:business:0016:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 1,
+          "rerank_score": 1.016
+        },
+        {
+          "quote": "In 2026, the Action Figures portfolio will be supported by theatrical releases such as Disney Pixar's Toy Story 5 and Ma",
+          "chunk_ids": [
+            "0001628280-26-010716:business:0021:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": 0.196
+        },
+        {
+          "quote": "Mattel's Masters of the Universe theatrical release will be supported by a new product line intended to reinvigorate and",
+          "chunk_ids": [
+            "0001628280-26-010716:business:0021:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": 0.196
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R01",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "business",
+      "question": "upcoming film releases the company is tying new toy lines to",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 4,
+      "top_score": 2.374,
+      "gold": [
+        {
+          "quote": "Die-cast pioneer Matchbox expects to continue to bring exciting new products to market, including new sustainable die-ca",
+          "chunk_ids": [
+            "0001628280-25-007887:business:0015:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": 0.384
+        },
+        {
+          "quote": "Mattel's 2025 Action Figures product lines will include toys tied to theatrical releases for NBCUniversal's Jurassic Wor",
+          "chunk_ids": [
+            "0001628280-25-007887:business:0015:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": 0.384
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R02",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "market_risk",
+      "question": "effect on pretax earnings if currency hedges had not been in place",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 2,
+      "top_score": -0.57,
+      "gold": [
+        {
+          "quote": "If Mattel had not entered into hedges to limit the effect of currency exchange rate fluctuations on its results of opera",
+          "chunk_ids": [
+            "0001628280-26-010716:market_risk:0002:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 1,
+          "rerank_score": -0.57
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R02",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "market_risk",
+      "question": "effect on pretax earnings if currency hedges had not been in place",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 3,
+      "top_score": 1.775,
+      "gold": [
+        {
+          "quote": "Had Mattel not entered into hedges to limit the effect of currency exchange rate fluctuations on its results of operatio",
+          "chunk_ids": [
+            "0001628280-25-007887:market_risk:0007:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 3,
+          "reranked_rank": 1,
+          "rerank_score": 1.775
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R03",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "market_risk",
+      "question": "Turkey highly inflationary economy accounting and functional currency",
+      "side": "current",
+      "absent": true,
+      "agent_returned": 0,
+      "top_score": -8.262,
+      "gold": []
+    },
+    {
+      "item_id": "MAT-R03",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "market_risk",
+      "question": "Turkey highly inflationary economy accounting and functional currency",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 1,
+      "top_score": 5.853,
+      "gold": [
+        {
+          "quote": "Effective April 1, 2022, Mattel has accounted for Turkey as a highly inflationary economy, as the projected three-year c",
+          "chunk_ids": [
+            "0001628280-25-007887:market_risk:0007:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 5.853
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R04",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "risk_factors",
+      "question": "status of the material weakness in internal control over financial reporting",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 2,
+      "top_score": 3.236,
+      "gold": [
+        {
+          "quote": "Mattel previously determined that there was a material weakness in its internal control over financial reporting, which ",
+          "chunk_ids": [
+            "0001628280-26-010716:risk_factors:0077:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 3.236
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R04",
+      "comparison_id": "MAT:yoy-10k",
+      "section": "risk_factors",
+      "question": "status of the material weakness in internal control over financial reporting",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 1,
+      "top_score": 6.54,
+      "gold": [
+        {
+          "quote": "Mattel determined that there is a material weakness in its internal control over financial reporting and as a result, it",
+          "chunk_ids": [
+            "0001628280-25-007887:risk_factors:0069:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 6.54
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R05",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "financial_notes",
+      "question": "how many Rock 'n Play Sleeper product liability lawsuits remain pending",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 3,
+      "top_score": 0.725,
+      "gold": [
+        {
+          "quote": "One products liability lawsuit filed in April 2023 remains pending against Fisher-Price, Inc. and Mattel, Inc.",
+          "chunk_ids": [
+            "0001628280-26-054347:financial_notes:0098:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": -0.31
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R05",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "financial_notes",
+      "question": "how many Rock 'n Play Sleeper product liability lawsuits remain pending",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 4,
+      "top_score": 4.285,
+      "gold": [
+        {
+          "quote": "Fourteen products liability lawsuits filed between April 2019 and September 2024 are pending against Fisher-Price, Inc. ",
+          "chunk_ids": [
+            "0001628280-25-036429:financial_notes:0080:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 4.285
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R06",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "mdna",
+      "question": "drivers of the consolidated gross margin change in the second quarter versus a year earlier",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 0.769,
+      "gold": [
+        {
+          "quote": "Gross margin declined to 48.2% in the second quarter of 2026 compared to 50.9% in the second quarter of 2025, due to the",
+          "chunk_ids": [
+            "0001628280-26-054347:mdna:0016:0"
+          ],
+          "found": {
+            "hybrid@5": false,
+            "reranked@5": false,
+            "reranked@5_no_cutoff": false,
+            "hybrid@pool": false,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 15,
+          "reranked_rank": null,
+          "rerank_score": null
+        },
+        {
+          "quote": "The decrease in gross margin was primarily due to gross incremental tariff costs of 170 basis points, cost inflation of ",
+          "chunk_ids": [
+            "0001628280-26-054347:mdna:0030:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": -0.079
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R06",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "mdna",
+      "question": "drivers of the consolidated gross margin change in the second quarter versus a year earlier",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 1.702,
+      "gold": [
+        {
+          "quote": "Gross margin expanded to 50.9% in the second quarter of 2025, as compared to 49.2% in the second quarter of 2024, with s",
+          "chunk_ids": [
+            "0001628280-25-036429:mdna:0014:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 3,
+          "reranked_rank": 4,
+          "rerank_score": -0.621
+        },
+        {
+          "quote": "The increase in gross margin was primarily due to incremental realized savings from the OPG program of 120 basis points,",
+          "chunk_ids": [
+            "0001628280-25-036429:mdna:0029:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 1.702
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R07",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "mdna",
+      "question": "cash held in Russia and limits on moving it out",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 2,
+      "top_score": 3.992,
+      "gold": [
+        {
+          "quote": "Of Mattel's $523.9 million in cash and equivalents at June 30, 2026, $393.0 million was held by foreign subsidiaries, in",
+          "chunk_ids": [
+            "0001628280-26-054347:mdna:0101:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": 0.401
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R07",
+      "comparison_id": "MAT:yoy-10q",
+      "section": "mdna",
+      "question": "cash held in Russia and limits on moving it out",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 2,
+      "top_score": 3.984,
+      "gold": [
+        {
+          "quote": "Of Mattel's $870.5 million in cash and equivalents at June 30, 2025, $635.3 million was held by foreign subsidiaries, in",
+          "chunk_ids": [
+            "0001628280-25-036429:mdna:0102:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": 0.319
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R08",
+      "comparison_id": "MAT:seq-10q",
+      "section": "mdna",
+      "question": "gain from remeasuring the previously held Mattel163 equity stake",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 7.172,
+      "gold": [
+        {
+          "quote": "Upon obtaining control, Mattel remeasured its previously held 50% equity interest to its estimated fair value as of the ",
+          "chunk_ids": [
+            "0001628280-26-054347:mdna:0070:0",
+            "0001628280-26-054347:mdna:0074:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 7.172
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R08",
+      "comparison_id": "MAT:seq-10q",
+      "section": "mdna",
+      "question": "gain from remeasuring the previously held Mattel163 equity stake",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 3.506,
+      "gold": [
+        {
+          "quote": "Mattel remeasured its prior equity interest to the estimated fair value of $178.6 million as of the Acquisition Date and",
+          "chunk_ids": [
+            "0001628280-26-029316:mdna:0017:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 3.506
+        },
+        {
+          "quote": "Upon obtaining control, Mattel remeasured its previously held 50% equity interest to its estimated fair value as of the ",
+          "chunk_ids": [
+            "0001628280-26-029316:mdna:0034:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 2,
+          "rerank_score": 3.402
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R09",
+      "comparison_id": "MAT:seq-10q",
+      "section": "financial_notes",
+      "question": "whether IEEPA tariff refunds have been received or recorded as a receivable",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 3,
+      "top_score": 5.325,
+      "gold": [
+        {
+          "quote": "During the three months ended June 30, 2026, Mattel received certain refunds under the IEEPA tariff refund process, whic",
+          "chunk_ids": [
+            "0001628280-26-054347:financial_notes:0103:0",
+            "0001628280-26-054347:financial_notes:0104:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 5.325
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R09",
+      "comparison_id": "MAT:seq-10q",
+      "section": "financial_notes",
+      "question": "whether IEEPA tariff refunds have been received or recorded as a receivable",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 2,
+      "top_score": 3.62,
+      "gold": [
+        {
+          "quote": "As of March 31, 2026, Mattel has not recognized any receivable or loss recovery related to potential refunds of IEEPA ta",
+          "chunk_ids": [
+            "0001628280-26-029316:financial_notes:0102:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 3.62
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R10",
+      "comparison_id": "MAT:seq-10q",
+      "section": "financial_notes",
+      "question": "termination of the U.S. Cash Balance pension plan",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 1,
+      "top_score": 2.234,
+      "gold": [
+        {
+          "quote": "During the second quarter of 2026, Mattel approved the termination of the Cash Balance Plan, a U.S. qualified defined be",
+          "chunk_ids": [
+            "0001628280-26-054347:financial_notes:0074:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 2.234
+        }
+      ]
+    },
+    {
+      "item_id": "MAT-R10",
+      "comparison_id": "MAT:seq-10q",
+      "section": "financial_notes",
+      "question": "termination of the U.S. Cash Balance pension plan",
+      "side": "prior",
+      "absent": true,
+      "agent_returned": 0,
+      "top_score": -6.801,
+      "gold": []
+    },
+    {
+      "item_id": "SWK-R01",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "mdna",
+      "question": "what drove the change in consolidated gross margin for the latest fiscal year",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 4,
+      "top_score": -2.052,
+      "gold": [
+        {
+          "quote": "Gross profit, defined as sales less cost of sales, was $4.588 billion, or 30.3% of net sales, in 2025 compared to $4.514",
+          "chunk_ids": [
+            "0000093556-26-000009:mdna:0059:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 2,
+          "rerank_score": -3.76
+        },
+        {
+          "quote": "The year-over-year changes in gross profit as a percent of sales and adjusted gross profit as a percent of sales were pr",
+          "chunk_ids": [
+            "0000093556-26-000009:mdna:0061:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": -2.052
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R01",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "mdna",
+      "question": "what drove the change in consolidated gross margin for the latest fiscal year",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 2,
+      "top_score": -4.106,
+      "gold": [
+        {
+          "quote": "Excluding these adjustments, gross profit was 30.0% of net sales in 2024 compared to 26.0% of net sales in 2023, primari",
+          "chunk_ids": [
+            "0000093556-25-000007:mdna:0062:0",
+            "0000093556-25-000007:mdna:0065:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": false,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 5,
+          "reranked_rank": 3,
+          "rerank_score": -6.501
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R02",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "risk_factors",
+      "question": "China export restrictions on rare earth minerals and supply risk",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 6.98,
+      "gold": [
+        {
+          "quote": "For example, in April 2025, China restricted export of certain rare earth minerals and may in the future continue to res",
+          "chunk_ids": [
+            "0000093556-26-000009:risk_factors:0002:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 6.98
+        },
+        {
+          "quote": "For example, in April 2025, China imposed export restrictions on certain rare earth minerals that are used in certain co",
+          "chunk_ids": [
+            "0000093556-26-000009:risk_factors:0008:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 3,
+          "rerank_score": 1.173
+        },
+        {
+          "quote": "China’s limitations on exports of rare earth minerals) and exchange controls or new barriers to entry",
+          "chunk_ids": [
+            "0000093556-26-000009:risk_factors:0011:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 3,
+          "reranked_rank": 2,
+          "rerank_score": 1.398
+        },
+        {
+          "quote": "For example, rare earth minerals are critical to the design of the Company's products and some countries from which thes",
+          "chunk_ids": [
+            "0000093556-26-000009:risk_factors:0048:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 5,
+          "reranked_rank": 5,
+          "rerank_score": -3.933
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R02",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "risk_factors",
+      "question": "China export restrictions on rare earth minerals and supply risk",
+      "side": "prior",
+      "absent": true,
+      "agent_returned": 3,
+      "top_score": -0.581,
+      "gold": []
+    },
+    {
+      "item_id": "SWK-R03",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "financial_notes",
+      "question": "environmental reserve balance for the Centredale Superfund site at year end",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 4,
+      "top_score": 1.626,
+      "gold": [
+        {
+          "quote": "As of January 3, 2026, the Company has reserved $156.5 million for this site.",
+          "chunk_ids": [
+            "0000093556-26-000009:financial_notes:0283:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 3,
+          "rerank_score": -1.757
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R03",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "financial_notes",
+      "question": "environmental reserve balance for the Centredale Superfund site at year end",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 1.939,
+      "gold": [
+        {
+          "quote": "As of December 28, 2024, the Company has reserved $161.8 million for this site.",
+          "chunk_ids": [
+            "0000093556-25-000007:financial_notes:0287:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 4,
+          "reranked_rank": 3,
+          "rerank_score": 1.035
+        },
+        {
+          "quote": "which includes the cost estimate for the Centredale Manor Restoration Project Superfund Site (Centredale Site) in the am",
+          "chunk_ids": [
+            "0000093556-25-000007:financial_notes:0024:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 4,
+          "rerank_score": 0.794
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R04",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "business",
+      "question": "total employee headcount and number of countries",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 0,
+      "top_score": -6.818,
+      "gold": [
+        {
+          "quote": "As of January 3, 2026, the Company had approximately 43,500 employees in 59 countries.",
+          "chunk_ids": [
+            "0000093556-26-000009:business:0035:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": false,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": -7.832
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R04",
+      "comparison_id": "SWK:yoy-10k",
+      "section": "business",
+      "question": "total employee headcount and number of countries",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 2,
+      "top_score": -3.911,
+      "gold": [
+        {
+          "quote": "As of December 28, 2024, the Company had approximately 48,500 employees in 60 countries.",
+          "chunk_ids": [
+            "0000093556-25-000007:business:0031:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": false,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 3,
+          "rerank_score": -7.123
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R05",
+      "comparison_id": "SWK:yoy-10q",
+      "section": "mdna",
+      "question": "reasons for the change in second-quarter gross margin versus the prior year",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 2.549,
+      "gold": [
+        {
+          "quote": "The year-over-year change in gross profit as a percent of sales and adjusted gross profit as a percent of sales were pri",
+          "chunk_ids": [
+            "0000093556-26-000031:mdna:0035:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 2,
+          "rerank_score": 1.155
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R05",
+      "comparison_id": "SWK:yoy-10q",
+      "section": "mdna",
+      "question": "reasons for the change in second-quarter gross margin versus the prior year",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 2.561,
+      "gold": [
+        {
+          "quote": "The year-over-year change in gross profit as a percent of sales and adjusted gross profit as a percent of sales was prim",
+          "chunk_ids": [
+            "0000093556-25-000143:mdna:0038:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 5,
+          "reranked_rank": 2,
+          "rerank_score": 2.054
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R07",
+      "comparison_id": "SWK:yoy-10q",
+      "section": "mdna",
+      "question": "current senior unsecured debt credit ratings from S&P, Fitch and Moody's",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 1,
+      "top_score": 3.391,
+      "gold": [
+        {
+          "quote": "The Company maintains investment grade credit ratings from the major U.S. rating agencies on its senior unsecured debt (",
+          "chunk_ids": [
+            "0000093556-26-000031:mdna:0091:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 3,
+          "reranked_rank": 1,
+          "rerank_score": 3.391
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R07",
+      "comparison_id": "SWK:yoy-10q",
+      "section": "mdna",
+      "question": "current senior unsecured debt credit ratings from S&P, Fitch and Moody's",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 1,
+      "top_score": 4.298,
+      "gold": [
+        {
+          "quote": "The Company maintains investment grade credit ratings from the major U.S. rating agencies on its senior unsecured debt (",
+          "chunk_ids": [
+            "0000093556-25-000143:mdna:0089:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 4.298
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R08",
+      "comparison_id": "SWK:seq-10q",
+      "section": "mdna",
+      "question": "updated full-year 2026 EPS and free cash flow guidance",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 6.013,
+      "gold": [
+        {
+          "quote": "The Company is updating its guidance for 2026 diluted earnings per share on a GAAP basis to be in the range of $4.60 to ",
+          "chunk_ids": [
+            "0000093556-26-000031:mdna:0075:1"
+          ],
+          "found": {
+            "hybrid@5": false,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 6,
+          "reranked_rank": 4,
+          "rerank_score": 0.71
+        },
+        {
+          "quote": "The Company is now targeting free cash flow to be in the range of $600 to $800 million, revised from $500 to $700 millio",
+          "chunk_ids": [
+            "0000093556-26-000031:mdna:0083:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 2,
+          "rerank_score": 3.883
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R08",
+      "comparison_id": "SWK:seq-10q",
+      "section": "mdna",
+      "question": "updated full-year 2026 EPS and free cash flow guidance",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 6.024,
+      "gold": [
+        {
+          "quote": "The Company is updating its guidance for 2026 diluted earnings per share on a GAAP basis to be in the range of $4.15 to ",
+          "chunk_ids": [
+            "0000093556-26-000015:mdna:0062:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 4,
+          "reranked_rank": 5,
+          "rerank_score": 1.455
+        },
+        {
+          "quote": "Excluding such payments, free cash flow is expected to be in the range of $700 to $900 million, consistent with prior gu",
+          "chunk_ids": [
+            "0000093556-26-000015:mdna:0070:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 2,
+          "rerank_score": 4.723
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R09",
+      "comparison_id": "SWK:seq-10q",
+      "section": "mdna",
+      "question": "IEEPA tariff refund claims and amount of refunds recognized",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 5.674,
+      "gold": [
+        {
+          "quote": "During the three months ended July 4, 2026, the Company recognized a pre-tax gain of $118 million in cost of sales relat",
+          "chunk_ids": [
+            "0000093556-26-000031:mdna:0075:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 5.674
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R09",
+      "comparison_id": "SWK:seq-10q",
+      "section": "mdna",
+      "question": "IEEPA tariff refund claims and amount of refunds recognized",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 3,
+      "top_score": 5.138,
+      "gold": [
+        {
+          "quote": "Given these uncertainties, the Company has not recognized any benefit or asset related to potential IEEPA tariff refunds",
+          "chunk_ids": [
+            "0000093556-26-000015:mdna:0058:0",
+            "0000093556-26-000015:mdna:0062:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 1,
+          "reranked_rank": 1,
+          "rerank_score": 5.138
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R10",
+      "comparison_id": "SWK:seq-10q",
+      "section": "financial_notes",
+      "question": "pre-tax gain on the sale of the CAM aerospace business",
+      "side": "current",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 7.089,
+      "gold": [
+        {
+          "quote": "On April 6, 2026, the Company completed the sale of its CAM business and received proceeds of approximately $1.8 billion",
+          "chunk_ids": [
+            "0000093556-26-000031:financial_notes:0126:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 1,
+          "rerank_score": 7.089
+        }
+      ]
+    },
+    {
+      "item_id": "SWK-R10",
+      "comparison_id": "SWK:seq-10q",
+      "section": "financial_notes",
+      "question": "pre-tax gain on the sale of the CAM aerospace business",
+      "side": "prior",
+      "absent": false,
+      "agent_returned": 5,
+      "top_score": 2.517,
+      "gold": [
+        {
+          "quote": "The estimated pre-tax gain on sale to be recognized during the second quarter of 2026 is approximately $260 million to $",
+          "chunk_ids": [
+            "0000093556-26-000015:financial_notes:0117:0"
+          ],
+          "found": {
+            "hybrid@5": true,
+            "reranked@5": true,
+            "reranked@5_no_cutoff": true,
+            "hybrid@pool": true,
+            "hybrid@20": true
+          },
+          "hybrid_rank": 2,
+          "reranked_rank": 2,
+          "rerank_score": 2.426
+        }
+      ]
+    }
+  ]
+}
