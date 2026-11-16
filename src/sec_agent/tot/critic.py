@@ -308,6 +308,14 @@ def without_free_agreement(
     ratio up" says the same thing. Such an outcome becomes not applicable (the user's decision,
     option A, extended to linked metrics). A contradiction is kept: a candidate that says the
     metric moved the other way contradicts the change itself and must be pruned.
+
+    Known limitation, left as is (the user's decision, 2026-11-15): a candidate whose only other
+    expected metric contradicts the filings scores 0 on numerical consistency, so the pre-screen
+    prunes it (0.25) though it agrees with the change. HSY yoy-10k's "lower sales volume" candidate
+    for gross margin was pruned this way: it also expected revenue down, and revenue rose on price.
+    It happened to 5 of 54 numeric candidates in the cached HSY pipeline runs, all yoy-10k.
+    Counting the agreement whenever another metric is decided would score it 0.625; not done, as
+    it is rare.
     """
     if changed_metric is None:
         return check
