@@ -126,6 +126,20 @@ The full measurements are in [EVALUATION.md](EVALUATION.md#cost-and-latency-t66-
 
 Every Tree-of-Thought node is kept in `<data dir>/tot_tree.sqlite`, including pruned branches and their scores. The workflow reads and writes trees through a local MCP server.
 
+### Browsing saved runs
+
+```bash
+uv run --frozen sec-agent app             # opens http://localhost:8501; --port to change it
+```
+
+A Streamlit app over the saved runs in `<data dir>/runs/`. It reads each run's `audit.json`, `ledger.jsonl` and `timings.jsonl` and calls no model, so browsing is free. Pick a company, a comparison and a run (the newest is the default). The app has four tabs:
+- **Brief:** the summary and each change with its labeled claims. Filter by strongest label and by section. Expand a quote to see the full passage it came from, with the quote in bold, and a link to the filing on SEC.gov.
+- **Evidence trees:** one change's Tree-of-Thought tree: the change, the candidate explanations and the evidence searches, with each node's score and status. Pruned branches are dashed, with the reason on hover and in the node table, and can be hidden. Candidates that reached the brief are outlined in their label's colour. Below the tree, pick a candidate to see its searches and the quotes they found.
+- **Review queue:** what to check by hand. Findings that need review, explanations left out of the brief or annotated by labeling (with the reason and the evidence found), searches that did not finish, rationales left out, and the changes past the `--max-changes` cap. Nothing in it stopped the run.
+- **Cost and time:** the run's cost, wall time and calls by step and model, as `sec-agent eval cost` reports them.
+
+The full passages come from the DuckDB store, opened read-only. While `ingest` or `index` holds it for writing, the app shows the quotes alone.
+
 ## Evaluation
 
 `sec-agent eval` runs the evaluations against the hand-checked benchmark in [eval/benchmark/](eval/benchmark/README.md):

@@ -63,7 +63,8 @@ The benchmark also found that 10-Qs state no causes for sequential moves; their 
 
 **12. Human escalation.** Planned: non-blocking; unresolved items go to the brief and a Streamlit review queue. The run never pauses:
 - The review queue is the brief's "Needs review" section, with the details in `audit.json`.
-- The Streamlit app is not part of this submission.
+- The Streamlit app (`sec-agent app`) has a fuller review queue, read from `audit.json`. It also lists explanations that labeling left out or annotated, with their evidence, searches that never finished, dropped rationales, and the changes past the cap.
+- The app shows saved runs only. Runs start from the CLI: the planned "launch a run from the app" view was not built, so a paid run is always started and confirmed in the terminal.
 
 **13. Causal-language rule.** Planned: a deterministic check that fails phrases such as "due to" unless the finding is `confirmed`. Built as planned (`find_causal_language`). It runs when claims are labeled, and again on the whole brief, which is refused if it breaks the rule. Each phrase in the list carries the reason it is there.
 
