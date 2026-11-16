@@ -126,7 +126,7 @@ The agent's side is the full-corpus run: 10 changes per comparison, as for the b
 
 What the table shows:
 - **By the judge, the agent's assertions hold up better.** About 1 in 16 of the agent's asserted causes is unsupported by its quotes, against 1 in 5 to 1 in 4 of the baseline's. Part of this is by construction, because the agent's `confirmed` claims already passed the same judge. The hand check below does not rest on the judge, and it narrows this gap.
-- **The citation and figure checks favor the agent outright.** The agent has no wrong-period support and no untraceable figures; the baseline has a few of each.
+- **The citation and figure checks favor the agent.** The agent has no wrong-period support and no untraceable figures; the baseline has a few of each. Its untraceable figures are real numbers, though (below), so the difference is that the agent's figures are checked by code, not that the baseline's are made up.
 - **The agent asserts less.** 34% of its test claims state a cause, against 62% of the baseline's. The rest are labeled `plausible` or `unresolved`, so a reader is told they are not established.
 - **The baseline covers more labeled changes.** The agent explores only its 10 most material changes. In these comparisons, those are mostly margin moves and the MD&A paragraphs that explain them. Most labeled changes (risk factors, litigation, acquisitions, buybacks) rank lower. On the test split, every labeled change the agent missed was outside its 10, and every one it explored was covered. Materiality had found all 16 (above), so the gap comes from the 10-change cap and the ranking, not from detection. A larger `--max-changes` would close it, at the cost and time measured below.
 - **The baseline also names more labeled causes on the test split** (17 against 12). Of the 5 the agent missed, 2 belong to a change it did not explore, because of the cap. The other 3 belong to changes it did explore, where its search did not surface them. That is consistent with T6.4, where the search kept 11 to 16 of the 17 test causes depending on the form of the change.
@@ -135,6 +135,24 @@ What the table shows:
 Notes on the baseline:
 - **Compound claims:** most of its unsupported claims were compound: the quote states one part, and the claim adds more.
 - **Wrong-period cases:** on HSY, one of the two is a changed tariff risk that the claim contrasts with the prior filing. The agent's own rule would also count it. One test case (`SWK:yoy-10q:b2:c2`, no valid citation) describes the prior-year quarter itself and is counted the same way.
+- **Untraceable figures:** every figure in its 10 flagged claims appears in that company's filings, in the claim's own quotes, elsewhere in the filing text, or in the metric table it was given. The flag means code cannot check the figure against the metric catalog, not that the figure is wrong.
+
+**Are the baseline's changes real?** (`sec-agent eval grounding`, free.) The agent's changes come from the paragraph diff and the metric scan, so they are real differences between the filings by construction. The baseline's come from one model call, so they were checked against the same code:
+- **Text changes:** all 50 are grounded. Each has a quote in a passage the diff marks as changed.
+- **Numeric changes:** 34 of 39 moved the way their description says, by the metric catalog. The other 5 name no catalog metric (a segment's result, corporate expense, cash, segment margins), or move from a loss to a profit, which has no relative change. All 5 were checked by hand against the filings and the metric table, and all are right.
+
+So neither system was found inventing changes. The difference between them is in the explanations, not the changes.
+
+**What each system costs.** Per comparison, on the same 9 comparisons:
+
+| | Agent (10 changes) | Baseline |
+|---|---|---|
+| Model cost | $0.55 to $1.29, plus materiality on a comparison's first run: about $1.00 to $2.40 | $0.22 to $0.58 |
+| Wall time | 22 to 47 minutes | 29 to 62 seconds |
+| Model calls sent | 330 to 760 | 1 |
+| All 9 comparisons | $7.60, plus materiality | $3.18 |
+
+The baseline is one Opus call that reads the filing text at once. The agent makes hundreds of smaller calls, searches locally between them, and keeps the record behind every claim. That buys traceability and checking, not coverage: at 10 changes, it covers fewer labeled changes than the baseline does.
 
 **Blinded hand check.** A person rated 30 asserted claims, 15 per system, drawn with a seed fixed in advance from test-split claims that have a valid quote. The two systems' claims were mixed together and their source hidden. The question for each claim is the judge's: does a quote state that the claim's cause produced this change?
 
@@ -183,7 +201,7 @@ Where the time goes:
 
 Other observations:
 - **Repeated calls replay free within a run.** 15 to 30% of each change's calls repeat an identical earlier request (mostly in rework) and replay from the local cache. A fresh run gets the same saving.
-- **Cut-off replies were rare.** 7 of 5,140 live calls reached their output limit (6 critic, 1 generator). Each ended only its own branch.
+- **Cut-off replies were rare.** 7 of 5,140 live calls reached their output limit (6 critic, 1 generator), and each ended only its own branch. Six of them could not be parsed and were charged their reserved worst case, $0.015 in all. `sec-agent eval cost` reports these per step, finding and model, since their cost is an upper bound.
 - **A killed run resumes.** A run killed mid-search resumed without repeating its finished work, and its replayed calls cost nothing.
 - **The pre-run estimate was too low.** It assumed $0.06 a change and printed $0.65 for every run. It now uses the measured mean, $0.085.
 

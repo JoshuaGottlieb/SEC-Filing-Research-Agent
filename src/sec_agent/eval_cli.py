@@ -45,6 +45,7 @@ SCRIPTS = {
     "match-causes": EVAL_DIR / "tot" / "match_causes.py",
     "baseline": EVAL_DIR / "baseline" / "baseline.py",
     "score": EVAL_DIR / "baseline" / "score.py",
+    "grounding": EVAL_DIR / "baseline" / "grounding.py",
     "hand-check": EVAL_DIR / "baseline" / "hand_check.py",
     "cost": EVAL_DIR / "cost" / "cost_latency.py",
 }
@@ -59,6 +60,7 @@ TASKS = (
     ("match-causes", "T6.4", "paid", "match a survival run's candidates to labeled causes (Opus)"),
     ("baseline", "T6.5", "paid", "the prompt-only baseline, one Opus call per comparison"),
     ("score", "T6.5", "paid", "score the baseline and agent runs alike (free with --free)"),
+    ("grounding", "T6.5", "free", "check the baseline's changes against the diff and metrics"),
     ("hand-check", "T6.5", "free", "draw or tally the user's blinded hand check"),
     ("cost", "T6.6", "free", "cost and latency per finding from saved runs"),
 )
@@ -297,6 +299,19 @@ def score(  # noqa: PLR0913 -- one argument per option of the script
         args += ["--agent", *map(str, agent)]
     args += ["--free"] if free else ["--cap", str(cap)]
     _finish("score", args)
+
+
+@app.command()
+def grounding(
+    baseline_dir: Annotated[
+        list[Path],
+        typer.Argument(help="Baseline output folders (from `eval baseline`).", exists=True),
+    ],
+    out: OutOption = None,
+):
+    """T6.5: are the baseline's changes real differences between the filings? (free)"""
+    out = out or _default_out("grounding", None)
+    _finish("grounding", [*map(str, baseline_dir), "--out", str(out)])
 
 
 hand_check = typer.Typer(no_args_is_help=True, help="T6.5: the user's blinded hand check.")
