@@ -2,7 +2,7 @@
 
 This note covers what has been measured so far, and what is still to run. Each evaluation can be rerun with `sec-agent eval` (see the [README](README.md#evaluation)). Design changes made in response to these results are in [DESIGN_CHANGES.md](DESIGN_CHANGES.md).
 
-**Status (2026-11-16):** every planned evaluation has been run on the final version of the agent, including the test split, once. Three optional reruns are listed under [Still to run](#still-to-run).
+**Status (2026-11-16):** every planned evaluation has been run on the final version of the agent, including the test split, once. The three optional reruns also ran on 2026-11-16 (retrieval at rerank pool 10, survival on the test split at width 6, and Haiku against Sonnet); nothing is left to run.
 
 ## Benchmark
 
@@ -31,12 +31,13 @@ The scored unit is a labeled quote. It counts as found if any chunk holding it i
 |---|---|---|
 | Hybrid search only (BM25 plus dense) | 18/21 | 46/48 |
 | **Agent: hybrid, reranked, with the score cutoff** | **17/21** | **44/48** |
-| Reranked, no cutoff | 18/21 | 47/48 |
-| Hybrid top 20 (the reranker's input) | 21/21 | 48/48 |
+| Reranked, no cutoff | 19/21 | 47/48 |
+| Hybrid top 10 (the reranker's input) | 21/21 | 47/48 |
+| Hybrid top 20 (the input before it was cut to 10) | 21/21 | 48/48 |
 
 The score cutoff costs some recall. In exchange, it empties the filing on most questions whose topic is absent from one filing (test: 2 of 3), instead of returning unrelated passages. The hardest questions in every company ask what drove gross margin.
 
-The test figures were measured with a rerank pool of 20, which has since been cut to 10. On HSY the cut changed nothing (17/21). The test table has not been rerun at 10.
+Both columns use the current rerank pool of 10 (HSY measured 2026-11-15, test 2026-11-16). Cutting the pool from 20 changed none of the agent's figures, and the test misses are the same four passages. One test passage (MAT-R06) now ranks 15th in the hybrid search, outside the reranker's input. At a pool of 20 it was reranked to 7th, still outside the top 5.
 
 **Redundancy (T2.4).** The plan was to add MMR diversification only if more than 2 of the top 5 passages exceeded 0.95 similarity. The highest similarity measured was 0.947, so MMR was not added.
 
@@ -82,13 +83,14 @@ Two forms are measured:
 | HSY, beam width 6 (current setting) | 6/8 | 8/8 |
 | Test, reported run (width 5, before the generator fix) | 3/17 | 15/17 |
 | Test, comparison rerun after the generator fix (width 5) | 11/17 | 16/17 |
+| Test, beam width 6 (current setting) | 12/17 | 16/17 |
 
 What the rows mean:
 - **The reported test numeric rate** was low because the generator never saw the earlier value or the direction of the move. In one Mattel change, all 12 candidates said gross margin rose when it fell, and the direction check pruned them all. The generator now sees both. The rerun is labeled a comparison, because the fix came after the test run.
 - **The widening to 6** came from HSY: the narrower beam cut labeled causes that had passed the threshold. The cost was more surviving distractors (HSY numeric 1 to 2, text 0 to 2) and about 40% more searches.
-- **Test at width 6:** not run.
+- **Test at width 6** (run 2026-11-16, $0.32): one more numeric cause survived, 12/17, and text stayed at 16/17. Surviving distractors rose, as on HSY: numeric 6 to 7, text 2 to 4. Most calls replayed from the width-5 rerun's cache: the generator's prompt does not depend on the width, which only sets how many candidates go on to evidence. This run is at the final settings, and nothing was changed because of it.
 
-**After labeling, no distractor was confirmed** in either split. A distractor is a plausible cause the filings do not state.
+**After labeling, no distractor was confirmed** in either split, at width 5 or at width 6. A distractor is a plausible cause the filings do not state.
 
 The evaluation did find claims confirmed without explaining their change:
 - a six-month quote used for a quarterly change;
@@ -205,12 +207,21 @@ Other observations:
 - **A killed run resumes.** A run killed mid-search resumed without repeating its finished work, and its replayed calls cost nothing.
 - **The pre-run estimate was too low.** It assumed $0.06 a change and printed $0.65 for every run. It now uses the measured mean, $0.085.
 
+### Haiku against Sonnet as the search model (T6.6, HSY, $2.52)
+
+Should the generator and critic run on Sonnet instead of Haiku? Both ran the HSY survival evaluation at beam width 6, scored by the same Opus matcher (Sonnet run 2026-11-16).
+
+| Search model | Numeric | Text | Surviving distractors (numeric, text) | Cost per live call |
+|---|---|---|---|---|
+| Haiku (current) | 6/8 | 8/8 | 2, 2 | $0.0008 |
+| Sonnet | 7/8 | 8/8 | 4, 1 | $0.010 |
+
+- **Sonnet kept one more cause:** "unfavorable mark-to-market activity on commodity derivatives", in Hershey's FY2025 gross margin change. Both models missed the same other numeric cause.
+- **Sonnet cost about 13 times as much:** $2.36 for its two searches (about $0.49 per numeric change and $0.30 per text change), against about $0.19 for Haiku at the same number of calls.
+- **Time was about the same:** a median call of 1.5 to 1.6 seconds on Sonnet against 1.7 to 3.3 on Haiku, and similar wall times.
+
+Haiku stays the search model. One cause in 8, on a single run, is not a measurable gain at 13 times the search cost, and Sonnet let more distractors survive on the numeric form.
+
 ## Still to run
 
-Optional reruns, not scheduled:
-
-| Item | Cost | Why |
-|---|---|---|
-| Survival on the test split at width 6 | Paid, about $0.50 to $1.50 | The reported test run used width 5 |
-| Retrieval test table at rerank pool 10 | Free | The test table above used pool 20 |
-| Haiku against Sonnet as the search model, on HSY | Paid, about $2 to $2.50 | Haiku was kept without this comparison |
+Nothing. The three optional reruns ran on 2026-11-16 and are reported above: the retrieval test table at rerank pool 10, survival on the test split at width 6, and Haiku against Sonnet.

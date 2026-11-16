@@ -25,9 +25,9 @@ Hershey is the tuning set (lane 1 measured it on 2026-11-12: 17 of 21 found at `
 4 misses in HSY-R01, and the absent side not emptied). The test file (MAT, SWK) is run once, for
 the reported table. The fact store and the index open read-only.
 
-Results: `recall_2026-11-13.json` (HSY and test, pool of 20, the reported table) and
-`recall_hsy_2026-11-15.json` (HSY, pool of 10). The test table was not rerun for the pool of 10,
-so it describes the earlier setting.
+Results: `recall_2026-11-13.json` (HSY and test, pool of 20), `recall_hsy_2026-11-15.json` (HSY,
+pool of 10) and `recall_test_2026-11-16.json` (test, pool of 10). The reported table uses the two
+pool-of-10 files.
 """
 
 from __future__ import annotations
