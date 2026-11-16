@@ -167,6 +167,11 @@ class ScoredClaim:
     # judge has settled `supported`.
     wrong_period_support: bool | None = None
     cause_matches: list[dict] = field(default_factory=list)
+    # What the coverage matcher reads for the change, when `change` alone does not describe it.
+    # The agent's headings name only a text change's kind and section ("Changed paragraph in
+    # Management's Discussion and Analysis"), so its materiality rationale is added, the
+    # counterpart of the baseline's one-sentence description (the user's decision, 2026-11-16).
+    coverage_text: str | None = None
 
 
 # Wording that places a cause against the year-earlier period. Chosen by hand from the HSY
@@ -299,6 +304,8 @@ def agent_claims(brief: Brief, store: FactStore, catalog: MetricCatalog) -> list
         change = finding.change
         periods = claim_periods(change, comparison)
         metric = catalog.get_metric(change.metric_id) if change.metric_id else None
+        heading = change_heading(change, catalog)
+        described = f"{heading}: {change.rationale}" if change.rationale else heading
         for claim in finding.claims:
             asserted, phrases = asserts(claim.label.value, claim.text)
             citations = [
@@ -316,7 +323,7 @@ def agent_claims(brief: Brief, store: FactStore, catalog: MetricCatalog) -> list
                     comparison_id=comparison.comparison_id,
                     comparison_type=comparison.comparison_type.value,
                     change_key=finding.finding_id,
-                    change=change_heading(change, catalog),
+                    change=heading,
                     change_kind=change.kind.value,
                     metric=metric.name if metric is not None else None,
                     claim_id=claim.claim_id,
@@ -330,6 +337,7 @@ def agent_claims(brief: Brief, store: FactStore, catalog: MetricCatalog) -> list
                     base_period_mismatch=asserted
                     and comparison.comparison_type is ComparisonType.SEQ_10Q,
                     says_year_over_year=says_year_over_year(claim.text),
+                    coverage_text=described,
                 )
             )
     return rows
@@ -601,7 +609,9 @@ async def coverage(labels, claims: Sequence[ScoredClaim], llm: LLMClient) -> lis
         by_comparison[change.comparison_id].append(change)
     groups: dict[tuple[str, str], dict[str, str]] = defaultdict(dict)
     for claim in claims:
-        groups[(claim.system, claim.comparison_id)][claim.change_key] = claim.change
+        groups[(claim.system, claim.comparison_id)][claim.change_key] = (
+            claim.coverage_text or claim.change
+        )
     for (system, comparison_id), changes in sorted(groups.items()):
         labeled = by_comparison.get(comparison_id, [])
         if not labeled:

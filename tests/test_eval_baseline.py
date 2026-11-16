@@ -525,6 +525,19 @@ def test_hand_check_sample_is_blind_and_repeatable():
         assert [quote["quote"] for quote in row["quotes"]] == ["ok"]
 
 
+def test_hand_check_shows_the_agent_rationale_not_its_heading():
+    heading = "Changed paragraph in Management's Discussion and Analysis"
+    claims = [
+        _scored("agent", 0, change=heading, coverage_text=f"{heading}: Tariffs turned material."),
+        _scored("agent", 2, change=heading, coverage_text=None),
+        _scored("baseline", 0, change="Tariffs turned material."),
+    ]
+    sheet, _ = hand_check.sample({"claims": claims}, 15, hand_check.SEED)
+    assert sorted(row["change"] for row in sheet) == sorted(
+        ["Tariffs turned material.", heading, "Tariffs turned material."]
+    )
+
+
 def test_hand_check_tally():
     key = {
         "H01": {"system": "agent", "claim_id": "a", "judge_supported": True},
