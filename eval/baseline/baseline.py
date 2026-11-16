@@ -270,8 +270,10 @@ async def run(args: argparse.Namespace) -> int:
     settings = get_settings()
     corpus = Corpus.load(CORPUS_PATH)
     kinds = [ComparisonType(kind) for kind in args.kinds]
-    args.out.mkdir(parents=True, exist_ok=True)
-    ledger = CostLedger(args.cap, path=args.out / "ledger.jsonl")
+    # A dry run writes nothing, so it leaves no empty output folder behind.
+    if not args.dry_run:
+        args.out.mkdir(parents=True, exist_ok=True)
+    ledger = CostLedger(args.cap, path=None if args.dry_run else args.out / "ledger.jsonl")
     cache = ReplayCache(settings.data_dir / "eval" / "t65" / "llm_cache.sqlite")
     llm = LLMClient(settings, ledger, cache=cache, max_concurrency=1)
     worst_total = 0.0
