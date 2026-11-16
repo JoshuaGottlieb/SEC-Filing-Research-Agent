@@ -111,6 +111,22 @@ def test_baseline_uses_the_splits_companies(scripts, tmp_path):
     assert scripts.calls[0][1] == ["MAT", "SWK", out, "--cap", "2.0"]
 
 
+def test_materiality_passes_labels_and_cap(scripts, tmp_path):
+    out = str(tmp_path / "m")
+    result = invoke("materiality", "--cap", "8", "--split", "test", "--out", out, input="n\n")
+    assert result.exit_code == 1 and not scripts.calls
+    assert invoke("materiality", "--cap", "8", "--split", "test", "--out", out, "-y").exit_code == 0
+    ((script, args),) = scripts.calls
+    assert script.name == "materiality.py"
+    assert args == [str(eval_cli.LABELS[eval_cli.Split.TEST]), out, "--cap", "8.0"]
+
+
+def test_materiality_dry_run_does_not_ask(scripts):
+    result = invoke("materiality", "--cap", "8", "--split", "test", "--dry-run", "--out", "x")
+    assert result.exit_code == 0 and "Go ahead" not in result.output
+    assert scripts.calls[0][1][-1] == "--dry-run"
+
+
 def test_baseline_dry_run_does_not_ask(scripts, tmp_path):
     result = invoke("baseline", "--cap", "2", "--split", "test", "--dry-run", "--out", "x")
     assert result.exit_code == 0 and "Go ahead" not in result.output
