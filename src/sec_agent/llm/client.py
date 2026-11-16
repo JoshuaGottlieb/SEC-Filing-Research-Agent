@@ -56,8 +56,10 @@ class RoleConfig:
 
 
 # Per-role settings. max_tokens caps the output and sets the worst-case cost reserved against
-# the budget, so it is kept near what each role needs rather than set high. Chosen by hand;
-# the planned cost measurements will replace them with real numbers.
+# the budget, so it is kept near what each role needs rather than set high. Chosen by hand and
+# kept after measuring (T6.6, 2026-11-16, 5,140 live calls in 9 full runs): 7 calls reached their
+# cap (6 critic, 1 generator), each ending only its branch; the judge used at most 743 output
+# tokens and the summary 2,207.
 ROLE_CONFIG: dict[Role, RoleConfig] = {
     Role.MATERIALITY: RoleConfig("strong", "medium", 4_000),
     Role.ENTAILMENT: RoleConfig("strong", "high", 4_000),
