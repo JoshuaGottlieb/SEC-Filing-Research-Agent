@@ -100,6 +100,8 @@ As built:
 
 **4. At most 10 changes are explored per run.** D1 explored findings in materiality order until the budget ran out. Each explored change takes minutes of local search and some model spend, so the run explores the 10 most material by default (`--max-changes`). The brief says how many were left, and `audit.json` lists them.
 
+The evaluation measured the trade-off. A run of 10 changes costs $0.55 to $1.29 and takes 22 to 47 minutes on a 4-core CPU. In exchange, the agent covers fewer of the labeled material changes than the prompt-only baseline: 7 of 16 on the test split, against 13. The ones it missed were all found material but ranked below its 10 (see EVALUATION.md, T6.5).
+
 **5. Two budget checks before spending.** D1 had a dollar cap that drops the least material findings. Two checks were added, so money is not spent on work the cap cannot finish:
 - Before materiality, the run needs enough free budget for the whole step, or it ends having spent nothing.
 - Before each search, it needs enough left to label the result and write the summary.
@@ -112,6 +114,8 @@ As built:
 - A claim about a text change must fit the changed passage.
 - The generator is shown the metric's earlier value and its direction. Without them, every candidate for one Mattel change said gross margin rose when it fell.
 - When the judge says "implies", the claim is restated at the level its quote supports, then judged again.
+- One addition works the other way, recovering a confirmation the searches missed. A ratio claim its own quotes leave unconfirmed is tried once more, on the current filing's MD&A paragraph that names the ratio, gives both of its values and states a cause. In one Hershey run, the searches had retrieved only the six-month paragraphs, so gross margin had no confirmed cause although the 10-Q states one.
+- A `plausible` claim cannot cite a quote that covers a longer span than the change. A claim left with no quotes stays out of the brief.
 
 **8. Claude through the official SDK.** The design used `langchain-anthropic`. Claude is called through the `anthropic` SDK instead, wrapped in a LangChain `Runnable`, because current models reject forced tool choice and sampling parameters. The wrapper (`llm/client.py`) adds:
 - structured output, through `messages.parse`;
@@ -139,8 +143,10 @@ A reply cut off mid-JSON is charged its worst case, and only that branch ends.
   - In the cached HSY runs this happened to 5 of 90 numeric explanations, all in the 10-K comparison. The other four expected SG&A's share of revenue to rise, which it did not.
   - Counting the agreement whenever another metric is checked would score such an explanation 0.625, as the text form of a change already does. Because the problem is rare, this was left unchanged.
 
+- **Sequential causes are not flagged as year over year.** The 10-Qs explain each move only against the same quarter a year earlier. In the sequential comparisons, the agent offers those causes for the quarter-to-quarter move and almost never says they are year over year (1 of 32 asserted causes across both splits). Its quotes cite the right filing and period, so the problem is the wording, which a reader can misread.
+- **Some claims are weak or unspecific.** In the blinded hand check, the reviewer found some supported claims weak or vague. The prompts were not changed for this; better claim prompting could improve it.
+
 ## Still open
 
 - **Rewording.** It stays off until it is measured against the labeled findings.
-- **Cost settings.** The per-change cost estimate (`PER_CHANGE_USD`) predates the wider search, and will be updated from the cost measurements.
 - **Parser rejections.** The gate still rejects some sound filings from very small companies (see the README's known limits).

@@ -151,25 +151,30 @@ from sec_agent.tree_mcp.store import BudgetUse
 
 # How many ranked changes a run explores unless told otherwise (user's decision, 2026-11-12, "for
 # now"). Chosen by hand: in Hershey's yoy-10k ranking it covers every importance-5 change and the
-# labeled tariff change (rank 10). At 1 to 4 minutes of search per change, 10 changes take about
-# 10 to 40 minutes; all 52 material changes would take hours. Revisit with measured time and cost.
+# labeled tariff change (rank 10). Measured on the 9 full runs (T6.6, 2026-11-16; beam width 6, a
+# 4-core CPU machine): a change takes about 3.5 minutes of search, labeling and rework (median; 6
+# at p90, 8 at most), so 10 changes take 22 to 47 minutes and all 52 would take about 3 hours.
 DEFAULT_MAX_CHANGES = 10
 
 # What a search must leave free for after it: the entailment judge's and the summary's worst-case
 # reservations on Opus (about $0.09 each at their 4,000-token caps) plus what they actually cost.
-# Chosen by hand, provisional: the first paid run's measured labeling and summary costs replace it.
+# Chosen by hand and kept after measuring (T6.6, 2026-11-16, 84 changes): labeling cost $0.033 a
+# change (at most $0.092) and the summary $0.043 to $0.067, so the reserve covers the worst-case
+# reservations with room to spare. No run hit it.
 LABELING_RESERVE_USD = 0.25
 
 # The cost estimate's figures (`estimate_cost`). Rough on purpose: the estimate is for deciding
 # whether to go ahead, and the hard stop is the dollar cap, not these.
-# One 20-change materiality batch cost $0.074 to $0.075 live (lane 1, 2026-11-11, two calls).
+# One 20-change materiality batch cost $0.074 to $0.075 live (lane 1, 2026-11-11, two calls); the
+# T6.3 test run measured $0.069 a batch over 76 batches (2026-11-15).
 MATERIALITY_BATCH_USD = 0.075
-# One change's search (generator, critic and retrieval on Haiku) and labeling (the judge and the
-# claim writer). The first paid run (HSY yoy-10k, 3 changes, 2026-11-13) measured about $0.04 per
-# change with nothing cached; set at $0.06 for headroom, since it is one run (user's decision).
-PER_CHANGE_USD = 0.06
-# The same run: $0.026 per summary call, and a rejected first draft made it two calls. Set at two
-# calls' worth (user's decision, 2026-11-13).
+# One change's search (generator, critic and retrieval on Haiku), labeling (the judge and the
+# claim writer) and rework rounds. Measured on the 9 full runs at beam width 6 (T6.6, 2026-11-16,
+# 84 changes not replayed): mean $0.085, median $0.079, p90 $0.146, max $0.253. Set at the mean.
+# The first paid run (3 changes at width 4, 2026-11-13) had measured about $0.04.
+PER_CHANGE_USD = 0.085
+# The first paid run: $0.026 per summary call, and a rejected first draft made it two calls. Set
+# at two calls' worth (user's decision, 2026-11-13); the 9 full runs measured $0.043 to $0.067.
 SUMMARY_USD = 0.05
 
 # Review reasons the graph writes. Each must pass the causal-language check (`check_brief`).
@@ -232,9 +237,9 @@ def describe_estimate(estimate: CostEstimate) -> list[str]:
         f"  Materiality: {estimate.materiality_uncached} of {estimate.materiality_batches} "
         f"batches need a call, the rest are cached: ${estimate.materiality_usd:.2f}.",
         f"  Search and checking: up to {estimate.max_changes} change(s) at about "
-        f"${PER_CHANGE_USD:.2f} each: ${estimate.changes_usd:.2f}.",
+        f"${PER_CHANGE_USD:.3f} each: ${estimate.changes_usd:.2f}.",
         f"  Summary: ${estimate.summary_usd:.2f}.",
-        "The per-change figure is a guess until a paid run measures it.",
+        "The per-change figure is a measured average; one change can cost up to three times it.",
     ]
     if estimate.total_usd > estimate.cap_usd:
         lines.append(

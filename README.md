@@ -108,7 +108,12 @@ uv run --frozen sec-agent analyze TICKER --comparison yoy-10k|yoy-10q|seq-10q [o
 | `--run-id ID` | Name the run (a fresh id by default). |
 | `--resume ID` | Continue a stopped or killed run from its last finished change. Paid calls already made replay at no cost. |
 
-**Cost and time.** Use the estimate printed before each run as the guide. In the paid runs so far, three Hershey changes cost $0.15 to $0.19 and took about 7 minutes, mostly local search on the CPU. Those runs used the earlier, narrower search. Measurements at the current settings are pending (see [EVALUATION.md](EVALUATION.md)).
+**Cost and time.** The estimate printed before each run is the guide. Measured on 9 runs of 10 changes each, on a 4-core CPU:
+- **Each change:** about $0.085 and 3.5 minutes, but up to $0.25 and 8 minutes. Three quarters of the time is waiting on model calls; the rest is local search.
+- **A run with the default 10 changes:** $0.55 to $1.29 and 22 to 47 minutes.
+- **The first run on a comparison** also pays for materiality: about $0.07 per batch of 20 changes, 6 to 22 batches per comparison. Later runs replay it from the cache at no cost.
+
+The full measurements are in [EVALUATION.md](EVALUATION.md#cost-and-latency-t66-free-from-the-runs-above).
 
 **Outputs** go to `<data dir>/runs/<run id>/`:
 

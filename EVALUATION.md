@@ -2,7 +2,7 @@
 
 This note covers what has been measured so far, and what is still to run. Each evaluation can be rerun with `sec-agent eval` (see the [README](README.md#evaluation)). Design changes made in response to these results are in [DESIGN_CHANGES.md](DESIGN_CHANGES.md).
 
-**Status (2026-11-15):** retrieval, the judge, Tree-of-Thought survival and the baseline's Hershey run are measured. The agent-against-baseline comparison and the cost and latency measurements are waiting on the final version of the agent, so that the paid runs are done once.
+**Status (2026-11-16):** every planned evaluation has been run on the final version of the agent, including the test split, once. Three optional reruns are listed under [Still to run](#still-to-run).
 
 ## Benchmark
 
@@ -40,11 +40,20 @@ The test figures were measured with a rerank pool of 20, which has since been cu
 
 **Redundancy (T2.4).** The plan was to add MMR diversification only if more than 2 of the top 5 passages exceeded 0.95 similarity. The highest similarity measured was 0.947, so MMR was not added.
 
-### Materiality (T6.3)
+### Materiality (T6.3, test $5.22)
 
-Tuned on HSY: at the materiality cutoff, the agent found 6 of the 7 labeled material changes. None of the 11 sampled changes labeled not material was ranked material.
+The pipeline's own detection and materiality code runs on each comparison, and its decisions are scored against the labels. A labeled change counts as found when a changed paragraph holding one of its quotes is ranked material. The pipeline's cutoff is importance 3 of 5.
 
-**Pending:** the test-split table.
+| Measure, at the pipeline's cutoff | HSY (tune) | Test |
+|---|---|---|
+| Labeled material changes found | 6/7 | **16/16** |
+| Sampled changes labeled not material but ranked material | 0/11 | 1/21 |
+| Sampled changes labeled material and ranked material | 3/3 | 2/5 |
+
+What the test run shows:
+- **Nothing labeled was missed.** Half of the 16 (8) were found at importance exactly 3, so the cutoff sits close to the labeled changes. That was also true on HSY, where the one miss (the removed Russia-Ukraine risk) was scored 2.
+- **Lowering the cutoff would cost precision.** At 2, the test split gives 4/21 false positives (4/5 sampled material found); at 1, 10/21 (5/5).
+- **Cost:** 76 batches of 20 changes, $0.069 a batch. The answers are cached, so the agent runs below did not pay for materiality again.
 
 ### Entailment judge agreement (T5.2, $0.13)
 
@@ -99,53 +108,91 @@ Both systems are scored by the same code (`eval/baseline/score.py`):
 - **Judge:** the T5.2 judge rates each asserted claim, meaning each claim that states a cause.
 - **Wrong-period support:** a claim counts only if it rests on a quote from the wrong period, with no right-period quote stating the cause.
 - **Cause matcher:** the T6.4 matcher compares claims with the labeled causes.
+- **Coverage:** an Opus matcher decides which labeled material changes each brief covers. The agent's own headings name only a text change's kind and section, so its changes are described to the matcher by its materiality rationale, the counterpart of the baseline's one-line description.
 
-**Hershey, baseline only:**
+The agent's side is the full-corpus run: 10 changes per comparison, as for the baseline. Scoring cost $2.28 for both splits.
 
-| Measure | Baseline |
-|---|---|
-| Changes / claims / asserted claims | 30 / 51 / 35 |
-| Quotes found verbatim | 71/71 |
-| Asserted claims unsupported by their quotes | 7/35 (20%) |
-| Asserted claims resting on a wrong-period quote | 2/35 |
-| Claims with figures not traceable to a metric | 6/51 |
-| Labeled causes named / distractors asserted | 6/8 / 0 |
-| Labeled material changes covered | 5/7 |
+| Measure | HSY agent | HSY baseline | Test agent | Test baseline |
+|---|---|---|---|---|
+| Changes / claims / asserted claims | 30 / 93 / 50 | 30 / 51 / 35 | 60 / 203 / 69 | 59 / 91 / 56 |
+| Quotes found verbatim | 123/123 | 71/71 | 298/298 | 134/134 |
+| **Asserted claims unsupported by their quotes** | **3/50 (6%)** | 7/35 (20%) | **4/69 (6%)** | 14/56 (25%) |
+| **Asserted claims resting on a wrong-period quote** | **0/50** | 2/35 | **0/69** | 2/56 |
+| Claims with figures not traceable to a metric | 0/93 | 6/51 | 0/203 | 4/91 |
+| Labeled causes named | 7/8 | 6/8 | 12/17 | **17/17** |
+| Distractors asserted as fact | 0 | 0 | 0 | 0 |
+| Labeled material changes covered | 2/7 | 5/7 | 7/16 | **13/16** |
+| Sequential: causes asserted / saying "year over year" | 18 / 0 | 6 / 2 | 14 / 1 | 11 / 4 |
 
-Most unsupported claims were compound: the quote states one part, and the claim adds more.
+What the table shows:
+- **By the judge, the agent's assertions hold up better.** About 1 in 16 of the agent's asserted causes is unsupported by its quotes, against 1 in 5 to 1 in 4 of the baseline's. Part of this is by construction, because the agent's `confirmed` claims already passed the same judge. The hand check below does not rest on the judge, and it narrows this gap.
+- **The citation and figure checks favor the agent outright.** The agent has no wrong-period support and no untraceable figures; the baseline has a few of each.
+- **The agent asserts less.** 34% of its test claims state a cause, against 62% of the baseline's. The rest are labeled `plausible` or `unresolved`, so a reader is told they are not established.
+- **The baseline covers more labeled changes.** The agent explores only its 10 most material changes. In these comparisons, those are mostly margin moves and the MD&A paragraphs that explain them. Most labeled changes (risk factors, litigation, acquisitions, buybacks) rank lower. On the test split, every labeled change the agent missed was outside its 10, and every one it explored was covered. Materiality had found all 16 (above), so the gap comes from the 10-change cap and the ranking, not from detection. A larger `--max-changes` would close it, at the cost and time measured below.
+- **The baseline also names more labeled causes on the test split** (17 against 12). Of the 5 the agent missed, 2 belong to a change it did not explore, because of the cap. The other 3 belong to changes it did explore, where its search did not surface them. That is consistent with T6.4, where the search kept 11 to 16 of the 17 test causes depending on the form of the change.
+- **Sequential comparisons stay hard for both.** The 10-Qs explain moves only against the year-earlier quarter. Both systems still offer those causes for quarter-to-quarter moves, mostly without saying the cause is year over year: the baseline says so for 6 of its 17 such causes, the agent for 1 of 32. The agent's quotes cite the right filing and period, so its problem is the wording.
 
-One of the two wrong-period cases is a changed tariff risk that the claim contrasts with the prior filing. The agent's own rule would also count it.
+Notes on the baseline:
+- **Compound claims:** most of its unsupported claims were compound: the quote states one part, and the claim adds more.
+- **Wrong-period cases:** on HSY, one of the two is a changed tariff risk that the claim contrasts with the prior filing. The agent's own rule would also count it. One test case (`SWK:yoy-10q:b2:c2`, no valid citation) describes the prior-year quarter itself and is counted the same way.
 
-In the sequential comparison the baseline asserted 6 causes. Only 2 of them say the comparison is with a year earlier, which is all the 10-Q states.
+**Blinded hand check.** A person rated 30 asserted claims, 15 per system, drawn with a seed fixed in advance from test-split claims that have a valid quote. The two systems' claims were mixed together and their source hidden. The question for each claim is the judge's: does a quote state that the claim's cause produced this change?
 
-**Pending:**
-- the agent's runs on Hershey;
-- both systems on the test split, run once;
-- a blinded hand check of 30 asserted claims, 15 per system, by a person.
+| | Agent | Baseline |
+|---|---|---|
+| Supported, by the person | 13/15 | 14/15 |
+| Supported, by the judge | 14/15 | 12/15 |
+| Person and judge agree | 14/15 | 13/15 |
 
-### Cost and latency (T6.6)
+The person and the judge agree on 27 of 30. The person applied two rules the judge's prompt does not spell out:
+- **Offsets:** a claim that says "X reduced Y" is not supported when the quote says Y moved the other way and X only partly offset it. The claim implies Y moved the wrong way overall.
+- **Direction:** a quote that names only "the year-over-year change" in a metric does not confirm that it rose or fell. The judge applies this one too, reading such quotes as "implies".
 
-The instrumentation is built:
-- every model call records its cost, latency, step and change;
-- every step and every local search is timed;
-- `sec-agent eval cost RUN_DIR` reports cost and wall time per step, per finding and per model.
+The three disagreements:
+- **Agent, 1:** the offset rule. The judge accepted the claim.
+- **Baseline, 2:** the judge was stricter than the person. One claim has two parts, each stated in a different quote, and the judge reads one quote at a time. In the other, the quote says "the net proceeds" without naming their source.
 
-Measurements at the current settings are pending.
+Apart from the offset case, the judge never accepted a claim the person rejected, so it errs on the strict side, as in T5.2. That strictness fell only on baseline claims (2 of 15). On this sample, the person found the two systems about equally well supported (13/15 and 14/15). So part of the gap in unsupported claims above (6% against 20 to 25%) comes from the judge's strictness, not from the baseline's claims. With 15 claims per system, the sample cannot say how much.
 
-Early observations, from runs before the beam was widened:
-- Three Hershey changes cost $0.15 to $0.19 and took about 7 minutes.
-- Most of the time is local search on the CPU: about 2 to 6 seconds per search, depending on machine load.
-- Model latency was a small share.
-- A run killed mid-search resumed without repeating its finished work, and its replayed calls cost nothing.
+One answer was revised on a reread, under the direction rule. The first pass agreed on 26 of 30. The person also noted that some claims are weak or unspecific, though supported. This is recorded as a known limitation in [DESIGN_CHANGES.md](DESIGN_CHANGES.md).
+
+### Full-corpus run (T8.1, $7.60)
+
+The agent ran on all 9 comparisons, one after another: 3 companies × 3 comparisons, 10 changes each, a $1.50 cap per run. All 9 finished, wrote their brief, and searched all 10 changes; none hit its cap. Materiality was cached from T6.3. Each run's `brief.md`, `audit.json`, `ledger.jsonl` and `timings.jsonl` are in `<data dir>/runs/`.
+
+### Cost and latency (T6.6, free from the runs above)
+
+Every model call records its cost, latency, step and change, and every step and local search is timed. `sec-agent eval cost RUN_DIR` reports them per step, per finding and per model.
+
+The runs used the final settings (beam width 6), on a 4-core CPU machine with no GPU and no other work running (load average 0.2 to 1.2). Six Hershey changes replayed from an earlier run, so they are left out, leaving 84 changes.
+
+| Per explored change | Mean | Median | 90th percentile | Max |
+|---|---|---|---|---|
+| Model cost | $0.085 | $0.079 | $0.146 | $0.253 |
+| Wall time | 3.7 min | 3.6 min | 6.1 min | 8.2 min |
+
+Per run of 10 changes: $0.55 to $1.29 and 22 to 47 minutes. A comparison seen for the first time also pays for materiality: 6 to 22 batches here, at about $0.07 each. That would bring these runs to about $1.00 to $2.40.
+
+Where the money goes (all 9 runs, $7.60):
+- **By step:** labeling $2.81, rework $2.97, search $1.37, summaries $0.45 (about $0.05 a run).
+- **By model:** Opus (the judge and the summary) made 13% of the calls and cost 64%. Haiku (the generator, the critic and the claim writer) made the rest.
+
+Where the time goes:
+- **Model calls are now most of it:** 76% of a change's wall time. A typical call takes 1.4 to 2.5 seconds on Haiku and 3.1 to 4.5 on Opus (per-run medians), and about 5 to 6 at the 90th percentile.
+- **Local search is the rest:** 23%. A change runs about 42 searches at 1.2 seconds each. Earlier runs, with a rerank pool of 20, spent most of their time searching, at 2 to 6 seconds a search.
+
+Other observations:
+- **Repeated calls replay free within a run.** 15 to 30% of each change's calls repeat an identical earlier request (mostly in rework) and replay from the local cache. A fresh run gets the same saving.
+- **Cut-off replies were rare.** 7 of 5,140 live calls reached their output limit (6 critic, 1 generator). Each ended only its own branch.
+- **A killed run resumes.** A run killed mid-search resumed without repeating its finished work, and its replayed calls cost nothing.
+- **The pre-run estimate was too low.** It assumed $0.06 a change and printed $0.65 for every run. It now uses the measured mean, $0.085.
 
 ## Still to run
 
-| Item | Cost | Waiting on |
+Optional reruns, not scheduled:
+
+| Item | Cost | Why |
 |---|---|---|
-| Agent runs on Hershey, then both systems on the test split | Paid | Final version of the agent |
-| Blinded hand check of 30 claims | Free (a person's time) | The runs above |
-| Cost and latency at current settings | Paid | Final version of the agent |
-| Materiality table on the test split | Paid, about $5 | Approval of its spend |
-| Survival on the test split at width 6 | Paid | A decision to rerun |
-| Retrieval test table at rerank pool 10 | Free | Not scheduled |
-| Full-corpus run (9 comparisons) | Paid | Approval of its spend |
+| Survival on the test split at width 6 | Paid, about $0.50 to $1.50 | The reported test run used width 5 |
+| Retrieval test table at rerank pool 10 | Free | The test table above used pool 20 |
+| Haiku against Sonnet as the search model, on HSY | Paid, about $2 to $2.50 | Haiku was kept without this comparison |
