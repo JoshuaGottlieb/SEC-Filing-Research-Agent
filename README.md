@@ -40,13 +40,15 @@ The first `index` and `analyze` download two local models from Hugging Face, abo
 ```bash
 pip install uv
 
-# Keep the virtual environment on local disk (add this to your shell profile).
-# Symlinks and renames fail on VirtualBox shared folders.
-export UV_PROJECT_ENVIRONMENT="$HOME/.venvs/sec-agent"
-
 uv sync --frozen
 cp .env.example .env    # then fill in the two required values
 uv run --frozen sec-agent doctor
+```
+
+uv creates the virtual environment as `.venv` inside the repo, which works on a normal local disk. The one exception is a repo on a VirtualBox shared folder, where symlinks and renames fail. There, keep the environment on local disk: run this before `uv sync` and add it to your shell profile.
+
+```bash
+export UV_PROJECT_ENVIRONMENT="$HOME/.venvs/sec-agent"
 ```
 
 ### Configuration
