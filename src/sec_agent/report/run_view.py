@@ -11,16 +11,20 @@ it. Text is returned raw unless a function says it is Markdown, which is escaped
 
 from __future__ import annotations
 
+import difflib
+import html
+import itertools
 import json
 import re
 import textwrap
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
 from sec_agent.report.brief import (
     NotExamined,
+    _guard_line_start,
     assign_refs,
     change_heading,
     escape,
@@ -35,10 +39,13 @@ from sec_agent.schemas import (
     Brief,
     ChangeKind,
     Claim,
+    EvidenceSupport,
     ExplanationLabel,
     Finding,
     MetricValue,
     NodeStatus,
+    NumericCheck,
+    Section,
     TreeNode,
 )
 
@@ -233,10 +240,108 @@ def md(text: str) -> str:
     return escape(text).replace("$", "\\$")
 
 
-def md_quote(text: str) -> str:
-    """Filing text as a Markdown block quote for Streamlit, one quoted line per paragraph line."""
+def md_quote(text: str, *, bold: bool = False) -> str:
+    """Filing text as a Markdown block quote for Streamlit, one quoted line per paragraph line;
+    with `bold`, each line in bold (a citation's quote, so it stands out from its passage)."""
     lines = [line.replace("$", "\\$") for line in quote_lines(text)]
+    if bold:
+        lines = [f"**{line}**" for line in lines]
     return "\n".join(f"> {line}" for line in lines) or "> (empty)"
+
+
+# Streamlit Markdown's background colours: a quote within its passage, and the words of a
+# changed paragraph that differ between its two versions.
+QUOTE_MARK = "orange"
+REMOVED_MARK = "red"
+ADDED_MARK = "green"
+# A sentence ends at ".", "!" or "?" (and any closing quotes or brackets), before a space and a
+# capital, digit, "$" or opening bracket. The space is where the text is split.
+# A marked stretch of text: (words, changed). A paragraph break is its own run, ("\n", False).
+TextRun = tuple[str, bool]
+PARAGRAPH_BREAK = "\n"
+# An unchanged stretch this short between two changed ones is marked with them, so a reworded
+# phrase reads as one change rather than as confetti around "the" and "of".
+BRIDGE_WORDS = 2
+
+
+def _tokens(text: str) -> list[str]:
+    tokens: list[str] = []
+    for line in text.splitlines():
+        found = line.split()
+        if not found:
+            continue
+        if tokens:
+            tokens.append(PARAGRAPH_BREAK)
+        tokens.extend(found)
+    return tokens
+
+
+def _bridge(tokens: Sequence[str], flags: list[bool]) -> list[bool]:
+    """Mark short unchanged stretches that sit between two changes (not across paragraphs)."""
+    out = list(flags)
+    i = 0
+    while i < len(out):
+        if out[i]:
+            i += 1
+            continue
+        j = i
+        while j < len(out) and not out[j]:
+            j += 1
+        between = i > 0 and j < len(out)
+        if between and j - i <= BRIDGE_WORDS and PARAGRAPH_BREAK not in tokens[i:j]:
+            out[i:j] = [True] * (j - i)
+        i = j
+    return out
+
+
+def _runs(tokens: Sequence[str], flags: Sequence[bool]) -> list[TextRun]:
+    runs: list[TextRun] = []
+    for token, changed in zip(tokens, flags, strict=True):
+        if token == PARAGRAPH_BREAK:
+            runs.append((PARAGRAPH_BREAK, False))
+        elif runs and runs[-1][0] != PARAGRAPH_BREAK and runs[-1][1] == changed:
+            runs[-1] = (f"{runs[-1][0]} {token}", changed)
+        else:
+            runs.append((token, changed))
+    return runs
+
+
+def changed_words(prior: str, current: str) -> tuple[list[TextRun], list[TextRun]]:
+    """Both versions of a paragraph as runs of words, the words that differ marked: removed ones
+    in the first, added ones in the second. Whitespace is squashed; paragraph breaks are kept.
+
+    The comparison is word by word, so a changed figure marks only the figure. When one side is
+    empty (an added or removed paragraph), nothing is marked: all of it is new or gone.
+    """
+    before, after = _tokens(prior), _tokens(current)
+    gone, new = [False] * len(before), [False] * len(after)
+    if before and after:
+        matcher = difflib.SequenceMatcher(a=before, b=after, autojunk=False)
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag != "equal":
+                gone[i1:i2] = [True] * (i2 - i1)
+                new[j1:j2] = [True] * (j2 - j1)
+        gone, new = _bridge(before, gone), _bridge(after, new)
+    return _runs(before, gone), _runs(after, new)
+
+
+def md_mark(text: str, colour: str) -> str:
+    """Escaped text with a Streamlit background colour."""
+    return f":{colour}-background[{md(text)}]"
+
+
+def md_quote_runs(runs: Sequence[TextRun], colour: str) -> str:
+    """Runs of filing text as a Markdown block quote, the changed runs highlighted in `colour`."""
+    lines: list[list[str]] = [[]]
+    for text, changed in runs:
+        if text == PARAGRAPH_BREAK:
+            lines.append([])
+        elif changed:
+            lines[-1].append(md_mark(text, colour))
+        else:
+            plain = md(text)
+            lines[-1].append(plain if lines[-1] else _guard_line_start(plain))
+    return "\n".join(f"> {' '.join(line)}" for line in lines if line) or "> (empty)"
 
 
 def words(value: str) -> str:
@@ -245,7 +350,8 @@ def words(value: str) -> str:
 
 
 def highlight(passage: str, quote: str) -> str:
-    """The passage as escaped Markdown, with the quote in bold where it appears word for word.
+    """The passage as escaped Markdown, with the quote highlighted and in bold where it appears
+    word for word.
 
     Whitespace is compared loosely (a quote is one line, a passage may wrap); when the quote is
     not found as written, the passage is shown without emphasis rather than guessed at.
@@ -255,21 +361,95 @@ def highlight(passage: str, quote: str) -> str:
     if start < 0:
         return md(text)
     end = start + len(wanted)
-    return f"{md(text[:start])} **{md(wanted)}** {md(text[end:])}".strip()
+    marked = f":{QUOTE_MARK}-background[**{md(wanted)}**]"
+    return f"{md(text[:start])} {marked} {md(text[end:])}".strip()
+
+
+def change_description(finding: Finding, limit: int = 110) -> str | None:
+    """A few words on what a change is about, beyond its heading ("Changed paragraph in MD&A"):
+    why it was flagged, as the brief may show it, or else the start of its text. Raw text."""
+    change = finding.change
+    text = rationale_shown(change) or change.current_text or change.prior_text
+    return shorten(text, limit) if text else None
 
 
 # --- The evidence tree (T7.2) -------------------------------------------------------------------
+#
+# Drawn top-down: the change, then one card per candidate explanation. A card sums up its evidence
+# searches as a row of coloured chips (one per search, solid if kept, hollow if pruned), so a tree
+# of 50 to 80 nodes draws as about a dozen. A candidate that is opened (`expanded`) also shows its
+# searches as their own boxes, stacked in a column under it, so opening a branch makes the tree
+# longer rather than wider. Labels are Graphviz HTML-like labels, with all text escaped.
 
 LABEL_COLOURS = {
     ExplanationLabel.CONFIRMED: "#2e7d32",
     ExplanationLabel.PLAUSIBLE: "#b26a00",
     ExplanationLabel.UNRESOLVED: "#8e24aa",
 }
-STATUS_STYLE = {
-    NodeStatus.KEPT: 'style="rounded,filled", fillcolor="#eef3fb", color="#3b6db3"',
-    NodeStatus.PRUNED: 'style="rounded,dashed", color="#9e9e9e", fontcolor="#757575"',
-    NodeStatus.PENDING: 'style="rounded,dotted", color="#c62828", fontcolor="#c62828"',
+
+
+@dataclass(frozen=True)
+class ChipStyle:
+    colour: str
+    meaning: str
+
+
+# What a search found, strongest first: the critic's verdict on its passages, or for a computed
+# metric, whether the metric moved the way the candidate expects.
+CHIP_STYLES = {
+    "states_cause": ChipStyle("#2e7d32", "states the cause"),
+    "implies": ChipStyle("#3b6db3", "implies it"),
+    "consistent": ChipStyle("#c49000", "consistent with it"),
+    "metric_agrees": ChipStyle("#7e57c2", "metric agrees"),
+    "metric_contradicts": ChipStyle("#c62828", "metric disagrees"),
+    "none": ChipStyle("#9e9e9e", "no evidence"),
+    "not_checked": ChipStyle("#cfd8dc", "not checked"),
+    "pending": ChipStyle("#e57373", "never finished"),
 }
+_PRUNED_GREY = "#9e9e9e"
+_REWORK = re.compile(r":w(?P<round>\d+)(?::|$)")
+_ROUND = re.compile(r":r(?P<round>\d+):c\d+$")
+
+
+def chip_kind(node: TreeNode) -> str:
+    """The `CHIP_STYLES` key for a depth 2 search."""
+    if node.status is NodeStatus.PENDING:
+        return "pending"
+    if node.evidence is not None and node.evidence is not EvidenceSupport.NONE:
+        return node.evidence.value
+    if node.numeric_check is NumericCheck.AGREE:
+        return "metric_agrees"
+    if node.numeric_check is NumericCheck.CONTRADICT:
+        return "metric_contradicts"
+    return "none" if node.evidence is EvidenceSupport.NONE else "not_checked"
+
+
+def rework_round(node: TreeNode) -> int:
+    """0 for a search made during the search itself, n for one made in rework round n."""
+    if node.parent_id is None:
+        return 0
+    match = _REWORK.search(node.node_id.removeprefix(node.parent_id))
+    return int(match["round"]) if match else 0
+
+
+def candidate_round(node: TreeNode) -> int:
+    """The round of candidates a depth 1 node came from: 1, or 2 for a fresh round."""
+    match = _ROUND.search(node.node_id)
+    return int(match["round"]) if match else 1
+
+
+def candidate_numbers(nodes: Sequence[TreeNode]) -> dict[str, int]:
+    """Each candidate explanation's number in the tree (1, 2, ...), in the order proposed."""
+    return {node.node_id: i for i, node in enumerate((n for n in nodes if n.depth == 1), 1)}
+
+
+def searches_of(nodes: Sequence[TreeNode], candidate_id: str) -> dict[int, list[TreeNode]]:
+    """A candidate's evidence searches by round (0 for the search, n for rework round n)."""
+    rounds: dict[int, list[TreeNode]] = {}
+    for node in nodes:
+        if node.parent_id == candidate_id:
+            rounds.setdefault(rework_round(node), []).append(node)
+    return dict(sorted(rounds.items()))
 
 
 def shorten(text: str, limit: int) -> str:
@@ -278,10 +458,32 @@ def shorten(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
+def _html(text: str) -> str:
+    """Text for a Graphviz HTML-like label."""
+    return html.escape(text, quote=True)
+
+
+def _html_lines(text: str, width: int, limit: int) -> str:
+    """Text shortened, wrapped and escaped, as left-aligned HTML-like label lines."""
+    lines = textwrap.wrap(shorten(text, limit), width) or [""]
+    return "".join(f'{_html(line)}<BR ALIGN="LEFT"/>' for line in lines)
+
+
 def _dot_text(text: str, width: int, limit: int) -> str:
-    """Text for a DOT label: shortened, wrapped, and quoted characters escaped."""
+    """Text for a quoted DOT attribute: shortened, wrapped, and quote characters escaped."""
     lines = textwrap.wrap(shorten(text, limit), width) or [""]
     return "\\n".join(line.replace("\\", "\\\\").replace('"', '\\"') for line in lines)
+
+
+def _tooltip(node: TreeNode) -> str:
+    """A node's hover text for a DOT attribute: its full thought, then why it was pruned, on one
+    line (the browser wraps it; a line break here would land mid-sentence)."""
+    text = _squash(node.thought)
+    if node.depth == 2:
+        text = f"{short_source_name(node)}: {text}"
+    if node.prune_reason:
+        text += f" — Pruned: {_squash(node.prune_reason)}"
+    return shorten(text, 1200).replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _node_kind(node: TreeNode) -> str:
@@ -300,8 +502,55 @@ def source_name(node: TreeNode) -> str | None:
     return None
 
 
+# Section names short enough for a search's box in the tree.
+SHORT_SECTION_NAMES = {
+    Section.BUSINESS: "Business",
+    Section.RISK_FACTORS: "Risk factors",
+    Section.MDNA: "MD&A",
+    Section.MARKET_RISK: "Market risk",
+    Section.FINANCIAL_NOTES: "Financial notes",
+    Section.OTHER: "Other tables",
+}
+
+
+def short_source_name(node: TreeNode) -> str:
+    """Where a depth 2 node looked, in a few words: "MD&A", "Gross margin (down)", "Everywhere"."""
+    if node.source is not None and node.source.metric is not None:
+        expected = node.source.metric
+        return f"{metric_name(expected.metric)} ({expected.direction.value})"
+    if node.source is not None and node.source.section:
+        return SHORT_SECTION_NAMES.get(node.source.section, SECTION_NAMES[node.source.section])
+    return "Everywhere"
+
+
 def _score(node: TreeNode) -> str:
     return "-" if node.score is None else f"{node.score:.2f}"
+
+
+def _chip(node: TreeNode) -> str:
+    style = CHIP_STYLES[chip_kind(node)]
+    if node.status is NodeStatus.KEPT:
+        return f'<TD WIDTH="12" HEIGHT="12" FIXEDSIZE="TRUE" BGCOLOR="{style.colour}"></TD>'
+    return (
+        f'<TD WIDTH="12" HEIGHT="12" FIXEDSIZE="TRUE" BORDER="2" COLOR="{style.colour}" '
+        'BGCOLOR="#ffffff"></TD>'
+    )
+
+
+def _chip_rows(rounds: Mapping[int, Sequence[TreeNode]]) -> str:
+    rows = []
+    for number, searches in rounds.items():
+        if not searches:
+            continue
+        name = "searches" if number == 0 else f"rework {number}"
+        chips = "".join(_chip(node) for node in searches)
+        rows.append(
+            f'<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#616161">{name}'
+            f"</FONT></TD>{chips}</TR>"
+        )
+    if not rows:
+        return ""
+    return f'<TABLE BORDER="0" CELLSPACING="3" CELLPADDING="0">{"".join(rows)}</TABLE>'
 
 
 @dataclass(frozen=True)
@@ -314,71 +563,145 @@ class TreeView:
     rows: list[dict] = field(default_factory=list)
 
 
+def _hidden_ids(nodes: Sequence[TreeNode]) -> set[str]:
+    """Every node that is pruned or sits under a pruned node."""
+    by_id = {node.node_id: node for node in nodes}
+    hidden: set[str] = set()
+    for node in nodes:
+        parent: TreeNode | None = node
+        while parent is not None:
+            if parent.status is NodeStatus.PRUNED:
+                hidden.add(node.node_id)
+                break
+            parent = by_id.get(parent.parent_id or "")
+    return hidden
+
+
+def _table(rows: Sequence[str], padding: int) -> str:
+    """Table rows as a Graphviz HTML-like label."""
+    return (
+        f'<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="{padding}">'
+        f"{''.join(rows)}</TABLE>>"
+    )
+
+
+def _candidate_label(
+    node: TreeNode,
+    number: int,
+    claim: Claim | None,
+    claim_refs: Mapping[str, str],
+    rounds: Mapping[int, Sequence[TreeNode]],
+    hidden_searches: int,
+    expanded: bool,
+) -> str:
+    head = f"<B>Candidate {number}</B>"
+    if candidate_round(node) > 1:
+        head += ' <FONT COLOR="#616161">(fresh round)</FONT>'
+    rows = [f'<TR><TD ALIGN="LEFT">{head}</TD><TD ALIGN="RIGHT">score {_score(node)}</TD></TR>']
+    if claim is not None:
+        colour = LABEL_COLOURS[claim.label]
+        verdict = f"{LABEL_NAMES[claim.label]} [{claim_refs.get(claim.claim_id, '?')}]"
+        rows.append(
+            f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT COLOR="{colour}"><B>{_html(verdict)}</B>'
+            "</FONT></TD></TR>"
+        )
+    elif node.status is NodeStatus.PRUNED:
+        reason = shorten(node.prune_reason or "pruned", 60)
+        rows.append(
+            f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT COLOR="#757575">Pruned: {_html(reason)}'
+            "</FONT></TD></TR>"
+        )
+    rows.append(f'<TR><TD COLSPAN="2" ALIGN="LEFT">{_html_lines(node.thought, 34, 130)}</TD></TR>')
+    chips = _chip_rows(rounds)
+    if chips:
+        rows.append(f'<TR><TD COLSPAN="2" ALIGN="LEFT">{chips}</TD></TR>')
+    searches = [search for group in rounds.values() for search in group]
+    if searches or hidden_searches:
+        kept = sum(1 for search in searches if search.status is NodeStatus.KEPT)
+        quotes = sum(len(search.citations) for search in searches)
+        line = f"{len(searches) + hidden_searches} searches · {kept} kept · {quotes} quotes"
+        if hidden_searches:
+            line += f" · {hidden_searches} pruned hidden"
+        if expanded:
+            line += " · opened below"
+        rows.append(
+            f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#616161">'
+            f"{_html(line)}</FONT></TD></TR>"
+        )
+    return _table(rows, padding=2)
+
+
+def _search_label(node: TreeNode) -> str:
+    style = CHIP_STYLES[chip_kind(node)]
+    rows = [
+        f'<TR><TD ALIGN="LEFT"><B>{_html(shorten(short_source_name(node), 34))}</B></TD>'
+        f'<TD ALIGN="RIGHT">{_score(node)}</TD></TR>',
+    ]
+    found = style.meaning
+    if node.citations:
+        found += f" · {len(node.citations)} quote{'s' if len(node.citations) > 1 else ''}"
+    rows.append(
+        f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT COLOR="{style.colour}">{_html(found)}</FONT>'
+        "</TD></TR>"
+    )
+    if node.prune_reason:
+        rows.append(
+            f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#757575">'
+            f"{_html_lines('Pruned: ' + node.prune_reason, 40, 80)}</FONT></TD></TR>"
+        )
+    rows.append(
+        f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="9">'
+        f"{_html_lines(node.thought, 40, 90)}</FONT></TD></TR>"
+    )
+    return _table(rows, padding=1)
+
+
+_NODE_STYLE = {
+    NodeStatus.KEPT: 'style="rounded,filled", fillcolor="#ffffff", color="#3b6db3"',
+    NodeStatus.PRUNED: (
+        f'style="rounded,filled,dashed", fillcolor="#f5f5f5", color="{_PRUNED_GREY}", '
+        'fontcolor="#757575"'
+    ),
+    NodeStatus.PENDING: 'style="rounded,filled,dotted", fillcolor="#ffffff", color="#c62828"',
+}
+
+
 def tree_view(
     nodes: Sequence[TreeNode],
     claims: Mapping[str, Claim],
     claim_refs: Mapping[str, str],
     *,
     show_pruned: bool = True,
+    expanded: Collection[str] = (),
 ) -> TreeView:
-    """A finding's Tree-of-Thought tree as Graphviz DOT, and one table row per node.
+    """A finding's Tree-of-Thought tree as top-down Graphviz DOT, and one table row per node.
 
-    `claims` maps a claim id to the claim the brief shows; a depth 1 candidate has the same id as
-    the claim it became, so a candidate that reached the brief is drawn in its label's colour. With
-    `show_pruned` off, pruned branches are left out and each parent notes how many it lost.
+    `claims` maps a claim id to the claim the brief shows; a candidate has the same id as the claim
+    it became, so a candidate that reached the brief is outlined in its label's colour.
+    `expanded` holds the candidates whose searches are drawn as their own boxes. With
+    `show_pruned` off, pruned branches are left out and the counts say how many.
     """
-    by_id = {node.node_id: node for node in nodes}
-    hidden_ids: set[str] = set()
-    if not show_pruned:
-        for node in nodes:
-            parent, cut = node, False
-            while parent is not None:
-                if parent.status is NodeStatus.PRUNED:
-                    cut = True
-                    break
-                parent = by_id.get(parent.parent_id or "")
-            if cut:
-                hidden_ids.add(node.node_id)
+    hidden = set() if show_pruned else _hidden_ids(nodes)
+    index_of = {node.node_id: i for i, node in enumerate(nodes)}
+    numbers = candidate_numbers(nodes)
     lines = [
         "digraph tree {",
-        '  rankdir="LR"; nodesep=0.15; ranksep=0.5;',
-        '  node [shape=box, fontname="Helvetica", fontsize=10, margin="0.12,0.06"];',
+        '  rankdir="TB"; nodesep=0.25; ranksep=0.22; compound=true; bgcolor="transparent";',
+        '  graph [fontname="Helvetica"];',
+        '  node [shape=box, fontname="Helvetica", fontsize=10, margin="0.10,0.06"];',
         '  edge [color="#9e9e9e", arrowsize=0.6];',
     ]
-    hidden_per_parent: dict[str, int] = {}
     rows = []
-    for index, node in enumerate(nodes):
-        if node.node_id in hidden_ids:
-            if node.parent_id not in hidden_ids and node.parent_id is not None:
-                hidden_per_parent[node.parent_id] = hidden_per_parent.get(node.parent_id, 0) + 1
+    for node in nodes:
+        if node.node_id in hidden:
             continue
         claim = claims.get(node.node_id)
-        if node.depth == 0:
-            label = "Change\\n" + _dot_text(node.thought, 42, 180)
-            style = 'style="filled", fillcolor="#263238", fontcolor="white", color="#263238"'
-        elif node.depth == 1:
-            head = f"score {_score(node)}"
-            if claim is not None:
-                head += f" · {LABEL_NAMES[claim.label]} [{claim_refs.get(claim.claim_id, '?')}]"
-            label = head + "\\n" + _dot_text(node.thought, 40, 160)
-            style = STATUS_STYLE[node.status]
-            if claim is not None:
-                colour = LABEL_COLOURS[claim.label]
-                style = f'style="rounded,filled,bold", fillcolor="white", color="{colour}"'
-        else:
-            where = source_name(node) or "search"
-            evidence = words(node.evidence.value) if node.evidence else "not checked"
-            label = (
-                f"{_dot_text(where, 40, 60)} · score {_score(node)}\\nevidence: {evidence}"
-                f"\\n{_dot_text(node.thought, 40, 100)}"
-            )
-            style = STATUS_STYLE[node.status]
-        tooltip = _dot_text(node.prune_reason or node.thought, 80, 400)
-        lines.append(f'  n{index} [label="{label}", tooltip="{tooltip}", {style}];')
         rows.append(
             {
                 "depth": node.depth,
                 "kind": _node_kind(node),
+                "candidate": numbers.get(node.node_id) or numbers.get(node.parent_id or ""),
+                "rework round": (rework_round(node) or None) if node.depth == 2 else None,
                 "status": node.status.value,
                 "score": node.score,
                 "where": source_name(node),
@@ -394,28 +717,113 @@ def tree_view(
                 "thought": node.thought,
             }
         )
-    index_of = {node.node_id: i for i, node in enumerate(nodes)}
+    root = next((node for node in nodes if node.depth == 0), None)
+    hidden_candidates = 0
     for node in nodes:
-        if node.node_id in hidden_ids or node.parent_id not in index_of:
+        if node.depth == 0:
+            label = "Change\\n" + _dot_text(node.thought, 50, 200)
+            lines.append(
+                f'  n{index_of[node.node_id]} [label="{label}", '
+                f'tooltip="{_tooltip(node)}", style="rounded,filled", '
+                'fillcolor="#263238", fontcolor="white", color="#263238", fontsize=11];'
+            )
             continue
-        lines.append(f"  n{index_of[node.parent_id]} -> n{index_of[node.node_id]};")
-    for parent_id, count in hidden_per_parent.items():
-        note = f"h{index_of[parent_id]}"
-        branches = "branch" if count == 1 else "branches"
-        lines.append(
-            f'  {note} [label="{count} pruned {branches} hidden", shape=plaintext, '
-            'fontcolor="#757575", fontsize=9];'
+        if node.depth != 1:
+            continue
+        if node.node_id in hidden:
+            hidden_candidates += 1
+            continue
+        rounds_all = searches_of(nodes, node.node_id)
+        rounds = {
+            number: [search for search in group if search.node_id not in hidden]
+            for number, group in rounds_all.items()
+        }
+        hidden_searches = sum(len(group) for group in rounds_all.values()) - sum(
+            len(group) for group in rounds.values()
         )
-        lines.append(f"  n{index_of[parent_id]} -> {note} [style=dotted];")
+        is_open = node.node_id in expanded
+        claim = claims.get(node.node_id)
+        style = _NODE_STYLE[node.status]
+        if claim is not None:
+            colour = LABEL_COLOURS[claim.label]
+            style = (
+                f'style="rounded,filled,bold", fillcolor="#ffffff", color="{colour}", penwidth=2'
+            )
+        label = _candidate_label(
+            node,
+            numbers[node.node_id],
+            claim,
+            claim_refs,
+            rounds,
+            hidden_searches,
+            is_open and any(rounds.values()),
+        )
+        tooltip = _tooltip(node)
+        me = f"n{index_of[node.node_id]}"
+        lines.append(f'  {me} [label={label}, tooltip="{tooltip}", {style}];')
+        if root is not None and node.parent_id == root.node_id:
+            lines.append(f"  n{index_of[root.node_id]} -> {me} [minlen=2];")
+        if not is_open or not any(rounds.values()):
+            continue
+        # The opened branch: its searches stacked in a column, one cluster per candidate.
+        lines.append(f"  subgraph cluster_{me} {{")
+        lines.append(
+            f'    label="Candidate {numbers[node.node_id]}: evidence searches"; fontsize=9; '
+            'fontcolor="#616161"; style="rounded,filled"; fillcolor="#f7f9fc"; color="#cfd8dc";'
+        )
+        column: list[str] = []
+        for number, group in rounds.items():
+            if not group:
+                continue
+            if number > 0:
+                header = f"{me}_w{number}"
+                lines.append(
+                    f'    {header} [label="Rework round {number}", shape=plaintext, '
+                    'fontsize=9, fontcolor="#616161", height=0.2];'
+                )
+                column.append(header)
+            for search in group:
+                child = f"n{index_of[search.node_id]}"
+                tip = _tooltip(search)
+                lines.append(
+                    f'    {child} [label={_search_label(search)}, tooltip="{tip}", '
+                    f"width=2.7, {_NODE_STYLE[search.status]}];"
+                )
+                column.append(child)
+        lines.append("  }")
+        lines.append(f"  {me} -> {column[0]} [lhead=cluster_{me}];")
+        for upper, lower in itertools.pairwise(column):
+            lines.append(f"  {upper} -> {lower} [style=invis];")
+    if hidden_candidates and root is not None:
+        note = f"{hidden_candidates} pruned candidate{'s' if hidden_candidates > 1 else ''} hidden"
+        lines.append(
+            f'  hidden_note [label="{note}", shape=plaintext, fontcolor="#757575", fontsize=9];'
+        )
+        lines.append(f"  n{index_of[root.node_id]} -> hidden_note [style=dotted];")
     lines.append("}")
     return TreeView(
         dot="\n".join(lines),
         nodes=len(nodes),
         pruned=sum(1 for node in nodes if node.status is NodeStatus.PRUNED),
         pending=sum(1 for node in nodes if node.status is NodeStatus.PENDING),
-        hidden=len(hidden_ids),
+        hidden=len(hidden),
         rows=rows,
     )
+
+
+def candidate_choices(nodes: Sequence[TreeNode], claims: Mapping[str, Claim]) -> dict[str, str]:
+    """A short label per candidate ("3 · Cocoa costs rose…", with a mark if it reached the brief),
+    for the control that opens branches, mapped to the candidate's node id."""
+    numbers = candidate_numbers(nodes)
+    choices = {}
+    for node in nodes:
+        if node.depth != 1:
+            continue
+        mark = (
+            " ✓" if node.node_id in claims else (" ✗" if node.status is NodeStatus.PRUNED else "")
+        )
+        choices[f"{numbers[node.node_id]}{mark} · {shorten(node.thought, 38)}"] = node.node_id
+    return choices
 
 
 def candidate_evidence(nodes: Sequence[TreeNode], candidate_id: str) -> list[TreeNode]:

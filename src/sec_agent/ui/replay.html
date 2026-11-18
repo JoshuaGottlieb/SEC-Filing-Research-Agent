@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Replay audit</title>
+<!--
+  The replay audit page (T7). `sec_agent.ui.replay_page.render` fills in the data below from
+  `sec_agent.report.replay.build_replay`. Everything from the run (filing text, model text) is set
+  with textContent, never as HTML. No external scripts or styles.
+-->
+<style>
+  :root {
+    --bg: #ffffff; --panel: #f6f8fb; --card: #ffffff; --ink: #1f2933; --muted: #66727f;
+    --line: #d5dbe3; --accent: #3b6db3; --accent-soft: #e6eefa; --focus: #f2a33a;
+    --confirmed: #2e7d32; --plausible: #b26a00; --unresolved: #8e24aa; --implied: #3b6db3;
+    --left_out: #c62828; --unused: #78909c; --root: #263238; --root-ink: #ffffff;
+    --shadow: 0 1px 3px rgba(16, 24, 40, .12);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1117; --panel: #161b24; --card: #1d2430; --ink: #e6e9ee; --muted: #9aa5b1;
+    --line: #2f3a49; --accent: #7aa7e8; --accent-soft: #1d2a3f; --focus: #f2a33a;
+    --confirmed: #66bb6a; --plausible: #ffb74d; --unresolved: #ce93d8; --implied: #7aa7e8;
+    --left_out: #ef5350; --unused: #90a4ae; --root: #e6e9ee; --root-ink: #0e1117;
+    --shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+    font: 14px/1.4 "Source Sans Pro", "Source Sans 3", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+  body { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 2px; overflow: hidden; }
+  button, select, input { font: inherit; color: inherit; }
+
+  /* Top: the pipeline strip and counters */
+  .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .stages { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .stage { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
+    background: var(--panel); font-size: 13px; transition: all .25s; }
+  .stage.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+    box-shadow: 0 0 0 3px var(--accent-soft); }
+  .arrow { color: var(--muted); font-size: 12px; }
+  .counters { display: flex; gap: 14px; align-items: baseline; font-variant-numeric: tabular-nums; }
+  .counter b { font-size: 18px; }
+  .counter span { color: var(--muted); font-size: 12px; margin-left: 4px; }
+
+  /* The change map */
+  .map { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+  .dot { min-width: 34px; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line); text-align: center;
+    background: var(--panel); cursor: pointer; transition: all .25s; color: var(--muted); }
+  .dot.done { color: #fff; border-color: transparent; }
+  .dot.done.t-confirmed { background: var(--confirmed); } .dot.done.t-plausible { background: var(--plausible); }
+  .dot.done.t-unresolved, .dot.done.t-none { background: var(--unresolved); }
+  .dot.now { outline: 2px solid var(--focus); outline-offset: 1px; color: var(--ink); font-weight: 600; }
+
+  /* Middle: canvas and notes */
+  .middle { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 10px; min-height: 0; }
+  .canvas { position: relative; overflow: auto; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px; scroll-behavior: smooth; }
+  .notes { overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .notes h2 { font-size: 17px; margin: 0; line-height: 1.3; }
+  .kind { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .facts { margin: 0; padding-left: 18px; }
+  .facts li { margin: 3px 0; animation: rise .35s ease both; }
+  .how { background: var(--card); border-left: 3px solid var(--accent); border-radius: 6px; padding: 8px 10px;
+    color: var(--ink); font-size: 13px; box-shadow: var(--shadow); }
+  .how b { display: block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+  .log { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
+  .log div { padding: 2px 0; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log div:hover { color: var(--accent); }
+  .log .t { font-variant-numeric: tabular-nums; margin-right: 6px; }
+
+  /* The tree */
+  .heading { font-weight: 600; margin-bottom: 8px; color: var(--muted); font-size: 13px; }
+  .heading .desc { font-weight: 400; font-size: 12.5px; margin-top: 2px; }
+  .root { margin: 0 auto; max-width: 560px; background: var(--root); color: var(--root-ink); border-radius: 10px;
+    padding: 8px 12px; text-align: center; box-shadow: var(--shadow); }
+  .root small { display: block; opacity: .8; font-size: 12px; }
+  .stem { width: 2px; height: 14px; background: var(--line); margin: 0 auto; }
+  .cands { display: grid; gap: 10px; border-top: 2px solid var(--line); padding-top: 12px; position: relative; }
+  .col { display: flex; flex-direction: column; gap: 4px; min-width: 0; position: relative; }
+  .col::before { content: ""; position: absolute; top: -12px; left: 50%; width: 2px; height: 12px; background: var(--line); }
+  .card { background: var(--card); border: 1.5px solid var(--accent); border-radius: 8px; padding: 6px 8px;
+    box-shadow: var(--shadow); transition: all .35s; font-size: 12.5px; }
+  .card .ch { display: flex; justify-content: space-between; font-weight: 700; font-size: 12px; }
+  .card .ch .sc { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+  .card .tx { margin-top: 2px; }
+  .card .why { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .badge { display: inline-block; margin-top: 4px; padding: 1px 7px; border-radius: 999px; font-size: 11.5px;
+    font-weight: 700; color: #fff; animation: pop .4s ease both; }
+  .card.pruned { border-style: dashed; border-color: var(--line); opacity: .55; }
+  .card.pruned .tx { text-decoration: line-through; text-decoration-color: var(--muted); }
+  .card.focus { border-color: var(--focus); box-shadow: 0 0 0 3px rgba(242, 163, 58, .35), var(--shadow); }
+  .card.t-confirmed { border-color: var(--confirmed); border-width: 2.5px; }
+  .card.t-plausible { border-color: var(--plausible); border-width: 2.5px; }
+  .card.t-unresolved { border-color: var(--unresolved); border-width: 2.5px; }
+  .b-confirmed { background: var(--confirmed); } .b-plausible { background: var(--plausible); }
+  .b-unresolved { background: var(--unresolved); } .b-implied { background: var(--implied); }
+  .b-left_out { background: var(--left_out); } .b-unused { background: var(--unused); }
+  .round { font-size: 10.5px; color: var(--muted); margin: 4px 0 0 2px; text-transform: uppercase; letter-spacing: .05em; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-left: 5px solid var(--c);
+    border-radius: 5px; padding: 2px 6px; font-size: 11.5px; line-height: 1.25; box-shadow: var(--shadow);
+    transition: opacity .35s, transform .35s, filter .35s; }
+  .tile .l1 { display: flex; gap: 6px; }
+  .tile .w { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+  .tile .s { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tile .v { color: var(--c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+  .tile.testing { animation: pulse 1s ease-in-out infinite; }
+  .tile.pruned { opacity: .45; border-style: dashed; border-left-style: solid; filter: grayscale(.6); }
+  .tile.pending { border-color: var(--left_out); border-style: dotted; }
+  .hidden { display: none !important; }
+  .enter { animation: rise .4s ease both; }
+
+  /* Overview panels (steps without a change) */
+  .over { max-width: 720px; margin: 10px auto; display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center; }
+  .over h3 { margin: 0; font-size: 20px; }
+  .docs { display: flex; gap: 16px; align-items: center; }
+  .doc { width: 150px; height: 120px; border-radius: 8px; background: var(--card); border: 1px solid var(--line);
+    box-shadow: var(--shadow); display: flex; flex-direction: column; justify-content: center; padding: 10px; gap: 6px; }
+  .doc i { display: block; height: 6px; border-radius: 3px; background: var(--line); }
+  .doc i.hl { background: var(--focus); animation: pulse 1.2s ease-in-out infinite; }
+  .grid { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; max-width: 640px; }
+  .sq { width: 18px; height: 18px; border-radius: 4px; background: var(--line); animation: pop .3s ease both; }
+  .sq.ex { background: var(--accent); }
+  .big { display: flex; gap: 24px; justify-content: center; }
+  .big div { min-width: 110px; }
+  .big b { display: block; font-size: 34px; }
+  .list { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 620px; text-align: left; }
+  .list .row { display: flex; gap: 8px; align-items: center; background: var(--card); border: 1px solid var(--line);
+    border-radius: 6px; padding: 4px 8px; cursor: pointer; animation: rise .35s ease both; font-size: 13px; }
+  .list .row:hover { border-color: var(--accent); }
+  .list .badge { margin: 0; min-width: 78px; text-align: center; }
+  .list .ref { font-weight: 700; color: var(--muted); min-width: 56px; }
+  .list .row.off { opacity: .45; cursor: default; }
+  .list .row.off:hover { border-color: var(--line); }
+  .list .sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list .tag { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+  .list .more { text-align: center; color: var(--muted); font-size: 12.5px; padding: 4px; }
+  .pairs { display: flex; flex-direction: column; gap: 10px; width: 100%; text-align: left; }
+  .pair { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+    box-shadow: var(--shadow); animation: rise .4s ease both; }
+  .pair .ph { font-weight: 700; font-size: 12.5px; margin-bottom: 6px; }
+  .pair .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12.5px; }
+  .pair .cols b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 2px; }
+  .pair .gone { background: rgba(229, 57, 53, .18); border-radius: 3px; }
+  .pair .new { background: rgba(67, 160, 71, .2); border-radius: 3px; }
+  .pair .metric { font-size: 12.5px; color: var(--ink); }
+  .list .hd { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; font-size: 12px; color: var(--muted); }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+    background: var(--c); margin-right: 4px; vertical-align: -1px; }
+
+  /* Controls */
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
+  .controls button { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .controls button:hover { border-color: var(--accent); }
+  .controls button.play { background: var(--accent); color: #fff; border-color: var(--accent); min-width: 86px; font-weight: 600; }
+  .controls input[type=range] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+  .controls select { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 3px 6px; }
+  .controls #jump { flex: 1 1 220px; min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+  .pos { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 90px; text-align: right; }
+  .bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+  @media (max-width: 860px) { .middle { grid-template-columns: 1fr; } .notes { max-height: 260px; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="stages" id="stages"></div>
+  <div class="counters" id="counters">
+    <div class="counter"><b id="clock">0:00</b><span>run time</span></div>
+    <div class="counter"><b id="cost">$0.00</b><span>model cost</span></div>
+    <div class="counter"><b id="calls">0</b><span id="callsNote">model calls</span></div>
+  </div>
+</div>
+<div class="map" id="map"></div>
+<div class="middle">
+  <div class="canvas" id="canvas"></div>
+  <div class="notes">
+    <div><div class="kind" id="kind"></div><h2 id="title"></h2></div>
+    <ul class="facts" id="facts"></ul>
+    <div class="how" id="how"><b>How this step works</b><span id="howText"></span></div>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+<div class="bar"><i id="progress"></i></div>
+<div class="controls">
+  <button id="first" title="Back to the start">⏮</button>
+  <button id="prev" title="Previous step (←)">◀</button>
+  <button id="play" class="play" title="Play or pause (space)">▶ Play</button>
+  <button id="next" title="Next step (→)">▶</button>
+  <button id="last" title="Jump to the end">⏭</button>
+  <select id="speed" title="Playback speed">
+    <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option>
+    <option value="4">4×</option><option value="8">8×</option>
+  </select>
+  <input type="range" id="scrub" min="0" value="0" title="Scrub through the steps">
+  <select id="jump" title="Jump to a change"></select>
+  <span class="pos" id="pos"></span>
+</div>
+
+<script id="replay-data" type="application/json">/*__REPLAY_DATA__*/</script>
+<script>
+(function () {
+  "use strict";
+  const D = JSON.parse(document.getElementById("replay-data").textContent);
+  if (D.theme === "dark") document.documentElement.dataset.theme = "dark";
+  const S = D.steps;
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  };
+  const KIND = {
+    detect: "Detect", materiality: "Rank", change: "Next change", propose: "Explore · depth 1",
+    prescreen: "Explore · pre-screen", evidence: "Explore · depth 2", label: "Label",
+    rework: "Rework", summary: "Write",
+  };
+  const ROLE = { generator: "generator", critic: "critic", entailment: "judge", materiality: "ranking", brief: "writer" };
+
+  // --- Timing ---------------------------------------------------------------------------
+  function seconds(step) {
+    const fixed = { change: 3.2, detect: 3.2, materiality: 3.6, summary: 4.5, label: 3.2 };
+    let d = fixed[step.kind] || 2.6;
+    if (step.start !== null && step.end !== null && !(step.kind in fixed)) {
+      const real = Math.max(0, step.end - step.start);
+      d = Math.min(6.5, Math.max(2.2, 1.6 + 0.75 * Math.log2(1 + real / 4)));
+    }
+    d = Math.max(d, 1.2 + 0.25 * step.reveal.length);
+    return d / speed;
+  }
+  // A short stop, at any speed, when a step closes a section: Detect, Rank, each change, the brief.
+  const SECTION_PAUSE_MS = 500;
+  function endsSection(i) {
+    const step = S[i], next = S[i + 1];
+    return !next || step.change !== next.change || step.kind === "detect" || step.kind === "materiality";
+  }
+  function fmtClock(s) {
+    if (s === null || s === undefined) return "–";
+    s = Math.max(0, Math.round(s));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+    return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(r).padStart(2, "0");
+  }
+
+  // --- State ----------------------------------------------------------------------------
+  let cur = 0, playing = false, speed = 1, startedAt = 0, progress = 1, raf = 0;
+  let shownChange = -2;           // the change whose tree is in the canvas (-1: an overview)
+  let state = {};                 // node id -> {shown, status, badge, tone}
+  const nodeEls = {};             // node id -> element
+
+  function applyStep(step, upTo) {
+    // upTo: 0..1, how far into the step; reveals are staggered over the first 70%.
+    const n = step.reveal.length;
+    step.reveal.forEach((id, k) => {
+      if (upTo >= (n <= 1 ? 0 : 0.7 * k / n) || upTo >= 1) {
+        const s = state[id] || (state[id] = {});
+        if (!s.shown) { s.shown = true; s.status = s.status || "testing"; }
+      }
+    });
+    if (upTo >= 0.8) step.after.forEach((u) => Object.assign(state[u.id] || (state[u.id] = { shown: true }), u));
+  }
+  function stateAt(index, upTo) {
+    // The tree state of the step's change after steps before `index` and part of step `index`.
+    state = {};
+    const change = S[index].change;
+    if (change === null) return;
+    for (let i = 0; i < index; i++) if (S[i].change === change) applyStep(S[i], 1);
+    applyStep(S[index], upTo);
+  }
+
+  // --- Drawing the tree -----------------------------------------------------------------
+  function buildTree(ci) {
+    const c = D.changes[ci];
+    const canvas = $("canvas");
+    canvas.textContent = "";
+    for (const k in nodeEls) delete nodeEls[k];
+    const head = el("div", "heading", "Change " + (ci + 1) + " of " + D.changes.length + " · " + c.heading + (c.ref ? " (" + c.ref + " in the brief)" : ""));
+    if (c.desc) head.appendChild(el("div", "desc", c.desc));
+    canvas.appendChild(head);
+    const byId = {};
+    c.nodes.forEach((n) => { byId[n.id] = n; });
+    const root = c.root ? byId[c.root] : null;
+    const rootEl = el("div", "root");
+    rootEl.appendChild(el("div", null, "Change"));
+    rootEl.appendChild(el("small", null, root ? root.text : c.heading));
+    canvas.appendChild(rootEl);
+    canvas.appendChild(el("div", "stem"));
+    const cands = c.nodes.filter((n) => n.depth === 1);
+    const grid = el("div", "cands");
+    grid.style.gridTemplateColumns = "repeat(" + Math.max(1, Math.min(cands.length, 6)) + ", minmax(0, 1fr))";
+    const cols = {};
+    cands.forEach((n) => {
+      const col = el("div", "col");
+      const card = el("div", "card");
+      const head = el("div", "ch");
+      head.appendChild(el("span", null, "#" + n.num + (n.fresh ? " (fresh round)" : "")));
+      head.appendChild(el("span", "sc", n.score === null ? "" : "score " + n.score.toFixed(2)));
+      card.appendChild(head);
+      card.appendChild(el("div", "tx", n.text));
+      const why = el("div", "why hidden", n.reason || "");
+      card.appendChild(why);
+      const badge = el("span", "badge hidden");
+      card.appendChild(badge);
+      card.title = n.text + (n.reason ? "\nPruned: " + n.reason : "");
+      col.appendChild(card);
+      grid.appendChild(col);
+      cols[n.id] = { col: col, rounds: {} };
+      nodeEls[n.id] = card;
+      card._why = why; card._badge = badge;
+    });
+    c.nodes.filter((n) => n.depth === 2).forEach((n) => {
+      const holder = cols[n.parent];
+      if (!holder) return;
+      if (!holder.rounds[n.round]) {
+        const label = el("div", "round hidden", n.round === 0 ? "evidence searches" : "rework round " + n.round);
+        holder.col.appendChild(label);
+        holder.rounds[n.round] = { label: label, tiles: [] };
+      }
+      const tile = el("div", "tile hidden");
+      tile.style.setProperty("--c", n.colour);
+      const line = el("div", "l1");
+      line.appendChild(el("span", "w", n.where));
+      if (n.score !== null) line.appendChild(el("span", "s", n.score.toFixed(2)));
+      tile.appendChild(line);
+      tile.appendChild(el("div", "v", n.meaning + (n.quotes ? " · " + n.quotes + (n.quotes > 1 ? " quotes" : " quote") : "")));
+      tile.title = n.text + (n.reason ? "\nPruned: " + n.reason : "");
+      holder.rounds[n.round].tiles.push(n.id);
+      holder.col.appendChild(tile);
+      nodeEls[n.id] = tile;
+    });
+    grid._cols = cols;
+    canvas.appendChild(grid);
+    canvas.appendChild(legend());
+    canvas._cols = cols;
+  }
+  function legend() {
+    const box = el("div", "legend");
+    box.style.marginTop = "14px";
+    D.chips.forEach((chip) => {
+      const item = el("span", null, chip.meaning);
+      item.style.setProperty("--c", chip.colour);
+      box.appendChild(item);
+    });
+    box.appendChild(el("span", null, "· faded and dashed: pruned"));
+    return box;
+  }
+  const seen = new Set();          // tiles already animated in, so a repaint does not replay them
+  function paintTree(focus) {
+    let focusEl = null;
+    for (const id in nodeEls) {
+      const node = nodeEls[id], s = state[id] || {};
+      const shown = !!s.shown;
+      node.classList.toggle("hidden", !shown);
+      if (node.classList.contains("card")) {
+        node.parentElement.style.visibility = shown ? "visible" : "hidden";
+        node.classList.toggle("pruned", s.status === "pruned");
+        node._why.classList.toggle("hidden", s.status !== "pruned" || !node._why.textContent);
+        ["confirmed", "plausible", "unresolved"].forEach((t) => node.classList.toggle("t-" + t, s.tone === t));
+        if (s.badge) {
+          if (node._badge.textContent !== s.badge || node._badge.classList.contains("hidden")) {
+            node._badge.textContent = s.badge;
+            node._badge.className = "badge b-" + s.tone;
+          }
+        } else node._badge.className = "badge hidden";
+        node.classList.toggle("focus", id === focus);
+        if (id === focus) focusEl = node;
+      } else {
+        node.classList.toggle("testing", s.status === "testing");
+        node.classList.toggle("pruned", s.status === "pruned");
+        node.classList.toggle("pending", s.status === "pending");
+        if (shown && !seen.has(id)) { seen.add(id); node.classList.add("enter"); }
+        if (!shown) { seen.delete(id); node.classList.remove("enter"); }
+      }
+    }
+    const cols = $("canvas")._cols || {};
+    for (const cid in cols) {
+      for (const r in cols[cid].rounds) {
+        const group = cols[cid].rounds[r];
+        group.label.classList.toggle("hidden", !group.tiles.some((t) => (state[t] || {}).shown));
+      }
+    }
+    return focusEl;
+  }
+
+  // --- Overview panels ------------------------------------------------------------------
+  function overview(step) {
+    const canvas = $("canvas"), o = D.overview;
+    canvas.textContent = "";
+    canvas._cols = null;
+    const box = el("div", "over");
+    if (step.kind === "detect") {
+      box.appendChild(el("h3", null, "Aligning " + o.prior + " with " + o.current));
+      box.appendChild(el("div", null, "Paragraphs are matched section by section; the words that differ are marked (red: earlier filing, green: later). Examples from this run:"));
+      const pairs = el("div", "pairs");
+      (o.alignments || []).forEach((a, k) => {
+        const pair = el("div", "pair");
+        pair.style.animationDelay = (k * 0.5) + "s";
+        pair.appendChild(el("div", "ph", a.heading + (a.ref ? " (" + a.ref + ")" : "")));
+        if (a.metric !== undefined) {
+          pair.appendChild(el("div", "metric", "Metric scan: " + (a.metric || "flagged a move")));
+        } else {
+          const cols = el("div", "cols");
+          [[o.prior, a.prior, "gone"], [o.current, a.current, "new"]].forEach(([name, parts, cls]) => {
+            const col = el("div");
+            col.appendChild(el("b", null, name));
+            if (!parts.length) col.appendChild(el("span", "sub", "(not in this filing)"));
+            parts.forEach(([text, changed]) => {
+              col.appendChild(el("span", changed ? cls : null, text));
+              col.appendChild(document.createTextNode(" "));
+            });
+            cols.appendChild(col);
+          });
+          pair.appendChild(cols);
+        }
+        pairs.appendChild(pair);
+      });
+      box.appendChild(pairs);
+    } else if (step.kind === "materiality") {
+      box.appendChild(el("h3", null, o.material + " material changes, ranked"));
+      box.appendChild(el("div", null, "The top " + o.explored + " are explored, in rank order" + (o.material > o.explored ? "; the rest are past the run's cap and go to the review queue." : ".")));
+      const list = el("div", "list");
+      let k = 0;
+      (o.ranked || []).forEach((r) => {
+        const row = el("div", "row");
+        row.style.animationDelay = (k++ * 0.12) + "s";
+        row.appendChild(el("span", "ref", "#" + (r.rank || r.order)));
+        const body = el("div");
+        body.style.minWidth = "0";
+        body.appendChild(el("div", "hd", r.heading + (r.ref ? " (" + r.ref + ")" : "")));
+        if (r.desc) body.appendChild(el("div", "sub", r.desc));
+        row.appendChild(body);
+        row.appendChild(el("span", "tag", "explored" + (r.criterion ? " · " + r.criterion : "")));
+        row.addEventListener("click", () => go(S.findIndex((s) => s.change === r.order - 1)));
+        list.appendChild(row);
+      });
+      (o.skipped || []).forEach((r) => {
+        const row = el("div", "row off");
+        row.style.animationDelay = (k++ * 0.12) + "s";
+        row.appendChild(el("span", "ref", "#" + (r.rank || "?")));
+        row.appendChild(el("div", "hd", r.heading));
+        row.appendChild(el("span", "tag", "importance " + r.importance + " · review queue"));
+        list.appendChild(row);
+      });
+      const rest = o.material - o.explored - (o.skipped || []).length;
+      if (rest > 0) list.appendChild(el("div", "more", "… and " + rest + " more past the cap, all listed in the review queue"));
+      box.appendChild(list);
+    } else {
+      box.appendChild(el("h3", null, "The brief"));
+      const big = el("div", "big");
+      [["confirmed", "Confirmed"], ["plausible", "Plausible"], ["unresolved", "Unresolved"]].forEach(([key, name]) => {
+        const cell = el("div");
+        const n = el("b", null, String(o.labels[key] || 0));
+        n.style.color = "var(--" + key + ")";
+        cell.appendChild(n);
+        cell.appendChild(el("span", null, name + " explanations"));
+        big.appendChild(cell);
+      });
+      box.appendChild(big);
+      box.appendChild(el("div", null, o.explored + " changes explored · " + o.review + " items in the review queue"));
+      const list = el("div", "list");
+      D.changes.forEach((c, ci) => {
+        const row = el("div", "row");
+        row.style.animationDelay = (ci * 0.06) + "s";
+        const tone = c.tone || "unresolved";
+        row.appendChild(el("span", "badge b-" + tone, tone.charAt(0).toUpperCase() + tone.slice(1)));
+        row.appendChild(el("span", "ref", (ci + 1) + (c.ref ? " · " + c.ref : "")));
+        const body = el("div");
+        body.style.minWidth = "0";
+        body.appendChild(el("div", "hd", c.heading));
+        if (c.desc) body.appendChild(el("div", "sub", c.desc));
+        row.appendChild(body);
+        row.addEventListener("click", () => go(S.findIndex((s) => s.change === ci)));
+        list.appendChild(row);
+      });
+      box.appendChild(list);
+    }
+    canvas.appendChild(box);
+  }
+
+  // --- The rest of the page --------------------------------------------------------------
+  const lastOf = {};               // change index -> its last step
+  S.forEach((s, i) => { if (s.change !== null) lastOf[s.change] = i; });
+
+  function buildChrome() {
+    const stages = $("stages");
+    D.stages.forEach((st, k) => {
+      if (k) stages.appendChild(el("span", "arrow", "›"));
+      const pill = el("span", "stage", st.name);
+      pill.dataset.key = st.key;
+      stages.appendChild(pill);
+    });
+    const map = $("map");
+    if (D.changes.length) map.appendChild(el("span", null, "Changes, in the order explored (hover for the brief's number):"));
+    const jump = $("jump");
+    jump.appendChild(el("option", null, "Jump to…")).value = "";
+    jump.appendChild(el("option", null, "Start: detect")).value = "0";
+    D.changes.forEach((c, ci) => {
+      const first = S.findIndex((s) => s.change === ci);
+      const dot = el("span", "dot t-" + (c.tone || "none"), String(ci + 1));
+      dot.title = (c.ref ? c.ref + " in the brief · " : "") + c.heading + (c.desc ? " — " + c.desc : "");
+      dot.dataset.ci = ci;
+      dot.addEventListener("click", () => go(first));
+      map.appendChild(dot);
+      const opt = el("option", null, (ci + 1) + ". " + c.heading + (c.ref ? " (" + c.ref + ")" : "") + (c.desc ? " — " + c.desc : ""));
+      opt.value = String(first);
+      jump.appendChild(opt);
+    });
+    jump.appendChild(el("option", null, "End: the brief")).value = String(S.length - 1);
+    jump.addEventListener("change", () => { if (jump.value !== "") go(Number(jump.value)); jump.value = ""; });
+    if (!D.run.timed) {
+      $("counters").textContent = "";
+      $("counters").appendChild(el("span", "arrow", "This run saved no step timings: no clock or running cost."));
+    }
+    $("scrub").max = String(S.length - 1);
+  }
+
+  function totalsBefore(index) {
+    for (let i = index - 1; i >= 0; i--) if (S[i].totals) return { t: S[i].totals, end: S[i].end };
+    return { t: { cost: 0, live: 0, replayed: 0, roles: {} }, end: 0 };
+  }
+  function paintCounters(step, p) {
+    if (!D.run.timed) return;
+    const before = totalsBefore(cur);
+    const after = step.totals || before.t;
+    const t0 = step.start !== null ? step.start : before.end;
+    const t1 = step.end !== null ? step.end : t0;
+    $("clock").textContent = fmtClock(t0 + (t1 - t0) * p);
+    $("cost").textContent = "$" + (before.t.cost + (after.cost - before.t.cost) * p).toFixed(2);
+    const live = Math.round(before.t.live + (after.live - before.t.live) * p);
+    const replayed = Math.round(before.t.replayed + (after.replayed - before.t.replayed) * p);
+    $("calls").textContent = String(live + replayed);
+    $("callsNote").textContent = "model calls" + (replayed ? " (" + replayed + " cached)" : "");
+    $("calls").parentElement.title = Object.entries(after.roles || {}).map(([r, n]) => (ROLE[r] || r) + " " + n).join(" · ");
+  }
+
+  function paintNotes(step) {
+    $("kind").textContent = KIND[step.kind] || step.kind;
+    $("title").textContent = step.title;
+    const facts = $("facts");
+    facts.textContent = "";
+    step.facts.forEach((f, k) => {
+      const li = el("li", null, f);
+      li.style.animationDelay = (k * 0.12) + "s";
+      facts.appendChild(li);
+    });
+    $("howText").textContent = D.notes[step.kind] || "";
+    const log = $("log");
+    log.textContent = "";
+    if (cur > 0) log.appendChild(el("b", null, "Earlier steps"));
+    for (let i = Math.max(0, cur - 6); i < cur; i++) {
+      const row = el("div");
+      if (S[i].end !== null && D.run.timed) row.appendChild(el("span", "t", fmtClock(S[i].end)));
+      row.appendChild(document.createTextNode(S[i].title));
+      row.addEventListener("click", () => go(i));
+      log.appendChild(row);
+    }
+    document.querySelectorAll(".stage").forEach((p) => p.classList.toggle("on", p.dataset.key === step.stage));
+    $("scrub").value = String(cur);
+    $("pos").textContent = "step " + (cur + 1) + " of " + S.length;
+  }
+  function paintMap(p) {
+    const step = S[cur];
+    document.querySelectorAll(".dot").forEach((d) => {
+      const ci = Number(d.dataset.ci);
+      d.classList.toggle("now", ci === step.change);
+      d.classList.toggle("done", cur > lastOf[ci] || (cur === lastOf[ci] && p >= 1));
+    });
+  }
+
+  // Scroll the canvas, and only the canvas, to show an element: centred across, nearest down.
+  // (scrollIntoView would also scroll the Streamlit page around this frame.)
+  function reveal(node) {
+    const canvas = $("canvas");
+    const box = canvas.getBoundingClientRect(), r = node.getBoundingClientRect();
+    let top = canvas.scrollTop;
+    if (r.top < box.top + 8) top += r.top - box.top - 8;
+    else if (r.bottom > box.bottom - 8) top += r.bottom - box.bottom + 8;
+    const left = canvas.scrollLeft + (r.left + r.width / 2) - (box.left + box.width / 2);
+    canvas.scrollTo({ top: top, left: Math.max(0, left), behavior: "smooth" });
+  }
+
+  function paint(p) {
+    const step = S[cur];
+    progress = p;
+    if (step.change === null) {
+      if (shownChange !== -1 || paint.lastStep !== cur) { overview(step); shownChange = -1; }
+    } else {
+      if (shownChange !== step.change) { buildTree(step.change); seen.clear(); shownChange = step.change; }
+      stateAt(cur, p);
+      const focusEl = paintTree(step.focus);
+      if (focusEl && paint.lastStep !== cur) reveal(focusEl);
+    }
+    paint.lastStep = cur;
+    paintCounters(step, p);
+    paintMap(p);
+    $("progress").style.width = (100 * (cur + p) / S.length) + "%";
+  }
+
+  function go(index, animate) {
+    cancelAnimationFrame(raf);
+    cur = Math.max(0, Math.min(S.length - 1, index));
+    paintNotes(S[cur]);
+    if (animate) { startedAt = performance.now(); paint(0); raf = requestAnimationFrame(tick); }
+    else { setPlaying(false); paint(1); }
+  }
+  function tick(now) {
+    const ms = seconds(S[cur]) * 1000;
+    const p = Math.min(1, (now - startedAt) / ms);
+    paint(p);
+    const hold = playing && cur < S.length - 1 && endsSection(cur) ? SECTION_PAUSE_MS : 0;
+    if (now - startedAt < ms + hold) { raf = requestAnimationFrame(tick); return; }
+    if (playing && cur < S.length - 1) go(cur + 1, true);
+    else setPlaying(false);
+  }
+  function setPlaying(on) {
+    playing = on;
+    $("play").textContent = playing ? "⏸ Pause" : "▶ Play";
+  }
+  function togglePlay() {
+    if (playing) { setPlaying(false); cancelAnimationFrame(raf); return; }
+    setPlaying(true);
+    if (progress >= 1) go(cur >= S.length - 1 ? 0 : cur + 1, true);
+    else { startedAt = performance.now() - progress * seconds(S[cur]) * 1000; raf = requestAnimationFrame(tick); }
+  }
+
+  $("play").addEventListener("click", togglePlay);
+  $("next").addEventListener("click", () => go(cur + 1, true));
+  $("prev").addEventListener("click", () => go(cur - 1));
+  $("first").addEventListener("click", () => go(0));
+  $("last").addEventListener("click", () => go(S.length - 1));
+  $("scrub").addEventListener("input", (e) => go(Number(e.target.value)));
+  $("speed").addEventListener("change", (e) => {
+    const p = progress;
+    speed = Number(e.target.value);
+    startedAt = performance.now() - p * seconds(S[cur]) * 1000;
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+    if (e.key === " ") { e.preventDefault(); togglePlay(); }
+    else if (e.key === "ArrowRight") { go(cur + 1, true); }
+    else if (e.key === "ArrowLeft") { go(cur - 1); }
+  });
+
+  buildChrome();
+  go(0);
+})();
+</script>
+</body>
+</html>

@@ -10,9 +10,11 @@ import pytest
 from streamlit.testing.v1 import AppTest
 from typer.testing import CliRunner
 
+from conftest import MARGIN_ID
 from sec_agent import cli
 from sec_agent.config import get_settings
 from sec_agent.report import run_view as rv
+from sec_agent.ui import replay_page
 
 # The first run imports the package (about 3 s); give a slow shared machine room.
 TIMEOUT = 60
@@ -55,6 +57,7 @@ def test_it_opens_on_a_saved_runs_brief(app) -> None:
     assert [tab.label for tab in app.tabs] == [
         "Brief",
         "Evidence trees",
+        "Replay audit",
         "Review queue",
         "Cost and time",
     ]
@@ -94,6 +97,37 @@ def test_the_tree_tab_can_hide_pruned_branches(app) -> None:
     app.toggle(key="show_pruned").set_value(False).run()
     assert not app.exception
     assert rows() == 5
+
+
+def test_tree_branches_open_and_close(app) -> None:
+    app.selectbox(key="company").set_value("The Hershey Company (HSY)").run()
+    dot = lambda: app.get("graphviz_chart")[0].proto.spec  # noqa: E731
+    branches = app.pills(key=f"tree_open:{MARGIN_ID}")
+    assert 'rankdir="TB"' in dot()
+    assert "subgraph cluster_" not in dot()
+    branches.set_value([branches.options[0]]).run()
+    assert not app.exception
+    assert dot().count("subgraph cluster_") == 1
+    app.button(key=f"open_all:{MARGIN_ID}").click().run()
+    assert dot().count("subgraph cluster_") == 3
+    assert len(app.pills(key=f"tree_open:{MARGIN_ID}").value) == 3
+    app.button(key=f"close_all:{MARGIN_ID}").click().run()
+    assert "subgraph cluster_" not in dot()
+
+
+def test_the_replay_tab_embeds_the_runs_steps(app) -> None:
+    app.selectbox(key="company").set_value("The Hershey Company (HSY)").run()
+    (page,) = app.get("iframe")
+    html = page.proto.srcdoc
+    assert '<script id="replay-data" type="application/json">' in html
+    assert replay_page.SLOT not in html
+    assert "Change 1 of 3: Gross margin change" in html
+    assert "(F1 in the brief)" in html
+    assert "The run step by step" in texts(app)
+    # A run with no timings says why its replay has no clock.
+    app.selectbox(key="company").set_value("Mattel, Inc. (MAT)").run()
+    assert not app.exception
+    assert "saved before step timings were recorded" in texts(app)
 
 
 def test_the_review_queue_hides_unexamined_changes_until_asked(app) -> None:
