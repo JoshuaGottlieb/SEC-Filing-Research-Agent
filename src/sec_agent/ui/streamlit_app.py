@@ -1,4 +1,4 @@
-"""The Streamlit app (T7): saved runs' briefs, evidence trees, review queue, and cost.
+"""The Streamlit app (T7): saved runs' briefs, evidence trees, a replay, review queue, and cost.
 
 Start it with `sec-agent app` (or `streamlit run src/sec_agent/ui/streamlit_app.py`). It reads
 the run folders under the data directory (`SEC_AGENT_DATA_DIR`, default
@@ -18,11 +18,13 @@ import pandas as pd
 import streamlit as st
 
 from sec_agent.config import get_settings
+from sec_agent.report import replay
 from sec_agent.report import run_view as rv
 from sec_agent.report.brief import metric_line, ordered_claims, strongest_label
 from sec_agent.report.names import LABEL_NAMES, SECTION_NAMES
 from sec_agent.report.run_cost import locate, report_run
 from sec_agent.schemas import Citation, ExplanationLabel, Finding, NodeStatus, TreeNode
+from sec_agent.ui import replay_page
 
 BADGE_COLOURS = {
     ExplanationLabel.CONFIRMED: "green",
@@ -39,6 +41,8 @@ REVIEW_COLOURS = {
 }
 # The review queue lists at most this many items of one kind; the rest are counted.
 REVIEW_PAGE = 60
+# The replay page's height in the app, in pixels; the tree scrolls inside it.
+REPLAY_HEIGHT = 860
 
 
 # --- Loading (cached: a run folder's files only change when the run is rewritten) ---------------
@@ -82,6 +86,11 @@ def load_cost(folder: str, mtime: float) -> dict | None:
     if not files.ledger.exists():
         return None
     return report_run(files)
+
+
+@st.cache_data(show_spinner=False, max_entries=16)
+def load_replay(folder: str, mtime: float) -> dict:
+    return replay.build_replay(load_run(folder, mtime))
 
 
 def runs_dir() -> Path:
@@ -128,10 +137,10 @@ def citation_title(citation: Citation) -> str:
 
 def show_citation(citation: Citation, passages: dict[str, str] | None) -> None:
     with st.expander(citation_title(citation)):
-        st.markdown(rv.md_quote(citation.quote))
+        st.markdown(rv.md_quote(citation.quote, bold=True))
         passage = (passages or {}).get(citation.chunk_id)
         if passage is not None:
-            st.caption("Full passage (the quote in bold):")
+            st.caption("Full passage (the quote highlighted):")
             st.markdown(rv.highlight(passage, citation.quote))
         elif passages is None:
             st.caption("The chunk store could not be opened, so only the quote is shown.")
@@ -166,7 +175,6 @@ def choose_run() -> rv.SavedRun | None:
             summaries.append(rv.summarize(load_run(str(folder), _audit_mtime(folder))))
         except Exception:  # noqa: BLE001 - a damaged or very old audit trail: list it, move on
             unreadable.append(folder.name)
-    st.sidebar.header("Saved run")
     if not summaries:
         st.info(
             f"No saved runs in `{runs_dir()}`. Run `sec-agent analyze TICKER COMPARISON` to make "
@@ -222,8 +230,27 @@ def show_header(run: rv.SavedRun) -> None:
     )
 
 
-def show_finding(run: rv.SavedRun, finding: Finding, passages: dict[str, str] | None) -> None:
+def show_changed_text(run: rv.SavedRun, finding: Finding) -> None:
+    """A text change's two versions side by side, the words that differ highlighted."""
+    change = finding.change
+    if not (change.prior_text or change.current_text):
+        return
     comparison = run.brief.comparison
+    removed, added = rv.changed_words(change.prior_text or "", change.current_text or "")
+    with st.expander("The changed text"):
+        if change.prior_text and change.current_text:
+            st.caption(
+                "Highlighted: the words that differ between the two versions (red in the "
+                "earlier filing, green in the later one)."
+            )
+        cols = st.columns(2)
+        cols[0].markdown(f"**Before ({comparison.prior.period.label})**")
+        cols[0].markdown(rv.md_quote_runs(removed, rv.REMOVED_MARK) if removed else "(none)")
+        cols[1].markdown(f"**After ({comparison.current.period.label})**")
+        cols[1].markdown(rv.md_quote_runs(added, rv.ADDED_MARK) if added else "(none)")
+
+
+def show_finding(run: rv.SavedRun, finding: Finding, passages: dict[str, str] | None) -> None:
     with st.container(border=True):
         top = st.columns([0.8, 0.2])
         top[0].markdown(
@@ -234,16 +261,7 @@ def show_finding(run: rv.SavedRun, finding: Finding, passages: dict[str, str] | 
         rationale = rv.shown_rationale(finding)
         if rationale:
             st.markdown(f"**Why it was flagged:** {rv.md(rationale)}")
-        change = finding.change
-        if change.prior_text or change.current_text:
-            with st.expander("The changed text"):
-                cols = st.columns(2)
-                cols[0].markdown(f"**Before ({comparison.prior.period.label})**")
-                cols[0].markdown(rv.md_quote(change.prior_text) if change.prior_text else "(none)")
-                cols[1].markdown(f"**After ({comparison.current.period.label})**")
-                cols[1].markdown(
-                    rv.md_quote(change.current_text) if change.current_text else "(none)"
-                )
+        show_changed_text(run, finding)
         if not finding.claims:
             st.markdown("_No explanation was supported._")
         for claim in ordered_claims(finding):
@@ -325,6 +343,13 @@ def show_branch(node: TreeNode, passages: dict[str, str] | None) -> None:
                 show_citation(citation, passages)
 
 
+def change_label(run: rv.SavedRun, finding: Finding) -> str:
+    """A change as the pickers list it: reference, heading, and a few words on what it is."""
+    label = f"{run.finding_refs.get(finding.finding_id, '')} · {run.heading(finding)}"
+    description = rv.change_description(finding, limit=90)
+    return f"{label} — {description}" if description else label
+
+
 def trees_tab(run: rv.SavedRun, passages: dict[str, str] | None) -> None:
     with_trees = [f for f in rv.findings_in_brief_order(run) if f.finding_id in run.trees]
     if not with_trees:
@@ -333,32 +358,70 @@ def trees_tab(run: rv.SavedRun, passages: dict[str, str] | None) -> None:
     finding_id = pick(
         st,
         "Change",
-        {
-            f"{run.finding_refs.get(f.finding_id, '')} · {run.heading(f)}": f.finding_id
-            for f in with_trees
-        },
+        {change_label(run, f): f.finding_id for f in with_trees},
         f"tree_finding:{run.run_id}",
     )
     finding = run.finding(finding_id)
-    show_pruned = st.toggle("Show pruned branches", value=True, key="show_pruned")
+    description = rv.change_description(finding, limit=400)
+    if description:
+        st.markdown(f"**What changed:** {rv.md(description)}")
+    show_changed_text(run, finding)
     nodes = run.trees[finding_id]
     claims = {claim.claim_id: claim for claim in finding.claims}
-    view = rv.tree_view(nodes, claims, run.claim_refs, show_pruned=show_pruned)
+    candidates = [n for n in nodes if n.depth == 1]
     cols = st.columns(4)
-    cols[0].metric("Nodes", view.nodes)
-    cols[1].metric("Candidate explanations", sum(1 for n in nodes if n.depth == 1))
-    cols[2].metric("Pruned", view.pruned)
-    cols[3].metric("Still pending", view.pending)
+    cols[0].metric("Nodes", len(nodes))
+    cols[1].metric("Candidate explanations", len(candidates))
+    cols[2].metric("Pruned", sum(1 for n in nodes if n.status is NodeStatus.PRUNED))
+    cols[3].metric("Still pending", sum(1 for n in nodes if n.status is NodeStatus.PENDING))
+
+    choices = rv.candidate_choices(nodes, claims)
+    open_key = f"tree_open:{finding_id}"
+
+    def open_all() -> None:
+        st.session_state[open_key] = list(choices)
+
+    def close_all() -> None:
+        st.session_state[open_key] = []
+
+    opened = st.pills(
+        "Open a candidate's branch to see its searches",
+        list(choices),
+        selection_mode="multi",
+        key=open_key,
+    )
+    with st.container(horizontal=True, vertical_alignment="center"):
+        st.button("Open all", on_click=open_all, key=f"open_all:{finding_id}")
+        st.button("Close all", on_click=close_all, key=f"close_all:{finding_id}")
+        show_pruned = st.toggle("Show pruned branches", value=True, key="show_pruned")
+    view = rv.tree_view(
+        nodes,
+        claims,
+        run.claim_refs,
+        show_pruned=show_pruned,
+        expanded={choices[label] for label in opened or ()},
+    )
     st.caption(
-        "Left to right: the change, the candidate explanations the generator proposed (depth 1), "
-        "and the evidence searches for each (depth 2). A candidate outlined in green or orange "
-        "reached the brief as a confirmed or plausible claim. Dashed boxes were pruned; hover "
-        "for the reason."
+        "Top to bottom: the change, then one card per candidate explanation the generator "
+        "proposed. A card's chips are its evidence searches, one per search, coloured by what "
+        "the search found; solid chips were kept, hollow ones pruned. Open a candidate to see "
+        "each search as its own box. A card outlined in green or orange reached the brief as a "
+        "confirmed or plausible claim (✓ in the list above); dashed cards were pruned (✗). Hover "
+        "a box for its full text; the chart's fullscreen button zooms in."
+    )
+    # The legend's text and colours are the app's own constants, not run text.
+    st.markdown(
+        " &nbsp; ".join(
+            f"<span style='color:{style.colour}'>■</span> {style.meaning}"
+            for style in rv.CHIP_STYLES.values()
+        )
+        + " &nbsp; · &nbsp; □ hollow: pruned",
+        unsafe_allow_html=True,
     )
     st.graphviz_chart(view.dot, width="stretch")
-    st.dataframe(pd.DataFrame(view.rows), hide_index=True, width="stretch")
+    with st.expander(f"Every node as a table ({len(view.rows)} rows)"):
+        st.dataframe(pd.DataFrame(view.rows), hide_index=True, width="stretch")
     st.subheader("A candidate's evidence")
-    candidates = [n for n in nodes if n.depth == 1]
     if candidates:
         candidate_id = pick(
             st,
@@ -370,7 +433,28 @@ def trees_tab(run: rv.SavedRun, passages: dict[str, str] | None) -> None:
             show_branch(branch, passages)
 
 
-# --- Tab 3: the review queue (T7.3) --------------------------------------------------------------
+# --- Tab 3: the replay ---------------------------------------------------------------------------
+
+
+def replay_tab(run: rv.SavedRun) -> None:
+    st.markdown(
+        "The run step by step, as it happened: detecting the changes, ranking them, then each "
+        "change's Tree-of-Thought search, labeling and rework, and the summary. Built from the "
+        "run's saved timings, cost ledger and audit trail; nothing is run again. Press play, "
+        "step with the arrows, or jump to a change."
+    )
+    data = load_replay(str(run.folder), _audit_mtime(run.folder))
+    if not data["run"]["timed"]:
+        st.caption(
+            "This run was saved before step timings were recorded, so the replay has no clock or "
+            "running cost, and each step's length is fixed."
+        )
+    theme = getattr(getattr(st.context, "theme", None), "type", None)
+    # The page is the app's own template; run text is only in its escaped JSON, set as text.
+    st.iframe(replay_page.render(data, dark=theme == "dark"), height=REPLAY_HEIGHT)
+
+
+# --- Tab 4: the review queue (T7.3) --------------------------------------------------------------
 
 
 def review_tab(run: rv.SavedRun, passages: dict[str, str] | None) -> None:
@@ -417,7 +501,7 @@ def review_tab(run: rv.SavedRun, passages: dict[str, str] | None) -> None:
             st.caption(f"{len(mine) - REVIEW_PAGE} more not shown; `audit.json` lists them all.")
 
 
-# --- Tab 4: cost and time ------------------------------------------------------------------------
+# --- Tab 5: cost and time ------------------------------------------------------------------------
 
 
 def cost_tab(run: rv.SavedRun) -> None:
@@ -484,6 +568,11 @@ def cost_tab(run: rv.SavedRun) -> None:
         ),
         hide_index=True,
     )
+    st.caption(
+        "Median call: half of that model's calls took less time than this. p90 call: the 90th "
+        "percentile, so 9 in 10 calls finished within this time and the slowest tenth took "
+        "longer. Replayed calls are left out of both."
+    )
 
 
 # --- Page ----------------------------------------------------------------------------------------
@@ -496,13 +585,15 @@ def main() -> None:
         return
     show_header(run)
     passages = load_passages(run_chunk_ids(run))
-    brief, trees, review, cost = st.tabs(
-        ["Brief", "Evidence trees", "Review queue", "Cost and time"]
+    brief, trees, replay_view, review, cost = st.tabs(
+        ["Brief", "Evidence trees", "Replay audit", "Review queue", "Cost and time"]
     )
     with brief:
         brief_tab(run, passages)
     with trees:
         trees_tab(run, passages)
+    with replay_view:
+        replay_tab(run)
     with review:
         review_tab(run, passages)
     with cost:
