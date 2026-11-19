@@ -405,7 +405,7 @@ class TreeNode(Record):
     expected_evidence: str | None = None
     query_plan: str | None = None
     # Depth 1: the metric movements the claim implies. Empty for a text-only claim, whose
-    # numeric check is then not applicable (gap 1 in the plan).
+    # numeric check is then not applicable (design gap 1, DESIGN_CHANGES.md).
     expected_metrics: tuple[MetricExpectation, ...] = ()
     # Depth 2 only: where to look. Set when the node is created and never changed, like the
     # thought. The retry after an empty search is recorded only through `retrieved_chunk_ids`.

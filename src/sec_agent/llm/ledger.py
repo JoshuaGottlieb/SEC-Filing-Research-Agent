@@ -91,6 +91,10 @@ class CostLedger:
             return tuple(self._entries)
 
     def reserve(self, amount: float) -> None:
+        """Hold `amount` against the cap until the call is recorded or released.
+
+        Raises `BudgetExceededError` if spend plus calls in flight plus `amount` would pass it.
+        """
         with self._lock:
             # Refuse a call that could take the total over the cap, before it is sent.
             committed = self._spent + self._reserved

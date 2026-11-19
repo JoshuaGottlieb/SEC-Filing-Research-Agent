@@ -94,11 +94,15 @@ _EVIDENCE_RANK = {level: rank for rank, level in enumerate(EvidenceSupport)}
 
 
 class Outcome(StrEnum):
+    """Whether a change's search kept at least one explanation, or none survived."""
+
     RESOLVED = "resolved"
     UNRESOLVED = "unresolved"
 
 
 class StopReason(StrEnum):
+    """Why a search stopped before it ran out of branches to explore."""
+
     # The finding used its node evaluations, or the run reached its dollar cap. Either way the
     # search ended with the best branches so far.
     NODE_BUDGET = "node_budget"

@@ -40,8 +40,8 @@ from sec_agent.schemas import (
     Record,
 )
 
-# The plan's initial thresholds (gap 6 of the master plan), kept by the user on 2026-11-12 after
-# the Hershey benchmark labels. Every Hershey margin move is far from 100 bps (the smallest is
+# The plan's initial thresholds (design gap 6, DESIGN_CHANGES.md), kept by the user on 2026-11-12
+# after the Hershey benchmark labels. Every Hershey margin move is far from 100 bps (the smallest is
 # 240 bps), so the labels cannot move that one. At 10% the stated-cause gross-margin moves are
 # flagged and no labeled material change depends on a smaller relative move: net sales +4.4%
 # (labeled material) arrives as a text change. Lower cutoffs would add revenue +6.6% and SG&A

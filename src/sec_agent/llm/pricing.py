@@ -45,6 +45,7 @@ class UnknownModelPriceError(KeyError):
 
 
 def get_price(model: str) -> ModelPrice:
+    """The model's per-token prices; `UnknownModelPriceError` if none are recorded."""
     try:
         return PRICES[model]
     except KeyError:
@@ -61,6 +62,7 @@ def cost_usd(
     cache_read_tokens: int = 0,
     cache_write_tokens: int = 0,
 ) -> float:
+    """The dollar cost of one call's token counts, cached input priced at its own rates."""
     price = get_price(model)
     input_rate, output_rate = price.input, price.output
     # Long-prompt pricing depends on the whole prompt, cached or not.

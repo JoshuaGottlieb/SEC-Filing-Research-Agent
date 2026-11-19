@@ -7,7 +7,8 @@
 threshold: 0.30
 
 # The full rubric at depth 2, where passages have been retrieved. The design's weights. When
-# numerical consistency is not applicable it is removed and the others are rescaled (gap 1).
+# numerical consistency is not applicable it is removed and the others are rescaled (design gap 1,
+# DESIGN_CHANGES.md).
 rubric:
   evidence_support: 0.40
   numerical_consistency: 0.30
@@ -52,7 +53,7 @@ specificity:
 # causes survive).
 beam:
   # Candidates proposed at depth 1. The design says 6 to 8 and keeps 4; the low end leaves node
-  # budget for the retries and the one fresh round (gap 5).
+  # budget for the retries and the one fresh round (design gap 5).
   candidates: 6
   # Candidates that go on to depth 2. Was the design's 4; now every candidate (the user's decision,
   # 2026-11-15). On HSY the pre-screen gave 1.0 to more candidates than a width of 4 held in all

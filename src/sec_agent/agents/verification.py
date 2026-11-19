@@ -11,10 +11,11 @@ Filings repeat near-identical language across years, so a real quote from the wr
 failure this guards against most. This is also plain code. It proves a quote is in the filing,
 not that the quote supports the claim; that is the entailment judge's job (T5.2).
 
-Entailment (T5.2): code cannot tell whether a quote states a cause or only hints at one (gap 4),
-so a separate model call classifies it. It is the one check here that uses a model, and it is
-kept apart from everything that produced the claim: it sees only the claim's text and one quote,
-never the reasoning, the critic's rating or the search, so it cannot be argued into agreeing.
+Entailment (T5.2): code cannot tell whether a quote states a cause or only hints at one (design
+gap 4, DESIGN_CHANGES.md), so a separate model call classifies it. It is the one check here that
+uses a model, and it is kept apart from everything that produced the claim: it sees only the
+claim's text and one quote, never the reasoning, the critic's rating or the search, so it cannot
+be argued into agreeing.
 
 Rationale figures: a change's materiality rationale (T3.3) is model-written text that the brief
 prints as why the change was flagged and the generator reads as why it matters. Its figures are
@@ -179,7 +180,7 @@ class CausalLanguageResult(Record):
 
 
 def check_causal_language(claim: Claim) -> CausalLanguageResult:
-    """Fail a claim that uses causal wording, unless it is confirmed (gap 13).
+    """Fail a claim that uses causal wording, unless it is confirmed (design gap 13).
 
     A confirmed claim may say why, because `Claim` has already required a citation and a
     `states_cause` verdict for it. Only `claim.text` is read; see `find_causal_language`.
@@ -941,9 +942,10 @@ def check_citations(
 
 
 # The definitions follow the ToT design's evidence standard (a passage that "directly states" the
-# cause) and gap 4's three verdicts. Where a quote could be read two ways, the judge is told to take
-# the weaker reading: "states_cause" is what lets the brief state a cause as fact, so a false
-# "states_cause" misleads the reader, while a false "implies" costs only a hedge in the wording.
+# cause) and design gap 4's three verdicts. Where a quote could be read two ways, the judge is
+# told to take the weaker reading: "states_cause" is what lets the brief state a cause as fact, so
+# a false "states_cause" misleads the reader, while a false "implies" costs only a hedge in the
+# wording.
 ENTAILMENT_SYSTEM = """\
 You check one claim against one quote from a company's SEC filing. The claim says that a cause
 produced a change. Decide what the quote, read on its own, says about that claim.
@@ -1018,6 +1020,7 @@ class EntailmentJudge:
         )
 
     async def judge(self, claim: str, quote: str) -> EntailmentJudgment:
+        """Whether `quote` states the cause `claim` gives, only implies it, or is unrelated."""
         return await self._chain.ainvoke({"claim": claim, "quote": quote})
 
 

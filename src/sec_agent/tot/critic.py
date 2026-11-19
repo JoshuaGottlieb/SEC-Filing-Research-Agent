@@ -205,6 +205,7 @@ class Critic:
         )
 
     async def rate_specificity(self, node: TreeNode) -> SpecificityCritique:
+        """Depth 1: how testable a candidate explanation is, before anything is retrieved."""
         return await self._specificity.ainvoke(node)
 
     async def judge_evidence(
@@ -213,6 +214,7 @@ class Critic:
         passages: Sequence[RetrievedPassage],
         claim_periods: Collection[FiscalPeriod],
     ) -> EvidenceCritique:
+        """Depth 2: how far the retrieved passages support the explanation."""
         return await self._evidence.ainvoke(
             {"node": node, "passages": passages, "claim_periods": claim_periods}
         )
@@ -220,6 +222,7 @@ class Critic:
     async def reassess_evidence(
         self, node: TreeNode, citations: Sequence[Citation]
     ) -> EvidenceReassessment:
+        """The evidence rated again on the quotes that passed the citation check only."""
         return await self._reassess.ainvoke({"node": node, "citations": citations})
 
 

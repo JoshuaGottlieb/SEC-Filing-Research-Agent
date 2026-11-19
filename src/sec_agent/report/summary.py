@@ -96,11 +96,14 @@ class SummaryWriter:
         )
 
     async def write(self, request: dict) -> SummaryDraft:
+        """Opus's draft of the summary. `write_summary` checks it and falls back to the template."""
         return await self._chain.ainvoke(request)
 
 
 @dataclass(frozen=True)
 class SummaryContext:
+    """What the summary step needs: the writer, and the lookups its checks read."""
+
     writer: SummaryWriter
     chunks: ChunkLookup
     metrics: MetricLookup

@@ -1,6 +1,7 @@
 """Labeling (T4.5): turns what the search found for one change into a finding with labeled claims.
 
-Each surviving candidate becomes one claim, labeled by the ToT design's standard (gap 4):
+Each surviving candidate becomes one claim, labeled by the ToT design's standard (design gap 4,
+DESIGN_CHANGES.md):
 
 - `confirmed`: a kept evidence branch the critic rated "states the cause" has a quote that passes
   `check_citations` for the claim, and the entailment judge, which sees only the claim and that
@@ -330,9 +331,11 @@ class ClaimWriter:
         )
 
     async def write(self, request: dict) -> PlausibleWording:
+        """Hedged wording for a plausible claim, which may not state a cause as fact."""
         return await self._chain.ainvoke(request)
 
     async def restate(self, request: dict) -> Restatement:
+        """The explanation narrowed to what its quotes state, for the judge to rule on again."""
         return await self._restate.ainvoke(request)
 
 

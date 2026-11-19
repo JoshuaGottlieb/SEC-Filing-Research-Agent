@@ -64,6 +64,7 @@ def locate(path: Path) -> RunFiles:
 
 
 def read_ledger(path: Path) -> list[LedgerEntry]:
+    """A saved run's model calls, one entry per line of its `ledger.jsonl`."""
     if not path.exists():
         raise FileNotFoundError(f"no ledger at {path}")
     # The cap does not matter here: resuming only reads the lines back.
@@ -183,6 +184,7 @@ def model_table(entries: list[LedgerEntry]) -> dict[str, dict]:
 
 
 def report_run(files: RunFiles) -> dict:
+    """One run's cost and latency: totals, by step and by finding, ready to save as JSON."""
     entries = read_ledger(files.ledger)
     timings = read_timings(files.timings)
     steps = step_table(entries, timings)

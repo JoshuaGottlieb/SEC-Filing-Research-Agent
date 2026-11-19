@@ -192,10 +192,12 @@ class Benchmark(Record):
 
 
 def load_benchmark(path: Path) -> Benchmark:
+    """Read a frozen benchmark file (`eval/benchmark/HSY.json` or `test.json`), checking it."""
     return Benchmark.model_validate_json(path.read_text(encoding="utf-8"))
 
 
 def save_benchmark(benchmark: Benchmark, path: Path) -> None:
+    """Write a benchmark as indented JSON, leaving out unset fields, so diffs stay readable."""
     data = benchmark.model_dump(mode="json", exclude_none=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 

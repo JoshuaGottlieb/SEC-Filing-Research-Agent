@@ -333,6 +333,7 @@ class RunState(TypedDict, total=False):
 
 
 def finding_id(run_id: str, change: Change) -> str:
+    """The id of the finding for one change in one run: the run id and the change id."""
     # The same id `label_result` gives, so every finding of a run is keyed alike.
     return f"{run_id}:{change.change_id}"
 
@@ -614,12 +615,14 @@ def _brief_findings(state: RunState) -> tuple[Finding, ...]:
 
 
 def initial_state(run_id: str, comparison: Comparison, max_changes: int) -> RunState:
+    """The graph's input for a new run; the steps fill in the rest of `RunState`."""
     if max_changes < 1:
         raise ValueError("max_changes must be at least 1")
     return {"run_id": run_id, "comparison": comparison, "max_changes": max_changes}
 
 
 def recursion_limit(max_changes: int) -> int:
+    """The LangGraph step limit a run of `max_changes` changes needs, so it never stops early."""
     # LangGraph counts every node run as a step and stops at its limit (25 by default). A run takes
     # five fixed steps plus, per explored change, one search and up to `MAX_REWORK_ROUNDS` rework
     # rounds; the margin of 5 is chosen by hand.
