@@ -1,0 +1,1432 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'></head><body><title>Filing Agent Walkthrough</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+  /* Layout: a fixed 16:9 stage (1600x900, scaled to fit) that plays like a video: the LangGraph
+     controller on the left, the four agents across the top, the step's visual in the middle and
+     its design reference and code on the right. Chapters and the full code map sit below it. */
+  :root {
+    --paper: #edf0f4;
+    --panel: #ffffff;
+    --ink: #14213a;
+    --muted: #5a6880;
+    --line: #d3dae5;
+    --faint: #e5eaf1;
+    --ctl: #33568f;
+    --ret: #0b8484;
+    --chg: #5a49c2;
+    --fin: #a8700f;
+    --ver: #2b7a52;
+    --ok: #2b7a52;
+    --warn: #a8700f;
+    --bad: #b83a2e;
+    --off: #9aa5b5;
+    --on-accent: #ffffff;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", "Arial Narrow", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0d1420; --panel: #141f31; --ink: #e3e9f2; --muted: #93a1b7; --line: #283850;
+      --faint: #1b283d; --ctl: #82a6e0; --ret: #3fc3c3; --chg: #a093ff; --fin: #e6a849;
+      --ver: #5cc48b; --ok: #5cc48b; --warn: #e6a849; --bad: #ef6d5d; --off: #5c6a7f;
+      --on-accent: #0d1420; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0d1420; --panel: #141f31; --ink: #e3e9f2; --muted: #93a1b7; --line: #283850;
+    --faint: #1b283d; --ctl: #82a6e0; --ret: #3fc3c3; --chg: #a093ff; --fin: #e6a849;
+    --ver: #5cc48b; --ok: #5cc48b; --warn: #e6a849; --bad: #ef6d5d; --off: #5c6a7f;
+    --on-accent: #0d1420; color-scheme: dark;
+  }
+  html, body { background: var(--paper); color: var(--ink); }
+  body { font-family: var(--sans); font-size: 15px; line-height: 1.5; }
+  .page { max-width: 1240px; margin: 0 auto; padding-block: 24px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex; flex-direction: column; gap: 18px; }
+  .intro h1 { font-family: var(--cond); font-weight: 700; font-size: clamp(24px, 3.4vw, 34px); line-height: 1.15; margin: 0; text-wrap: balance; }
+  .intro p { margin: 6px 0 0; color: var(--muted); max-width: 70ch; }
+
+  /* The stage */
+  .stage-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; max-width: 100%; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+  .stage { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0;
+    background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.4; overflow: hidden; }
+  .stage *, .stage *::before, .stage *::after { box-sizing: border-box; }
+  .abs { position: absolute; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .mono { font-family: var(--mono); }
+
+  .hdr { left: 24px; top: 14px; right: 24px; height: 44px; display: flex; align-items: center; gap: 16px; }
+  .hdr .num { font-family: var(--mono); font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .hdr .ttl { font-family: var(--cond); font-weight: 700; font-size: 27px; letter-spacing: -.005em; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hdr .run { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: right; line-height: 1.35; }
+
+  /* Controller */
+  .ctl { left: 24px; top: 72px; width: 272px; height: 800px; }
+  .ctl .head { position: absolute; left: 16px; top: 12px; right: 12px; }
+  .ctl .head b { display: block; font-family: var(--cond); font-size: 19px; font-weight: 700; }
+  .ctl .head span { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .gnode { position: absolute; height: 40px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--panel);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 9px; font-family: var(--mono); font-size: 14px; font-weight: 500; }
+  .gnode .dots { display: flex; gap: 3px; }
+  .gnode .dots i { width: 8px; height: 8px; border-radius: 50%; display: block; }
+  .gnode.term { border-radius: 20px; justify-content: center; color: var(--muted); font-size: 12px; }
+  .gnode.visited { background: color-mix(in srgb, var(--ctl) 10%, var(--panel)); border-color: color-mix(in srgb, var(--ctl) 45%, var(--line)); }
+  .gnode.active { background: var(--ctl); border-color: var(--ctl); color: var(--on-accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--ctl) 22%, transparent); }
+  .ctl svg { position: absolute; left: 0; top: 0; overflow: visible; }
+  .ctl .foot { position: absolute; left: 16px; right: 14px; bottom: 12px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+  .ctl .foot .lg { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; margin-bottom: 8px; font-size: 12px; }
+  .ctl .foot .lg span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 5px; }
+
+  /* Agents */
+  .agent { top: 72px; width: 205px; height: 100px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--panel); }
+  .agent .nm { font-family: var(--cond); font-weight: 700; font-size: 16px; white-space: nowrap; line-height: 1.15; display: flex; align-items: center; gap: 7px; }
+  .agent .nm::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; }
+  .agent .md { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; }
+  .agent .doing { font-size: 13px; margin-top: 6px; line-height: 1.3; color: var(--ink); font-weight: 500; }
+  .agent.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 11%, var(--panel)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 18%, transparent); }
+  .infra { left: 320px; top: 182px; width: 860px; height: 30px; display: flex; gap: 8px; }
+  .chip { font-family: var(--mono); font-size: 11.5px; padding: 5px 9px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); background: var(--panel); white-space: nowrap; }
+  .chip.on { color: var(--ink); border-color: var(--ctl); background: color-mix(in srgb, var(--ctl) 12%, var(--panel)); }
+
+  /* Canvas */
+  .canvas { left: 320px; top: 224px; width: 860px; height: 648px; overflow: hidden; }
+  .stage .c { position: absolute; }
+
+  /* Right column */
+  .side { left: 1204px; top: 72px; width: 372px; height: 800px; display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .doc { display: flex; flex-direction: column; gap: 8px; }
+  .doc .ref + .ref { border-top: 1px solid var(--faint); padding-top: 8px; }
+  .doc .dn { font-family: var(--cond); font-weight: 700; font-size: 16px; line-height: 1.2; }
+  .doc .ds { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .doc .dt { font-size: 13.5px; line-height: 1.42; margin-top: 4px; }
+  .built { font-size: 12.5px; line-height: 1.4; border-left: 3px solid var(--warn); padding: 4px 0 4px 9px; background: color-mix(in srgb, var(--warn) 9%, var(--panel)); border-radius: 0 6px 6px 0; }
+  .built b { font-family: var(--mono); font-weight: 600; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); display: block; }
+  .code { display: flex; flex-direction: column; gap: 5px; }
+  .code .ln { display: flex; flex-direction: column; }
+  .code .p { font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-weight: 500; }
+  .code .w { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .notes { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .notes .n { font-size: 14px; line-height: 1.42; padding-left: 14px; position: relative; }
+  .notes .n::before { content: ""; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--ctl); }
+
+  .prog { left: 24px; top: 884px; width: 1552px; height: 5px; border-radius: 3px; background: var(--faint); overflow: hidden; }
+  .prog i { display: block; height: 100%; width: 0; background: var(--ctl); }
+
+  /* Canvas pieces */
+  .box { border: 1.5px solid var(--line); border-radius: 9px; background: var(--panel); padding: 10px 12px; }
+  .box h4 { margin: 0; font-family: var(--cond); font-weight: 700; font-size: 17px; line-height: 1.2; }
+  .box p { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.38; }
+  .big { font-family: var(--cond); font-weight: 700; font-size: 44px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .lbl { font-size: 13px; color: var(--muted); }
+  .arrow { color: var(--muted); font-size: 26px; text-align: center; }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .p-ok { background: var(--ok); color: var(--on-accent); }
+  .p-warn { background: var(--warn); color: var(--on-accent); }
+  .p-bad { background: var(--bad); color: var(--on-accent); }
+  .p-off { background: var(--faint); color: var(--muted); border: 1px solid var(--line); }
+  .cand { border: 1.5px solid var(--chg); border-radius: 9px; background: var(--panel); padding: 8px 10px; font-size: 14px; line-height: 1.3; }
+  .cand .k { font-family: var(--mono); font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; margin-bottom: 3px; }
+  .cand.pruned { border-style: dashed; border-color: var(--off); color: var(--muted); }
+  .bar { height: 7px; border-radius: 4px; background: var(--faint); overflow: hidden; margin-top: 6px; }
+  .bar > div { display: block; height: 100%; background: var(--chg); }
+  .quote { font-size: 13.5px; line-height: 1.4; border-left: 3px solid var(--ret); padding: 6px 10px; background: color-mix(in srgb, var(--ret) 8%, var(--panel)); border-radius: 0 6px 6px 0; }
+  .quote mark { background: color-mix(in srgb, var(--warn) 30%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .tick { color: var(--ok); font-weight: 700; }
+  .cross { color: var(--bad); font-weight: 700; }
+  .src { font-family: var(--mono); font-size: 12.5px; border: 1.5px solid var(--line); border-radius: 7px; padding: 6px 9px; background: var(--panel); display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .src.kept { border-color: var(--ok); }
+  .src.cut { border-style: dashed; color: var(--muted); }
+
+  /* Overlays (title and closing) */
+  .overlay { left: 0; top: 0; width: 1600px; height: 900px; background: var(--paper); display: none; }
+  .overlay.show { display: block; }
+
+  /* Controls below the stage */
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .controls button { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 7px; padding: 6px 12px; cursor: pointer; }
+  .controls button:hover { border-color: var(--ctl); }
+  .controls button:focus-visible, .chap:focus-visible { outline: 2px solid var(--ctl); outline-offset: 2px; }
+  .controls .play { background: var(--ctl); border-color: var(--ctl); color: var(--on-accent); font-weight: 600; min-width: 92px; }
+  .controls input[type=range] { flex: 1 1 220px; min-width: 0; accent-color: var(--ctl); }
+  .controls .time { font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  h2 { font-family: var(--cond); font-weight: 700; font-size: 22px; margin: 10px 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 8px; max-width: 75ch; }
+  .chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .chap { text-align: left; font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .chap:hover { border-color: var(--ctl); }
+  .chap.cur { border-color: var(--ctl); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ctl) 18%, transparent); }
+  .chap .t { font-weight: 600; font-size: 14.5px; line-height: 1.3; }
+  .chap .m { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .chap .ag { display: flex; gap: 4px; flex-wrap: wrap; }
+  .chap .ag span { font-size: 11px; font-family: var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--c); color: var(--ink); }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13.5px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--faint); }
+  th { font-family: var(--mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: color-mix(in srgb, var(--ctl) 5%, var(--panel)); }
+  td code { font-family: var(--mono); font-size: 12.5px; }
+  td .ag { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  td .ag::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+  tr:last-child td { border-bottom: none; }
+
+  /* Recording mode: the stage alone, filling the window. */
+  html.recording, html.recording body { overflow: hidden; height: 100%; }
+  html.recording .page { max-width: none; padding: 0; gap: 0; }
+  html.recording .page > :not(.stage-wrap) { display: none; }
+  html.recording .stage-wrap { width: 100vw; height: 100vh; aspect-ratio: auto; border: none; border-radius: 0; }
+</style>
+
+<div class="page">
+  <header class="intro">
+    <h1>How the SEC filing research agent works</h1>
+    <p>A step-by-step walkthrough of one run, simplified from the saved run comparing Hershey's 10-K for FY2025 with FY2024. Each step shows which agents are working, what the LangGraph controller is doing, the design document behind it and the code that implements it.</p>
+  </header>
+
+  <div class="stage-wrap" id="wrap">
+    <div class="stage" id="stage" aria-label="Walkthrough animation"></div>
+  </div>
+
+  <div class="controls">
+    <button class="play" id="play" type="button">▶ Play</button>
+    <button id="prev" type="button" title="Previous step (←)">◀ Step</button>
+    <button id="next" type="button" title="Next step (→)">Step ▶</button>
+    <input type="range" id="scrub" min="0" step="0.05" value="0" aria-label="Position in the walkthrough">
+    <span class="time" id="time">0:00 / 0:00</span>
+    <button id="full" type="button" title="Show the stage full screen">Full screen</button>
+  </div>
+
+  <section>
+    <h2>Steps</h2>
+    <p class="sub">Click a step to jump to it. Space plays or pauses; the arrow keys move between steps.</p>
+    <div class="chapters" id="chapters"></div>
+  </section>
+
+  <section>
+    <h2>Code map</h2>
+    <p class="sub">Each part of the design, the agent it belongs to and the code responsible for it. Paths are under <code>src/sec_agent/</code> unless they start with <code>config/</code>. The design documents are in <code>docs/design/</code>, and departures from them are in <code>docs/DESIGN_CHANGES.md</code>.</p>
+    <div class="tablewrap"><table id="codemap"></table></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ----- Facts from the saved run (HSY-yoy-10k-t811live-20261119), simplified ----------------------
+  const RUN = {
+    id: "HSY-yoy-10k-t811live-20261119",
+    pairs: 608, unchanged: 395, modified: 180, added: 21, removed: 12, textChanges: 213, numeric: 4,
+    material: 52, explored: 10, pastCap: 42, batches: 11,
+    confirmed: 24, plausible: 14, review: 62, calls: 955, live: 768, replayed: 187, cost: "$1.41", time: "42 min 54 s",
+  };
+  const AGENTS = {
+    ret: { name: "Retrieval", model: "search + rerank · no LLM", x: 320 },
+    chg: { name: "Change Analysis", model: "Opus + Haiku", x: 538 },
+    fin: { name: "Financial Analysis", model: "XBRL in code · no LLM", x: 756 },
+    ver: { name: "Verification & Reporting", model: "code checks + Opus", x: 974 },
+  };
+  const INFRA = { stores: "DuckDB facts + Chroma index", tree: "MCP tree store", ledger: "cost ledger · $10 cap", cache: "replay cache", ckpt: "SQLite checkpoints" };
+  const GRAPH = [
+    { id: "START", y: 96, term: true },
+    { id: "detect", y: 146, ag: ["chg", "fin"] },
+    { id: "estimate", y: 210, ag: [] },
+    { id: "rank", y: 274, ag: ["chg"] },
+    { id: "select", y: 338, ag: [] },
+    { id: "explore", y: 410, ag: ["chg", "ret", "fin", "ver"] },
+    { id: "rework", y: 410, x: 192, w: 66, ag: [] },
+    { id: "summarize", y: 500, ag: ["ver"] },
+    { id: "write", y: 564, ag: ["ver"] },
+    { id: "END", y: 628, term: true },
+  ];
+  const ORDER = GRAPH.map((n) => n.id);
+
+  // ----- Small helpers -----------------------------------------------------------------------
+  const $ = (id) => document.getElementById(id);
+  function el(parent, cls, text) {
+    const e = document.createElement("div");
+    if (cls) e.className = cls;
+    if (text !== undefined && text !== null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function span(parent, cls, text) {
+    const e = document.createElement("span");
+    if (cls) e.className = cls;
+    e.textContent = text;
+    parent.appendChild(e);
+    return e;
+  }
+  function place(e, x, y, w, h) {
+    e.style.left = x + "px"; e.style.top = y + "px";
+    if (w !== undefined) e.style.width = w + "px";
+    if (h !== undefined) e.style.height = h + "px";
+    return e;
+  }
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  const ease = (x) => { x = clamp(x); return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; };
+  const fmt = (s) => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+  const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // A scene's reveals: every visual is a function of the scene's own clock, so playback and frame
+  // export give the same picture.
+  function Ctx(canvas) {
+    const items = [], fns = [];
+    return {
+      canvas,
+      c(cls, x, y, w, h, text) { return place(el(canvas, "c " + (cls || ""), text), x, y, w, h); },
+      at(e, start, dur, dy) { items.push({ e, start, dur: dur || 0.5, dy: dy === undefined ? 10 : dy }); return e; },
+      fn(f) { fns.push(f); },
+      update(t) {
+        for (const it of items) {
+          const p = reduced ? (t >= it.start ? 1 : 0) : ease((t - it.start) / it.dur);
+          it.e.style.opacity = p;
+          it.e.style.transform = it.dy ? "translateY(" + ((1 - p) * it.dy).toFixed(2) + "px)" : "";
+        }
+        for (const f of fns) f(t);
+      },
+    };
+  }
+  function count(e, from, to, t, start, dur, suffix) {
+    const p = ease((t - start) / dur);
+    e.textContent = Math.round(from + (to - from) * p).toLocaleString("en-US") + (suffix || "");
+  }
+
+  // ----- Scenes ------------------------------------------------------------------------------
+  const SCENES = [
+    {
+      id: "title", title: "How the agent works", dur: 7, overlay: "title",
+      chapter: "Title", agents: {}, nodes: [], infra: [],
+    },
+    {
+      id: "arch", title: "The design: four agents and a deterministic controller", dur: 15,
+      agents: { ret: "finds passages in both filings", chg: "detects, ranks, explains changes", fin: "computes and checks metrics", ver: "checks claims, writes the brief" },
+      nodes: [], allNodes: true, infra: ["tree", "ledger"],
+      design: [
+        { dn: "Multi-Agent Architecture Plan", ds: "Module 5 · Agents and Roles; Coordination", dt: "Four agents, one per method of work. No planner: the workflow is known in advance, so a deterministic LangGraph controller routes, with a sequential backbone and two bounded loops." },
+      ],
+      code: [["graph.py", "build_graph() · 8 nodes, Stages, Workflow"], ["schemas.py", "typed records: Change, Claim, Citation"], ["llm/client.py", "Role: one model setting per job"]],
+      notes: [[1, "The controller is plain code: it decides the route, the retry limits and the budget stops."], [5, "Agents pass typed records through the graph's shared state, not free-form messages."], [9, "Opus where errors reach the reader; Haiku for the many search calls; no model for numbers."]],
+      build: buildArch,
+    },
+    {
+      id: "ingest", title: "Before any run: filings become searchable memory", dur: 14,
+      agents: { ret: "long-term memory: the index", fin: "XBRL facts in DuckDB" },
+      nodes: [], infra: ["stores"], idle: "offline · before the graph starts",
+      design: [
+        { dn: "RAG Design Integration", ds: "Module 3 · Retrieval Integration", dt: "Parse each filing by Item, chunk on paragraph boundaries (300–500 tokens) with company, form, period and section metadata. Figures come from XBRL in DuckDB, not embedded tables." },
+        { dn: "Safety and Intervention Plan", ds: "Module 6 · Guardrails: input checks", dt: "Filings are parsed, never executed, and must pass a validation gate before indexing." },
+      ],
+      code: [["edgar/corpus.py", "select_corpus() → config/corpus.yaml"], ["ingest/pipeline.py", "parse_filing(), fallback parser"], ["ingest/audit.py", "validation against unused evidence"], ["ingest/chunker.py", "chunk_section()"], ["ingest/index.py", "ChunkIndex (Chroma, bge embeddings)"], ["finance/fact_store.py", "FactStore (DuckDB)"]],
+      notes: [[1, "15 filings from 3 companies are pinned once, so every run reads the same tested text."], [5, "A filing that fails validation twice can never reach the index."], [9, "Text goes to the vector index; numbers stay structured in DuckDB."]],
+      build: buildIngest,
+    },
+    {
+      id: "detect", title: "detect: find what changed between the two filings", dur: 15,
+      agents: { chg: "aligns 608 paragraph pairs", fin: "metric scan (first pass)" },
+      nodes: ["detect"], infra: ["stores"],
+      design: [
+        { dn: "RAG Design Integration", ds: "Module 3 · Failure mode: aligned comparison", dt: "A change is a difference, so Change Analysis compares the aligned section text from each period directly, rather than inferring change from scores." },
+        { dn: "Multi-Agent Architecture Plan", ds: "Module 5 · Coordination", dt: "Financial Analysis runs twice: first scanning for numeric changes, then checking claims during ToT." },
+      ],
+      built: "Identical paragraphs pair off first; the rest are matched on embeddings with an assignment solver (floor 0.75). docs/DESIGN_CHANGES.md, gap 3.",
+      code: [["graph.py", "detect node"], ["compare/align.py", "align_comparison()"], ["finance/scan.py", "scan_comparison()"], ["finance/metrics.py", "MetricCatalog"]],
+      notes: [[1, "No model is called here, so this step costs nothing."], [5, "Carried-forward text never reaches a model: 395 of 608 pairs drop out."], [9, "Margins moving 100 bps or more, and revenue or cost lines moving 10% or more, are flagged."]],
+      build: buildDetect,
+    },
+    {
+      id: "estimate", title: "estimate: show the cost before spending anything", dur: 10,
+      agents: {}, nodes: ["estimate"], infra: ["ledger", "cache"],
+      design: [
+        { dn: "Safety and Intervention Plan", ds: "Module 6 · Runtime monitoring; deployment", dt: "A cost ledger refuses any call that would pass the $10 run cap. A live run shows a cost estimate and asks for confirmation before spending." },
+      ],
+      built: "Two budget checks were added: before materiality, and before each search (keeping a reserve for labeling). docs/DESIGN_CHANGES.md, departure 5.",
+      code: [["graph.py", "estimate node · estimate_cost()"], ["compare/materiality.py", "materiality_headroom()"], ["llm/ledger.py", "CostLedger · BudgetExceededError"], ["cli.py", "\"Go ahead?\" confirmation"]],
+      notes: [[1, "The controller checks the cap can hold the whole materiality step before it sends anything."], [4, "The user sees the estimate in the terminal and confirms."], [7, "Spending above the cap is one of the two decisions that always need a person."]],
+      build: buildEstimate,
+    },
+    {
+      id: "rank", title: "rank: which changes are material?", dur: 13,
+      agents: { chg: "materiality classifier (Opus)" }, nodes: ["rank"], infra: ["ledger", "cache"],
+      design: [
+        { dn: "Agent Design Refinement", ds: "Module 2 · Reasoning loop", dt: "Materiality is judged against explicit criteria: a new or removed risk, a changed quantity, or a shift tied to a reported metric." },
+        { dn: "Multi-Agent Architecture Plan", ds: "Module 5 · Scalable problem solving", dt: "Only changed paragraphs reach the materiality classifier." },
+      ],
+      code: [["graph.py", "rank node"], ["compare/materiality.py", "rank_changes(), build_message()"], ["llm/client.py", "LLMClient · Role.MATERIALITY"]],
+      notes: [[1, "Changes go to Opus in batches of about 20, so 217 changes take 11 calls."], [5, "Each gets an importance from 0 to 5, a criterion and a rationale."], [9, "Text changes at 3 or above count as material; flagged metric moves always do."]],
+      build: buildRank,
+    },
+    {
+      id: "select", title: "select: explore the most material changes first", dur: 11,
+      agents: {}, nodes: ["select"], infra: [],
+      design: [
+        { dn: "Tree-of-Thought Design", ds: "Module 4 · §2.3 Compute and cost constraints", dt: "Findings are processed in order of materiality. If the run budget is reached, the least material are flagged for human review instead." },
+      ],
+      built: "At most 10 changes are explored per run (--max-changes); the brief says how many were left. docs/DESIGN_CHANGES.md, departure 4.",
+      code: [["graph.py", "select node · select_changes()"], ["report/brief.py", "NotExamined (listed in audit.json)"]],
+      notes: [[1, "The ranking sets the order, so a budget stop only drops the least important changes."], [5, "The 42 past the cap are not lost: they appear in the review queue."]],
+      build: buildSelect,
+    },
+    {
+      id: "propose", title: "explore · depth 1: propose competing explanations", dur: 12,
+      agents: { chg: "ToT generator (Haiku)" }, nodes: ["explore"], infra: ["tree", "ledger"],
+      design: [
+        { dn: "Tree-of-Thought Design", ds: "Module 4 · §1 and §2.2 ToT structure", dt: "A single chain locks onto the first plausible story. At depth 1, each thought is a candidate explanation, written as a testable claim with the evidence it needs." },
+      ],
+      code: [["graph.py", "explore node, one change per pass"], ["tot/controller.py", "explore_change()"], ["tot/generator.py", "ThoughtGenerator · CandidateSet"], ["tree_mcp/server.py", "every node stored, never deleted"]],
+      notes: [[1, "The root of the tree is the flagged change: gross margin fell 1,377 bps."], [4, "One Haiku call proposes six candidates in a fixed schema."], [8, "The generator only proposes; code decides what is kept."]],
+      build: buildPropose,
+    },
+    {
+      id: "prescreen", title: "explore · pre-screen: score the candidates before searching", dur: 13,
+      agents: { chg: "critic rates specificity", fin: "metric check (second pass)" }, nodes: ["explore"], infra: ["tree", "ledger"],
+      design: [
+        { dn: "Tree-of-Thought Design", ds: "Module 4 · §2.3 Depth 1 pre-screen", dt: "Nothing is retrieved yet, so candidates are scored on numerical consistency and specificity, rescaled to 0.75 and 0.25. Below 0.30 is pruned." },
+      ],
+      built: "The beam was widened from 4 to 6, so every candidate past 0.30 is kept. docs/DESIGN_CHANGES.md, departure 1.",
+      code: [["tot/critic.py", "evaluate_candidate()"], ["tot/scoring.py", "prescreen_score()"], ["finance/metrics.py", "MetricCatalog as MetricChecker"], ["tot/controller.py", "select_beam()"], ["config/scoring.yaml", "weights, threshold, beam"]],
+      notes: [[1, "The critic rates how testable each claim is; the metric checker sees whether the numbers move the way it expects."], [6, "Candidate 2 expected revenue to fall, but revenue rose: score 0.25."], [9, "Pruned branches stay in the tree with their reason."]],
+      build: buildPrescreen,
+    },
+    {
+      id: "evidence", title: "explore · depth 2: search for evidence on each candidate", dur: 19,
+      agents: { chg: "generator + critic", ret: "hybrid search, both periods", fin: "metric checks", ver: "citation checker" }, nodes: ["explore"], infra: ["tree", "stores", "ledger"],
+      design: [
+        { dn: "Tree-of-Thought Design", ds: "Module 4 · §2.3 Scoring rubric and pruning", dt: "Evidence 0.40, numbers 0.30, no contradiction 0.20, specificity 0.10. No evidence: one reformulated search, then prune. Keep the top 3." },
+        { dn: "RAG Design Integration", ds: "Module 3 · Candidate selection and reranking", dt: "BM25 + dense search, fused (RRF) and reranked by a cross-encoder; each period searched on its own." },
+      ],
+      built: "The ReAct rewording loop is built but off by default; the rerank pool is 10, not 20. docs/DESIGN_CHANGES.md, departure 2 and gap 14.",
+      code: [["tot/controller.py", "gather_evidence()"], ["retrieval/hybrid.py", "HybridSearcher · reciprocal_rank_fusion()"], ["retrieval/rerank.py", "Reranker (cross-encoder)"], ["agents/retrieval.py", "RetrievalAgent"], ["tot/critic.py", "evaluate_evidence()"], ["agents/verification.py", "check_citations()"]],
+      notes: [[1, "Candidate 3 (tariffs) proposes five sources to check."], [5, "Each period's filing is searched separately."], [11, "The critic rates each passage; code checks the quote."], [15, "Three are kept (one states, two imply); two pruned."]],
+      build: buildEvidence,
+    },
+    {
+      id: "label", title: "explore · labeling: an independent judge decides the label", dur: 16,
+      agents: { ver: "code checks + entailment judge (Opus)" }, nodes: ["explore"], infra: ["tree", "ledger"],
+      design: [
+        { dn: "Multi-Agent Architecture Plan", ds: "Module 5 · Communication", dt: "The verification judge sees only the claim and its quote, never the reasoning behind them." },
+        { dn: "Agent Design Refinement", ds: "Module 2 · Improvement over prompt-only", dt: "Confirmed: a filing states the cause. Plausible: consistent but not stated. Unresolved goes to review. Causal language only for confirmed." },
+      ],
+      code: [["tot/labeling.py", "label_result()"], ["agents/verification.py", "check_citations(), judge_entailment()"], ["agents/verification.py", "find_causal_language()"]],
+      notes: [[1, "Each surviving candidate becomes a claim with its best quote."], [5, "Confirmed needs both: the code checks pass and the judge says the quote states the cause."], [10, "A claim the judge finds only implied is sent back for rework."]],
+      build: buildLabel,
+    },
+    {
+      id: "rework", title: "rework: the bounded verification retry loop", dur: 13,
+      agents: { chg: "new searches, told what was tried", ret: "hybrid search", ver: "relabel with the judge" }, nodes: ["rework"], infra: ["tree", "ledger"],
+      design: [
+        { dn: "Multi-Agent Architecture Plan", ds: "Module 5 · Coordination Strategy", dt: "Failed verification returns for more evidence up to two times. The item is then labeled and queued for review, without pausing the run." },
+      ],
+      built: "Rework targets claims the judge found only implied; at most 2 rounds per finding. docs/DESIGN_CHANGES.md, departure 3.",
+      code: [["graph.py", "rework node · after_explore()"], ["tot/rework.py", "rework_claim()"], ["tot/controller.py", "gather_evidence()"], ["tot/labeling.py", "relabel_claim()"]],
+      notes: [[1, "The retry edge is a conditional edge in the graph, decided in code."], [5, "Each round asks for new searches, listing every search the candidate already made."], [9, "After two rounds the claim is still only implied: it stays plausible, and the run moves on."]],
+      build: buildRework,
+    },
+    {
+      id: "loop", title: "explore, again: one change per pass, in materiality order", dur: 13,
+      agents: { chg: "ToT search", ret: "evidence searches", fin: "metric checks", ver: "labeling" }, nodes: ["explore", "rework"], infra: ["ckpt", "ledger", "tree"],
+      design: [
+        { dn: "Tree-of-Thought Design", ds: "Module 4 · §2.3 Compute constraints", dt: "ToT runs on every material finding, in order of materiality, with an expansion budget per finding and a budget per run." },
+      ],
+      built: "State is saved after every step; --resume continues a killed run and replays paid calls from the cache. docs/DESIGN_CHANGES.md, departure 6.",
+      code: [["graph.py", "next_change() · conditional edges"], ["graph.py", "AsyncSqliteSaver checkpointer"], ["tot/scoring.py", "Budget: 55 nodes, 45 for a fresh round"]],
+      notes: [[1, "Before each search, the controller checks enough budget is left to label the result."], [5, "Each pass ends at a finished finding, the unit a resumed run restarts from."], [9, "Ten changes took about 43 minutes, mostly waiting on model calls."]],
+      build: buildLoop,
+    },
+    {
+      id: "summarize", title: "summarize: a written summary, checked sentence by sentence", dur: 13,
+      agents: { ver: "brief writer (Opus) + checks" }, nodes: ["summarize"], infra: ["ledger"],
+      design: [
+        { dn: "Safety and Intervention Plan", ds: "Module 6 · Output constraints", dt: "Only a confirmed claim may use causal wording. The brief writer refuses a brief that breaks this or gives investment advice." },
+      ],
+      code: [["graph.py", "summarize node"], ["report/summary.py", "write_summary(), template_summary()"], ["agents/verification.py", "check_causal_language()"]],
+      notes: [[1, "Every sentence must cite the claims it rests on."], [5, "Code checks references, figures, causal wording and advice."], [9, "A rejected draft gets one retry; after that a template is used, which needs no model."]],
+      build: buildSummarize,
+    },
+    {
+      id: "write", title: "write: the brief, the audit trail and the review queue", dur: 13,
+      agents: { ver: "brief + audit trail" }, nodes: ["write"], infra: ["tree"],
+      design: [
+        { dn: "Safety and Intervention Plan", ds: "Module 6 · §7 Every line can be checked", dt: "Each statement carries a reference such as [C1] that the audit trail maps to its claim, quote, SEC source and Tree-of-Thought tree." },
+        { dn: "Safety and Intervention Plan", ds: "Module 6 · §4 When a human intervenes", dt: "Review never pauses the run: queued items appear, with their evidence, in the brief and a Streamlit queue." },
+      ],
+      code: [["graph.py", "write node"], ["report/brief.py", "write_run(), check_brief()"], ["report/run_view.py", "review_items()"], ["ui/streamlit_app.py", "saved runs, review queue, replay"]],
+      notes: [[1, "write_run refuses to save a brief that breaks a rule."], [5, "Pruned branches stay in the audit trail, so a reviewer sees what was ruled out."], [9, "62 items wait in the review queue, each with its reason and evidence."]],
+      build: buildWrite,
+    },
+    {
+      id: "results", title: "The run, end to end", dur: 15, overlay: "results",
+      chapter: "Results and code by agent", agents: {}, nodes: [], allVisited: true, infra: [],
+    },
+  ];
+  // Each step holds its finished frame for HOLD seconds before the next one draws. The scene
+  // clock keeps running through the hold, and every reveal is complete by then.
+  const HOLD = 2;
+  let total = 0;
+  SCENES.forEach((s, i) => { s.start = total; total += s.dur + (i < SCENES.length - 1 ? HOLD : 0); });
+
+  // ----- Builders ----------------------------------------------------------------------------
+  function buildArch(x) {
+    const ctl = x.c("box", 290, 232, 280, 132);
+    ctl.style.borderColor = "var(--ctl)";
+    ctl.style.background = "color-mix(in srgb, var(--ctl) 9%, var(--panel))";
+    el(ctl, null, "LangGraph controller").style.cssText = "font-family:var(--cond);font-weight:700;font-size:20px";
+    el(ctl, "lbl", "StateGraph · 8 nodes · shared RunState");
+    el(ctl, "lbl", "routing, retry limits and budget stops in code");
+    el(ctl, "lbl", "no planner agent");
+    x.at(ctl, 0.3, 0.6);
+    const tiles = [
+      ["ret", 20, 20, "Retrieval", "Finds comparable passages from both periods.", "Hybrid search (BM25 + dense), cross-encoder rerank. ReAct rewording loop on Haiku, built and off by default."],
+      ["chg", 450, 20, "Change Analysis", "Diffs aligned paragraphs, ranks changes, tests explanations.", "Materiality classifier (Opus); Tree-of-Thought generator and critic (Haiku)."],
+      ["fin", 20, 450, "Financial Analysis", "Flags numeric changes; checks metrics against each claim.", "Fixed XBRL calculations in code. No LLM."],
+      ["ver", 450, 450, "Verification & Reporting", "Checks every claim against its source; writes the brief.", "Code checks; fresh-context judge and writer (Opus)."],
+    ];
+    tiles.forEach(([k, tx, ty, name, role, how], i) => {
+      const b = x.c("box", tx, ty, 390, 190);
+      b.style.borderColor = "var(--" + k + ")";
+      const h = el(b, null); h.style.cssText = "display:flex;align-items:center;gap:8px;font-family:var(--cond);font-weight:700;font-size:20px";
+      const dot = span(h, null, ""); dot.style.cssText = "width:12px;height:12px;border-radius:50%;background:var(--" + k + ")";
+      span(h, null, name);
+      const r = el(b, null, role); r.style.cssText = "font-size:15px;margin-top:6px";
+      const m = el(b, "lbl", how); m.style.marginTop = "6px";
+      x.at(b, 1 + i * 1.6, 0.6);
+    });
+    const recs = x.c("lbl", 180, 414, 500, 22, "typed records: Change · Claim · Citation · TreeNode");
+    recs.style.cssText += ";text-align:center;font-family:var(--mono);font-size:12px";
+    x.at(recs, 8, 0.6);
+    const tree = x.c("chip", 250, 378, 360, 26, "MCP tree store: every node, score, pruned branch");
+    tree.style.cssText += ";text-align:center";
+    x.at(tree, 9.5, 0.6);
+  }
+
+  function buildIngest(x) {
+    const steps = [
+      ["EDGAR", "15 pinned filings · HSY, MAT, SWK", "2 10-Ks and 3 10-Qs per company; 3 comparisons each", "ret"],
+      ["Parse + validate", "edgartools, then a fallback parser", "audited against evidence the parser did not use", "ret"],
+      ["Chunk", "paragraph boundaries, 300–500 tokens", "company, CIK, form, period, section, accession", "ret"],
+    ];
+    steps.forEach(([h, p1, p2, k], i) => {
+      const b = x.c("box", 20 + i * 282, 40, 254, 150);
+      b.style.borderColor = "var(--" + k + ")";
+      const hh = document.createElement("h4"); hh.textContent = h; b.appendChild(hh);
+      const a = document.createElement("p"); a.textContent = p1; b.appendChild(a);
+      const c = document.createElement("p"); c.textContent = p2; b.appendChild(c);
+      x.at(b, 0.6 + i * 2.2, 0.6);
+      if (i < 2) x.at(x.c("arrow", 274 + i * 282, 92, 28, 30, "→"), 1.6 + i * 2.2, 0.4, 0);
+    });
+    const down = x.c("arrow", 20, 205, 820, 30, "↓"); x.at(down, 7.2, 0.4, 0);
+    const st = [
+      ["Chroma vector index", "bge embeddings of every chunk · cosine similarity · metadata filters first", "ret"],
+      ["DuckDB fact store", "XBRL facts (with segments), table facts, and the chunks' text: the source of truth", "fin"],
+    ];
+    st.forEach(([h, p, k], i) => {
+      const b = x.c("box", 20 + i * 420, 250, 400, 120);
+      b.style.borderColor = "var(--" + k + ")";
+      b.style.background = "color-mix(in srgb, var(--" + k + ") 7%, var(--panel))";
+      const hh = document.createElement("h4"); hh.textContent = h; b.appendChild(hh);
+      const a = document.createElement("p"); a.textContent = p; b.appendChild(a);
+      x.at(b, 7.8 + i * 1.2, 0.6);
+    });
+    const gate = x.c("box", 20, 400, 820, 96);
+    const g1 = el(gate, null); g1.style.cssText = "display:flex;gap:10px;align-items:center";
+    span(g1, "pill p-bad", "rejected");
+    span(g1, null, "A filing that fails both parsers is recorded as rejected and can never be indexed.");
+    const g2 = el(gate, null); g2.style.cssText = "display:flex;gap:10px;align-items:center;margin-top:10px";
+    span(g2, "pill p-ok", "validated");
+    span(g2, null, "Only validated filings load into the stores; tables that explain cleanly become facts.");
+    x.at(gate, 10.5, 0.6);
+    const note = x.c("lbl", 20, 520, 820, 40, "Runs never call EDGAR. They query this local, pinned corpus, so results are repeatable.");
+    note.style.fontSize = "15px";
+    x.at(note, 11.8, 0.6);
+  }
+
+  function seeded(n) {
+    let a = n >>> 0;
+    return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function buildDetect(x) {
+    const head = x.c("eyebrow", 20, 18, 500, 18, "Paragraph alignment · 608 pairs (FY2024 ↔ FY2025)");
+    x.at(head, 0.2, 0.4);
+    const cv = document.createElement("canvas");
+    const W = 32 * 15, H = 19 * 15, dpr = 2;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
+    const holder = x.c(null, 20, 44, W, H); holder.appendChild(cv);
+    const kinds = [];
+    for (let i = 0; i < RUN.unchanged; i++) kinds.push("u");
+    for (let i = 0; i < RUN.modified; i++) kinds.push("m");
+    for (let i = 0; i < RUN.added; i++) kinds.push("a");
+    for (let i = 0; i < RUN.removed; i++) kinds.push("r");
+    const rnd = seeded(7);
+    for (let i = kinds.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [kinds[i], kinds[j]] = [kinds[j], kinds[i]]; }
+    const col = { u: cssVar("--line"), m: cssVar("--chg"), a: cssVar("--ok"), r: cssVar("--bad"), n: cssVar("--faint") };
+    const ctx = cv.getContext("2d");
+    x.fn((t) => {
+      const shown = Math.floor(608 * ease((t - 1) / 4));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      for (let i = 0; i < 608; i++) {
+        const cx = (i % 32) * 15, cy = Math.floor(i / 32) * 15;
+        ctx.fillStyle = i < shown ? col[kinds[i]] : col.n;
+        ctx.fillRect(cx, cy, 12, 12);
+      }
+    });
+    x.at(holder, 0.4, 0.5, 0);
+    const legend = [["u", "--line", RUN.unchanged, "unchanged (carried forward)"], ["m", "--chg", RUN.modified, "modified"], ["a", "--ok", RUN.added, "added"], ["r", "--bad", RUN.removed, "removed"]];
+    legend.forEach(([k, v, n, label], i) => {
+      const r = x.c("row", 530, 50 + i * 40, 320, 30);
+      const sw = span(r, null, ""); sw.style.cssText = "width:14px;height:14px;border-radius:3px;background:var(" + v + ");flex:none";
+      const num = span(r, "mono", String(n)); num.style.cssText = "font-weight:600;font-size:17px;width:44px;text-align:right";
+      span(r, null, label);
+      x.at(r, 2 + i * 0.5, 0.4);
+    });
+    const tc = x.c("box", 530, 222, 310, 92);
+    tc.style.borderColor = "var(--chg)";
+    const n1 = el(tc, "big", "213"); n1.style.color = "var(--chg)";
+    el(tc, "lbl", "text changes go on to materiality");
+    x.at(tc, 4.6, 0.6);
+
+    const mh = x.c("eyebrow", 20, 360, 600, 18, "Metric scan · XBRL facts, computed in code");
+    x.at(mh, 6, 0.4);
+    const rows = [
+      ["Gross margin", "47.3%", "33.5%", "−1,377 bps"],
+      ["Operating margin", "25.9%", "12.3%", "−1,354 bps"],
+      ["Net margin", "19.8%", "7.6%", "−1,227 bps"],
+      ["Cost of goods sold", "$5,901.4M", "$7,769.9M", "+31.7%"],
+    ];
+    const hdr = x.c("row mono", 20, 388, 820, 20);
+    hdr.style.cssText += ";font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em";
+    [["metric", 230], ["FY2024", 150], ["FY2025", 150], ["move", 150], ["", 120]].forEach(([t, w]) => { const s = span(hdr, null, t); s.style.width = w + "px"; });
+    x.at(hdr, 6.2, 0.4);
+    rows.forEach((r, i) => {
+      const row = x.c("row", 20, 414 + i * 40, 820, 34);
+      row.style.cssText += ";border-top:1px solid var(--faint);padding-top:6px";
+      const cells = [[r[0], 230, "500"], [r[1], 150], [r[2], 150], [r[3], 150, "600"]];
+      cells.forEach(([t, w, fw]) => { const s = span(row, "mono", t); s.style.width = w + "px"; s.style.fontSize = "15px"; if (fw) s.style.fontWeight = fw; });
+      span(row, "pill p-warn", "flagged");
+      x.at(row, 7 + i * 0.8, 0.45);
+    });
+    const tot = x.c("row", 20, 590, 820, 40);
+    const b = span(tot, "big", "217"); b.style.fontSize = "32px";
+    span(tot, null, "changes (213 text + 4 numeric) go to the materiality step. Cost so far: $0.00.");
+    x.at(tot, 11, 0.6);
+  }
+
+  function buildEstimate(x) {
+    const b = x.c("box", 40, 40, 780, 180);
+    const h = el(b, "eyebrow", "Before rank sends anything");
+    const r1 = el(b, "row"); r1.style.marginTop = "12px";
+    span(r1, "tick", "✓"); span(r1, null, "Headroom: the $10 cap can hold the materiality batches that run at once");
+    const r2 = el(b, "row"); r2.style.marginTop = "10px";
+    span(r2, "tick", "✓"); span(r2, null, "Estimate printed for the user: materiality, plus up to 10 explored changes");
+    const r3 = el(b, "row"); r3.style.marginTop = "10px";
+    const q = span(r3, "mono", "Go ahead? [y/N]  y"); q.style.cssText = "background:var(--faint);padding:3px 8px;border-radius:5px";
+    span(r3, "lbl", "declined → RunDeclined, nothing sent");
+    x.at(b, 0.4, 0.6);
+    [r1, r2, r3].forEach((r, i) => x.at(r, 1.2 + i * 1.6, 0.4));
+    const meterLbl = x.c("eyebrow", 40, 270, 600, 18, "Cost ledger for this run");
+    x.at(meterLbl, 4.8, 0.4);
+    const m = x.c(null, 40, 300, 780, 48);
+    m.style.cssText += ";border:1.5px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden";
+    const fill = el(m, null); fill.style.cssText = "height:100%;width:0;background:var(--ctl)";
+    x.at(m, 4.9, 0.4, 0);
+    const capL = x.c("mono", 760, 356, 80, 20, "$10.00 cap"); capL.style.fontSize = "12.5px"; capL.style.textAlign = "right";
+    x.at(capL, 5, 0.4, 0);
+    const spent = x.c("mono", 40, 356, 500, 20, ""); spent.style.fontSize = "14px";
+    x.fn((t) => {
+      const p = ease((t - 5.4) / 2.6);
+      fill.style.width = (14.1 * p).toFixed(2) + "%";
+      spent.textContent = "spent by the end of the run: $" + (1.41 * p).toFixed(2) + (p >= 1 ? " · the estimate was about $0.90" : "");
+    });
+    x.at(spent, 5.4, 0.4, 0);
+    const n = x.c("box", 40, 410, 780, 110);
+    const a = el(n, null, "Every model call goes through the ledger. A call that would pass the cap is refused before it is sent, and a reply cut off mid-JSON is charged its worst case.");
+    a.style.fontSize = "15px";
+    const c = el(n, "lbl", "Paid calls are also saved in a replay cache, so a rerun or a resumed run repeats them at no cost.");
+    c.style.marginTop = "8px";
+    x.at(n, 7, 0.6);
+  }
+
+  function buildRank(x) {
+    const top = x.c("eyebrow", 20, 16, 600, 18, "217 changes → Opus in 11 batches of about 20");
+    x.at(top, 0.2, 0.4);
+    const rnd = seeded(11);
+    const material = new Set();
+    while (material.size < 52) material.add(Math.floor(rnd() * 217));
+    for (let b = 0; b < 11; b++) {
+      const bx = x.c("box", 20 + b * 75, 44, 68, 132);
+      bx.style.padding = "6px";
+      const lab = el(bx, "mono", "call " + (b + 1)); lab.style.cssText = "font-size:10.5px;color:var(--muted);margin-bottom:4px";
+      const g = el(bx, null); g.style.cssText = "display:grid;grid-template-columns:repeat(4,10px);gap:4px";
+      const n = b < 8 ? 20 : 19;
+      const dots = [];
+      for (let i = 0; i < n; i++) {
+        const idx = b < 8 ? b * 20 + i : 160 + (b - 8) * 19 + i;
+        const d = el(g, null); d.style.cssText = "width:10px;height:10px;border-radius:50%;background:var(--faint)";
+        dots.push([d, material.has(idx)]);
+      }
+      x.at(bx, 0.6 + b * 0.25, 0.4);
+      x.fn((t) => {
+        const p = (t - (3.6 + b * 0.18)) / 0.5;
+        for (const [d, m] of dots) d.style.background = p >= 1 ? (m ? "var(--chg)" : "var(--line)") : (p > 0 ? "var(--off)" : "var(--faint)");
+      });
+    }
+    const crit = x.c("box", 20, 196, 820, 74);
+    const c1 = el(crit, "row");
+    [["importance 0–5", "against a written rubric"], ["criterion", "new or removed risk · changed quantity · metric-linked shift"], ["rationale", "one or two sentences"]].forEach(([a, b2]) => {
+      const s = el(c1, null); s.style.flex = "1";
+      const t = el(s, "mono", a); t.style.cssText = "font-weight:600;font-size:13px";
+      el(s, "lbl", b2);
+    });
+    x.at(crit, 2.4, 0.5);
+    const res = x.c("row", 20, 290, 820, 56);
+    const n = span(res, "big", "52"); n.style.color = "var(--chg)";
+    span(res, null, "rated material, out of 217. Each is ranked; the rest are dropped as not material.");
+    x.at(res, 5.6, 0.6);
+    x.fn((t) => count(n, 0, 52, t, 5.6, 1.4));
+    const lh = x.c("eyebrow", 20, 370, 600, 18, "Top of the ranking");
+    x.at(lh, 7.2, 0.4);
+    const rows = [
+      ["#1", "Gross margin: 47.3% → 33.5%", "metric-linked shift"],
+      ["#2", "Operating margin: 25.9% → 12.3%", "metric-linked shift"],
+      ["#3", "Net margin: 19.8% → 7.6%", "metric-linked shift"],
+      ["#4", "Risk Factors: commodity derivative mark-to-market swing", "metric-linked shift"],
+      ["#5", "MD&A: cost of sales up 31.7% to $7,769.9 million", "metric-linked shift"],
+    ];
+    rows.forEach(([r, h, c], i) => {
+      const row = x.c("row", 20, 396 + i * 44, 820, 38);
+      row.style.cssText += ";border:1px solid var(--line);border-radius:7px;padding:0 10px;background:var(--panel)";
+      const a = span(row, "mono", r); a.style.cssText = "font-weight:600;width:34px";
+      const b2 = span(row, null, h); b2.style.flex = "1";
+      span(row, "lbl", c);
+      x.at(row, 7.6 + i * 0.6, 0.4);
+    });
+  }
+
+  function buildSelect(x) {
+    const rows = [
+      ["F1", "Gross margin change: 33.5% in FY2025"],
+      ["F2", "Operating margin change: 12.3% in FY2025"],
+      ["F3", "Net margin change: 7.6% in FY2025"],
+      ["F4", "Risk Factors: commodity derivative mark-to-market"],
+      ["F5", "MD&A: cost of sales rose 31.7%"],
+      ["F6", "MD&A: gross margin fell to 33.5%"],
+      ["F7", "MD&A: operating profit fell to $1,441.5M"],
+      ["F8", "MD&A: net income fell to $883.3M"],
+      ["F9", "Cost of goods sold: +31.7%"],
+      ["F10", "MD&A: tariffs became a material cost"],
+    ];
+    const h = x.c("eyebrow", 20, 16, 600, 18, "The 10 most material are explored, in this order");
+    x.at(h, 0.2, 0.4);
+    rows.forEach(([ref, t], i) => {
+      const row = x.c("row", 20, 42 + i * 42, 520, 36);
+      row.style.cssText += ";border:1.5px solid var(--ctl);border-radius:7px;padding:0 10px;background:var(--panel)";
+      const a = span(row, "mono", "#" + (i + 1)); a.style.cssText = "font-weight:600;width:34px";
+      const b = span(row, null, t); b.style.flex = "1";
+      span(row, "mono lbl", ref);
+      x.at(row, 0.5 + i * 0.3, 0.4);
+    });
+    const q = x.c("box", 570, 42, 270, 270);
+    q.style.borderStyle = "dashed";
+    const qh = document.createElement("h4"); qh.textContent = "Review queue"; q.appendChild(qh);
+    const n = el(q, "big", "42"); n.style.cssText += ";margin-top:10px;color:var(--muted)";
+    const p = document.createElement("p"); p.textContent = "material changes past the cap of 10, listed with their rank and importance. A person can pick them up later."; q.appendChild(p);
+    x.at(q, 4.4, 0.6);
+    for (let i = 0; i < 6; i++) {
+      const ghost = x.c("row", 570, 330 + i * 34, 270, 28);
+      ghost.style.cssText += ";border:1px dashed var(--line);border-radius:6px;padding:0 8px;opacity:.6;font-size:12.5px;color:var(--muted)";
+      span(ghost, "mono", "#" + (11 + i));
+      span(ghost, null, "Changed paragraph in MD&A");
+      x.at(ghost, 5.2 + i * 0.25, 0.4);
+    }
+    const note = x.c("lbl", 20, 480, 520, 60, "Changes the materiality step could not decide are not dropped either: they go to review as findings with no claims.");
+    note.style.fontSize = "14px";
+    x.at(note, 7, 0.6);
+    const f10 = x.c("lbl", 20, 548, 520, 60, "The brief lists findings with a confirmed claim first. In this run all ten have one, so the F numbers follow this order.");
+    f10.style.fontSize = "13px";
+    x.at(f10, 8.4, 0.6);
+  }
+
+  const CANDS = [
+    "Cocoa costs rose faster than prices could pass them on",
+    "Lower volume spread fixed overhead over fewer units",
+    "Tariffs on imported raw materials raised cost of goods sold",
+    "Product mix shifted toward lower-margin items",
+    "Restructuring or impairment charges in cost of goods sold",
+    "Higher promotional spending lowered net price per unit",
+  ];
+  function rootCard(x, y, t0) {
+    const r = x.c("box", 230, y, 400, 64);
+    r.style.cssText += ";background:var(--ink);color:var(--paper);border-color:var(--ink);text-align:center";
+    const a = el(r, "mono", "root · depth 0 · the flagged change"); a.style.cssText = "font-size:11px;opacity:.75";
+    const b = el(r, null, "Gross margin 47.3% → 33.5% (−1,377 bps)"); b.style.cssText = "font-weight:600;font-size:16px";
+    x.at(r, t0, 0.5);
+    return r;
+  }
+  function candGrid(x, t0, step, opts) {
+    const cards = [];
+    CANDS.forEach((txt, i) => {
+      const cx = 20 + (i % 3) * 280, cy = 150 + Math.floor(i / 3) * (opts && opts.tall ? 190 : 120);
+      const c = x.c("cand", cx, cy, 260);
+      const k = el(c, "k");
+      span(k, null, "#" + (i + 1) + " · depth 1");
+      const st = span(k, null, "");
+      el(c, null, txt);
+      x.at(c, t0 + i * step, 0.45);
+      cards.push({ c, st });
+    });
+    const lines = x.c(null, 0, 0, 860, 160);
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "860"); svg.setAttribute("height", "160");
+    for (let i = 0; i < 3; i++) {
+      const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      p.setAttribute("d", "M430 110 C 430 130, " + (150 + i * 280) + " 120, " + (150 + i * 280) + " 150");
+      p.setAttribute("fill", "none"); p.setAttribute("stroke", cssVar("--line")); p.setAttribute("stroke-width", "2");
+      svg.appendChild(p);
+    }
+    lines.appendChild(svg);
+    x.at(lines, t0, 0.5, 0);
+    return cards;
+  }
+
+  function buildPropose(x) {
+    rootCard(x, 40, 0.3);
+    const cards = candGrid(x, 3.6, 0.45);
+    const gen = x.c("box", 20, 420, 820, 120);
+    gen.style.borderColor = "var(--chg)";
+    const h = el(gen, "row");
+    const p = span(h, "pill", "generator · Haiku"); p.style.cssText += ";background:var(--chg);color:var(--on-accent)";
+    span(h, null, "1 call · structured output");
+    const s = el(gen, "mono", "{ claim, expected evidence, query plan } × 6"); s.style.cssText = "margin-top:8px;font-size:14px";
+    const n = el(gen, "lbl", "Each candidate is written to the MCP tree store as a depth-1 node, so the whole tree, pruned branches included, can be audited later."); n.style.marginTop = "6px";
+    x.at(gen, 1.8, 0.6);
+    cards.forEach(({ st }) => { st.textContent = "proposed"; });
+  }
+
+  function buildPrescreen(x) {
+    rootCard(x, 40, 0);
+    const cards = candGrid(x, 0, 0, { tall: true });
+    const scores = [1, 0.25, 1, 1, 1, 1];
+    const metricText = ["only the change itself: n/a, rescaled", "revenue rose, expected to fall × 0.75", "only the change itself: n/a, rescaled", "only the change itself: n/a, rescaled", "gross profit fell, as expected × 0.75", "only the change itself: n/a, rescaled"];
+    cards.forEach(({ c, st }, i) => {
+      const parts = el(c, null); parts.style.cssText = "margin-top:8px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px";
+      const a = el(parts, null); const b = el(parts, null);
+      const bar = el(c, "bar"); const fill = el(bar, null);
+      const sc = scores[i];
+      x.fn((t) => {
+        const t0 = 1.2 + i * 0.7;
+        a.textContent = t > t0 ? "specificity (critic): specific × 0.25" : "";
+        b.textContent = t > t0 + 0.3 ? "metrics (Financial): " + metricText[i] : "";
+        const p = ease((t - t0 - 0.3) / 0.6);
+        fill.style.width = (sc * 100 * p) + "%";
+        fill.style.background = i === 1 ? "var(--bad)" : "var(--chg)";
+        st.textContent = p > 0 ? "score " + (sc * p).toFixed(2) : "";
+        const pruned = i === 1 && t > 6.4;
+        c.classList.toggle("pruned", pruned);
+        if (pruned) st.textContent = "pruned · 0.25 < 0.30";
+      });
+    });
+    const res = x.c("row", 20, 560, 820, 50);
+    span(res, "pill p-ok", "5 kept");
+    span(res, "pill p-off", "1 pruned");
+    span(res, null, "Beam of 6, threshold 0.30. The pruned branch stays in the tree with its reason.");
+    x.at(res, 7.6, 0.6);
+  }
+
+  function buildEvidence(x) {
+    const cand = x.c("cand", 20, 14, 820);
+    const k = el(cand, "k"); span(k, null, "#3 · depth 1 · score 1.00"); span(k, null, "5 evidence sources proposed");
+    el(cand, null, "Higher tariffs on imported raw materials and packaging increased cost of goods sold in FY2025.");
+    x.at(cand, 0.2, 0.4);
+    const srcs = [
+      ["MD&A", "section", 0.86, "states the cause", true],
+      ["Risk factors", "section", 0.61, "implies the cause", true],
+      ["Business", "section", 0.61, "implies the cause", true],
+      ["Financial notes", "section", 0.43, "no evidence after a reformulated search", false],
+      ["Cost ratio", "metric", 0.43, "metric moves with the change itself", false],
+    ];
+    const chips = srcs.map(([name, kind], i) => {
+      const s = x.c("src", 20 + (i % 3) * 280, 92 + Math.floor(i / 3) * 44, 266);
+      const a = span(s, null, name + (kind === "metric" ? " (metric)" : ""));
+      const b = span(s, null, "");
+      x.at(s, 1 + i * 0.3, 0.4);
+      return { s, b, a };
+    });
+    // The search for MD&A, step by step.
+    const pipe = x.c("box", 20, 196, 820, 200);
+    pipe.style.borderColor = "var(--ret)";
+    const ph = el(pipe, "row");
+    const pr = span(ph, "pill", "Retrieval"); pr.style.cssText += ";background:var(--ret);color:var(--on-accent)";
+    span(ph, "mono", "\"tariffs cost of sales gross margin\" · HSY · 10-K · MD&A");
+    const flow = el(pipe, "row"); flow.style.cssText = "margin-top:12px;gap:8px;flex-wrap:nowrap";
+    const steps = ["BM25", "dense (bge)", "RRF fusion", "cross-encoder rerank", "≥ min score, ≤ 5 per period"];
+    const stepEls = steps.map((t, i) => {
+      const e = span(flow, "chip", t);
+      if (i < steps.length - 1) span(flow, "lbl", "→");
+      return e;
+    });
+    const periods = el(pipe, null); periods.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px";
+    const p25 = el(periods, null);
+    const l25 = el(p25, "mono", "FY2025 10-K · MD&A"); l25.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:3px";
+    const q25 = el(p25, "quote");
+    q25.appendChild(document.createTextNode("…$736.6 million in higher commodity costs, "));
+    const mk = document.createElement("mark"); mk.textContent = "$287.2 million in higher supply chain costs, including tariffs"; q25.appendChild(mk);
+    q25.appendChild(document.createTextNode("…"));
+    const p24 = el(periods, null);
+    const l24 = el(p24, "mono", "FY2024 10-K · MD&A"); l24.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:3px";
+    el(p24, "quote", "Searched on its own: the prior year's passages come back separately, so a quote can never be taken from the wrong period.");
+    x.at(pipe, 3, 0.5);
+    x.fn((t) => stepEls.forEach((e, i) => e.classList.toggle("on", t > 3.6 + i * 0.6)));
+    x.at(p25, 6.8, 0.5); x.at(p24, 7.4, 0.5);
+    // Critic and citation check.
+    const chk = x.c("box", 20, 414, 820, 108);
+    const r1 = el(chk, "row");
+    const cp = span(r1, "pill", "critic · Haiku"); cp.style.cssText += ";background:var(--chg);color:var(--on-accent)";
+    span(r1, null, "evidence: states the cause · also rates contradiction and specificity");
+    const r2 = el(chk, "row"); r2.style.marginTop = "8px";
+    const vp = span(r2, "pill", "citation checker · code"); vp.style.cssText += ";background:var(--ver);color:var(--on-accent)";
+    span(r2, null, "quote verbatim ✓  period FY2025 ✓  section MD&A ✓  company HSY ✓");
+    const r3 = el(chk, "row"); r3.style.marginTop = "8px";
+    span(r3, "lbl", "score = 0.40 × evidence + 0.30 × numbers (n/a, rescaled) + 0.20 × no contradiction + 0.10 × specificity =");
+    const sc = span(r3, "mono", "0.86"); sc.style.fontWeight = "600";
+    x.at(chk, 9.2, 0.5);
+    x.at(r1, 9.4, 0.4); x.at(r2, 10.6, 0.4); x.at(r3, 11.8, 0.4);
+    x.fn((t) => {
+      chips.forEach(({ s, b }, i) => {
+        const done = t > (i === 0 ? 12.4 : 13 + i * 0.5);
+        const [, , score, why, kept] = srcs[i];
+        b.textContent = done ? score.toFixed(2) : (t > 3 && i === 0 ? "searching…" : "");
+        s.classList.toggle("kept", done && kept);
+        s.classList.toggle("cut", done && !kept);
+        s.title = why;
+      });
+    });
+    const out = x.c("row", 20, 540, 820, 90);
+    out.style.alignItems = "flex-start";
+    const col1 = el(out, null); col1.style.flex = "1";
+    const o1 = el(col1, "row"); span(o1, "pill p-ok", "3 kept"); span(o1, null, "MD&A states the cause; Risk factors and Business imply it.");
+    const o2 = el(col1, "row"); o2.style.marginTop = "6px"; span(o2, "pill p-off", "2 pruned");
+    span(o2, "lbl", "notes: nothing after one reformulated search · cost ratio: it moves with the change being explained, so it cannot support it");
+    x.at(out, 15.6, 0.6);
+  }
+
+  function buildLabel(x) {
+    const head = x.c("row", 20, 14, 820, 30);
+    span(head, "eyebrow", "Each claim and its quote go to a fresh-context judge. It never sees the search or the critic's reasoning.");
+    x.at(head, 0.2, 0.4);
+    const rows = [
+      { n: "#1 #3", claim: "Higher commodity and tariff costs lowered gross margin.", code: "✓ verbatim · FY2025 · MD&A", judge: "states the cause, restated at the quote's level; #1 (cocoa costs) merged", out: ["Confirmed [C1]", "p-ok"] },
+      { n: "#4", claim: "A product mix shift toward lower-margin products reduced the blended gross margin.", code: "✓ verbatim · FY2025 · MD&A", judge: "implies, does not state", out: ["→ rework", "p-warn"] },
+      { n: "#5", claim: "Higher restructuring or impairment charges recorded within cost of sales reduced gross profit.", code: "no quote, only computed metrics (gross profit fell)", judge: "not sent", out: ["Left out", "p-off"] },
+    ];
+    rows.forEach((r, i) => {
+      const y = 58 + i * 128;
+      const b = x.c("box", 20, y, 820, 116);
+      const top = el(b, "row");
+      const nn = span(top, "mono", r.n); nn.style.cssText = "font-weight:600;width:52px;flex:none";
+      const cl = span(top, null, r.claim); cl.style.cssText = "flex:1;font-size:15px;font-weight:500";
+      const pills = el(b, "row"); pills.style.cssText = "margin-top:10px;margin-left:62px;gap:14px;flex-wrap:wrap";
+      const c1 = el(pills, "row"); c1.style.gap = "6px";
+      const vp = span(c1, "pill", "code checks"); vp.style.cssText += ";background:var(--faint);color:var(--ink);border:1px solid var(--line)";
+      span(c1, "lbl", r.code);
+      const c2 = el(pills, "row"); c2.style.gap = "6px";
+      const jp = span(c2, "pill", "judge · Opus"); jp.style.cssText += ";background:var(--ver);color:var(--on-accent)";
+      span(c2, "lbl", r.judge);
+      const res = span(top, "pill " + r.out[1], r.out[0]); res.style.cssText += ";flex:none;font-size:13px;align-self:flex-start";
+      const t0 = 1 + i * 3.2;
+      x.at(b, t0, 0.5);
+      x.at(c1, t0 + 0.8, 0.4); x.at(c2, t0 + 1.6, 0.4); x.at(res, t0 + 2.4, 0.4, 0);
+    });
+    const foot = x.c("lbl", 20, 572, 820, 50, "Labeling also runs the causal-language check: \"lowered\" is allowed here only because C1 is confirmed. 13 labeling calls for this change, $0.0490.");
+    foot.style.fontSize = "13.5px";
+    x.at(foot, 11, 0.6);
+  }
+
+  function buildRework(x) {
+    const c = x.c("cand", 20, 14, 820);
+    const k = el(c, "k"); span(k, null, "#4 · judge: implies"); span(k, null, "max 2 rounds per finding");
+    el(c, null, "A product mix shift toward lower-margin products, such as lower-priced seasonal or promotional items, reduced the blended gross margin.");
+    x.at(c, 0.2, 0.4);
+    const rounds = [
+      { h: "Round 1", tried: "told the 6 searches already made", srch: ["MD&A", "MD&A", "Financial notes", "Everywhere", "Business", "Everywhere"], kept: 1, verdict: "implies" },
+      { h: "Round 2", tried: "told the 12 searches already made", srch: ["MD&A", "Business", "Financial notes", "Everywhere", "MD&A", "Other sections"], kept: 2, verdict: "implies" },
+    ];
+    rounds.forEach((r, i) => {
+      const b = x.c("box", 20 + i * 420, 96, 400, 270);
+      b.style.borderColor = "var(--chg)";
+      const hh = document.createElement("h4"); hh.textContent = r.h; b.appendChild(hh);
+      const p = document.createElement("p"); p.textContent = "generator " + r.tried; b.appendChild(p);
+      const g = el(b, null); g.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px";
+      const chips = r.srch.map((s, j) => { const e = el(g, "src", s); return e; });
+      const v = el(b, "row"); v.style.marginTop = "12px";
+      const jp = span(v, "pill", "judge · Opus"); jp.style.cssText += ";background:var(--ver);color:var(--on-accent)";
+      span(v, null, r.verdict);
+      const t0 = 1 + i * 4.2;
+      x.at(b, t0, 0.5);
+      x.fn((t) => chips.forEach((e, j) => {
+        const done = t > t0 + 0.8 + j * 0.35;
+        e.classList.toggle("kept", done && j < r.kept);
+        e.classList.toggle("cut", done && j >= r.kept);
+      }));
+      x.at(v, t0 + 3.2, 0.4);
+    });
+    const loop = x.c("row", 20, 384, 820, 40);
+    loop.style.cssText += ";font-family:var(--mono);font-size:13px";
+    span(loop, null, "after_explore(): claim waiting · rounds < 2 · budget left → rework, else → next change");
+    x.at(loop, 2, 0.5);
+    const out = x.c("box", 20, 440, 820, 130);
+    const o1 = el(out, "row"); span(o1, "pill p-warn", "plausible");
+    span(o1, null, "After two rounds the filings still only imply it, so it keeps the plausible label.");
+    const o2 = el(out, "row"); o2.style.marginTop = "10px"; span(o2, "pill p-warn", "Plausible [C2]");
+    span(o2, null, "The brief shows it without causal wording: \"this brief did not confirm a link to gross margin.\"");
+    const o3 = el(out, "lbl", "The run never waits for a person: anything unsettled is queued for review afterwards.");
+    o3.style.marginTop = "10px";
+    x.at(out, 10, 0.6);
+  }
+
+  function buildLoop(x) {
+    const ch = [
+      ["F1", "Gross margin", 251, "1 ✓ 1 ~"], ["F2", "Operating margin", 104, "2 ✓"], ["F3", "Net margin", 384, "1 ✓ 4 ~"],
+      ["F4", "Risk Factors: derivatives", 209, "4 ✓"], ["F5", "MD&A: cost of sales", 292, "3 ✓ 1 ~"], ["F6", "MD&A: gross margin", 296, "3 ✓ 2 ~"],
+      ["F7", "MD&A: operating profit", 307, "3 ✓ 2 ~"], ["F8", "MD&A: net income", 346, "1 ✓ 3 ~"], ["F9", "Cost of goods sold", 251, "2 ✓ 1 ~"], ["F10", "MD&A: tariffs", 122, "4 ✓"],
+    ];
+    const conf = [1, 2, 1, 4, 3, 3, 3, 1, 2, 4], plaus = [1, 0, 4, 0, 1, 2, 2, 3, 1, 0];
+    const max = 384;
+    const head = x.c("eyebrow", 20, 12, 820, 18, "Each pass: search → label → rework (if needed) → checkpoint");
+    x.at(head, 0.2, 0.4);
+    const bars = ch.map(([ref, name, secs, lab], i) => {
+      const row = x.c("row", 20, 40 + i * 44, 820, 36);
+      const a = span(row, "mono", "#" + (i + 1)); a.style.cssText = "width:34px;font-weight:600";
+      const r = span(row, "mono lbl", ref); r.style.width = "40px";
+      const n = span(row, null, name); n.style.width = "220px";
+      const track = span(row, null, ""); track.style.cssText = "flex:1;height:14px;background:var(--faint);border-radius:7px;overflow:hidden;display:block";
+      const fill = span(track, null, ""); fill.style.cssText = "display:block;height:100%;width:0;background:var(--ctl)";
+      const l = span(row, "mono", ""); l.style.cssText = "width:90px;text-align:right;font-size:13.5px";
+      return { fill, l, secs, lab };
+    });
+    const per = 0.85;
+    const totals = x.c("row", 20, 496, 820, 70);
+    const cn = span(totals, "big", "0"); cn.style.color = "var(--ok)";
+    span(totals, null, "confirmed");
+    const pn = span(totals, "big", "0"); pn.style.cssText += ";color:var(--warn);margin-left:24px";
+    span(totals, null, "plausible");
+    const tm = span(totals, "mono", ""); tm.style.cssText = "margin-left:auto;font-size:14px;color:var(--muted)";
+    x.fn((t) => {
+      let c = 0, p = 0, secs = 0;
+      bars.forEach((b, i) => {
+        const s = 0.6 + i * per;
+        const q = ease((t - s) / per);
+        b.fill.style.width = (100 * b.secs / max * q) + "%";
+        b.l.textContent = q >= 1 ? b.lab : "";
+        if (q >= 1) { c += conf[i]; p += plaus[i]; }
+        secs += b.secs * q;
+      });
+      cn.textContent = String(c); pn.textContent = String(p);
+      tm.textContent = "search time " + fmt(secs);
+    });
+    const foot = x.c("lbl", 20, 580, 820, 50, "✓ confirmed · ~ plausible. Bar length is each change's wall time in the real run (longest: 6 min 24 s).");
+    x.at(foot, 9.6, 0.6);
+  }
+
+  function buildSummarize(x) {
+    const sents = [
+      ["Higher commodity and tariff costs lowered both gross margin and operating margin, and unfavorable mark-to-market activity on commodity derivatives increased cost of sales.", "[C1] [C3] [C19] [C20] [C10] [C14]"],
+      ["Higher interest expense lowered net income and net margin.", "[C5]"],
+      ["Gross margin fell from 47.3% in FY2024 to 33.5% in FY2025, and filings cite $491.0 million of unfavorable mark-to-market activity on commodity derivatives, but this brief did not confirm a link to the net margin change.", "[C8]"],
+      ["The effective income tax rate was 27.3% for 2025 versus 10.2% for 2024, and this brief did not confirm a link to the net margin change.", "[C6]"],
+    ];
+    const h = x.c("row", 20, 12, 820, 30);
+    const wp = span(h, "pill", "brief writer · Opus"); wp.style.cssText += ";background:var(--ver);color:var(--on-accent)";
+    span(h, null, "1 call, $0.0460 · the draft passed the checks · 4 of its 5 sentences shown");
+    x.at(h, 0.2, 0.4);
+    sents.forEach(([s, refs], i) => {
+      const b = x.c("box", 20, 56 + i * 96, 540, 86);
+      const t = el(b, null, s); t.style.cssText = "font-size:13.5px;line-height:1.35";
+      const r = el(b, "mono", refs); r.style.cssText = "font-size:12.5px;color:var(--ctl);margin-top:4px;font-weight:600";
+      x.at(b, 0.8 + i * 1.1, 0.5);
+    });
+    const checks = ["every reference exists", "every figure traces to a quote or metric", "causal wording only on confirmed claims", "nothing reads as investment advice"];
+    const cb = x.c("box", 580, 56, 260, 376);
+    const ch = document.createElement("h4"); ch.textContent = "Checked in code"; cb.appendChild(ch);
+    const items = checks.map((c) => {
+      const r = el(cb, "row"); r.style.cssText = "margin-top:14px;align-items:flex-start";
+      const tk = span(r, "tick", "✓"); tk.style.flex = "none";
+      span(r, null, c);
+      return r;
+    });
+    x.at(cb, 5.2, 0.5);
+    items.forEach((r, i) => x.at(r, 5.8 + i * 0.8, 0.4));
+    const fb = x.c("box", 20, 460, 820, 110);
+    fb.style.borderStyle = "dashed";
+    const f1 = el(fb, "row"); span(f1, "pill p-off", "if rejected"); span(f1, null, "one retry, told what was wrong");
+    const f2 = el(fb, "row"); f2.style.marginTop = "10px"; span(f2, "pill p-off", "if rejected again"); span(f2, null, "template_summary(): a fixed template, no model, cannot overreach");
+    x.at(fb, 9.6, 0.6);
+  }
+
+  function buildWrite(x) {
+    const md = x.c("box", 20, 14, 400, 300);
+    const mh = el(md, "row"); span(mh, "mono", "brief.md"); span(mh, "lbl", "for the analyst");
+    const pre = el(md, "mono", null); pre.style.cssText = "white-space:pre-wrap;font-size:12.5px;line-height:1.45;margin-top:8px;color:var(--ink)";
+    pre.textContent = "## Changes with a confirmed explanation\n\n### [F1] Gross margin change: 33.5% in FY2025\n\nWhy it was flagged: Gross margin fell\n-1,377 bps year over year…\n\n- **Confirmed** [C1]: Higher commodity\n  and tariff costs lowered gross margin.\n  > Gross margin was 33.5% in 2025…";
+    x.at(md, 0.4, 0.5);
+    const js = x.c("box", 440, 14, 400, 300);
+    const jh = el(js, "row"); span(jh, "mono", "audit.json"); span(jh, "lbl", "the full record");
+    const pre2 = el(js, "mono", null); pre2.style.cssText = "white-space:pre-wrap;font-size:12.5px;line-height:1.45;margin-top:8px;color:var(--ink)";
+    pre2.textContent = "\"refs\":  { \"C1\": \"…gross_margin:r1:c3\", … }\n\"trees\": { 10 trees · F1 has 44 nodes,\n           pruned branches included }\n\"metrics\", \"not_examined\": 42 changes,\n\"labeling_failures\", \"summary\"";
+    x.at(js, 1.6, 0.5);
+    const rq = x.c("box", 20, 334, 400, 196);
+    const rh = document.createElement("h4"); rh.textContent = "Review queue"; rq.appendChild(rh);
+    const rn = el(rq, "big", "62"); rn.style.cssText += ";margin-top:6px";
+    const rp = document.createElement("p"); rp.textContent = "changes past the cap, claims left out with their evidence, searches that never finished, rationales that cite untraced figures."; rq.appendChild(rp);
+    x.at(rq, 4.6, 0.5);
+    x.fn((t) => count(rn, 0, 62, t, 4.8, 1.2));
+    const app = x.c("box", 440, 334, 400, 196);
+    const ah = document.createElement("h4"); ah.textContent = "Streamlit app: sec-agent app"; app.appendChild(ah);
+    const tabs = el(app, null); tabs.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin-top:10px";
+    ["Brief", "Evidence trees", "Replay audit", "Review queue", "Cost and time"].forEach((t) => el(tabs, "chip", t));
+    const ap = document.createElement("p"); ap.textContent = "Reads the saved files only. Nothing in it calls a model."; app.appendChild(ap);
+    x.at(app, 6.4, 0.5);
+    const gate = x.c("row", 20, 548, 820, 60);
+    span(gate, "pill p-ok", "check_brief");
+    span(gate, null, "Before saving, the whole brief is checked again: references, causal wording, the not-investment-advice notice.");
+    x.at(gate, 8.6, 0.6);
+  }
+
+  // ----- Overlays ----------------------------------------------------------------------------
+  function buildTitle(o) {
+    const x = Ctx(o);
+    const k = x.c("eyebrow", 120, 210, 1200, 20, "Capstone · SEC filing research assistant");
+    k.style.fontSize = "15px";
+    const h = x.c(null, 116, 244, 1300, 140, "How the agent works, step by step");
+    h.style.cssText += ";font-family:var(--cond);font-weight:700;font-size:84px;line-height:1.02;letter-spacing:-.01em";
+    const s = x.c(null, 120, 360, 1200, 80, "One run, simplified: Hershey's 10-K for FY2025 against FY2024. Which of the four agents works at each step, what the LangGraph controller decides, the design behind it and the code that does it.");
+    s.style.cssText += ";font-size:24px;line-height:1.4;color:var(--muted);max-width:1100px";
+    const row = x.c("row", 120, 520, 1300, 60);
+    row.style.gap = "14px";
+    Object.entries(AGENTS).forEach(([k2, a]) => {
+      const c = span(row, "chip", a.name);
+      c.style.cssText += ";font-size:15px;padding:8px 14px;border-color:var(--" + k2 + ");color:var(--ink)";
+    });
+    const c2 = span(row, "chip", "LangGraph controller"); c2.style.cssText += ";font-size:15px;padding:8px 14px;border-color:var(--ctl);color:var(--ink)";
+    const run = x.c("mono", 120, 640, 1200, 30, "Saved run " + RUN.id + " · 10 changes explored · " + RUN.cost + " · " + RUN.time);
+    run.style.cssText += ";font-size:15px;color:var(--muted)";
+    x.at(k, 0, 0.01, 0); x.at(h, 0, 0.01, 0); x.at(s, 0, 0.01, 0);
+    x.at(row, 0.8, 0.6); x.at(run, 1.6, 0.6);
+    return x;
+  }
+  function buildResults(o) {
+    const x = Ctx(o);
+    const h = x.c(null, 80, 50, 1440, 60, "The run, end to end");
+    h.style.cssText += ";font-family:var(--cond);font-weight:700;font-size:44px";
+    x.at(h, 0, 0.4);
+    const funnel = [["608", "paragraph pairs aligned"], ["217", "changes detected"], ["52", "rated material"], ["10", "explored with ToT"], ["24 + 14", "confirmed + plausible claims"]];
+    funnel.forEach(([n, l], i) => {
+      const b = x.c("box", 80 + i * 292, 130, 272, 120);
+      const nn = el(b, "big", n); nn.style.fontSize = "48px";
+      if (i === 4) nn.style.color = "var(--ok)";
+      el(b, "lbl", l).style.fontSize = "15px";
+      x.at(b, 0.4 + i * 0.5, 0.5);
+      if (i < 4) x.at(x.c("arrow", 352 + i * 292, 170, 20, 30, "›"), 0.6 + i * 0.5, 0.3, 0);
+    });
+    const stats = x.c("row", 80, 272, 1440, 40);
+    stats.style.cssText += ";font-family:var(--mono);font-size:16px;color:var(--muted);gap:28px";
+    [RUN.calls + " model calls (" + RUN.live + " live, " + RUN.replayed + " replayed from cache)", RUN.cost + " model cost, cap $10", RUN.time, RUN.review + " items in the review queue"].forEach((t) => span(stats, null, t));
+    x.at(stats, 3, 0.5);
+    const cols = [
+      ["ctl", "LangGraph controller", "graph.py", "detect → estimate → rank → select → explore ⇄ rework → summarize → write; checkpoints; budget stops"],
+      ["ret", "Retrieval", "retrieval/ · agents/retrieval.py · ingest/", "hybrid BM25 + dense search, RRF, cross-encoder rerank, per period; the corpus and index"],
+      ["chg", "Change Analysis", "compare/ · tot/", "alignment, materiality (Opus), Tree-of-Thought generator and critic (Haiku), beam and pruning"],
+      ["fin", "Financial Analysis", "finance/", "XBRL fact store, fixed metric catalog, metric scan, metric checks inside the search"],
+      ["ver", "Verification & Reporting", "agents/verification.py · tot/labeling.py · report/", "citation checks, entailment judge (Opus), labels, summary (Opus), brief and audit trail"],
+      ["off", "Shared", "tree_mcp/ · llm/ · ui/", "MCP tree store, LLM client with ledger and replay cache, Streamlit app"],
+    ];
+    cols.forEach(([k, name, code, what], i) => {
+      const b = x.c("box", 80 + (i % 3) * 485, 340 + Math.floor(i / 3) * 236, 465, 216);
+      b.style.borderColor = "var(--" + k + ")";
+      const hh = el(b, null); hh.style.cssText = "display:flex;align-items:center;gap:8px;font-family:var(--cond);font-weight:700;font-size:22px";
+      const d = span(hh, null, ""); d.style.cssText = "width:12px;height:12px;border-radius:50%;background:var(--" + k + ")";
+      span(hh, null, name);
+      const c = el(b, "mono", code); c.style.cssText = "font-size:14px;margin-top:8px;color:var(--ink);font-weight:500";
+      const w = el(b, null, what); w.style.cssText = "font-size:16px;margin-top:8px;color:var(--muted);line-height:1.4";
+      x.at(b, 4 + i * 0.8, 0.5);
+    });
+    return x;
+  }
+
+  // ----- The persistent frame ----------------------------------------------------------------
+  const stage = $("stage");
+  const hdr = place(el(stage, "abs hdr"), 24, 14);
+  const hNum = el(hdr, "num"), hTtl = el(hdr, "ttl"), hRun = el(hdr, "run");
+  hRun.textContent = "Hershey · 10-K FY2025 vs FY2024\nsimplified from run " + RUN.id;
+  hRun.style.whiteSpace = "pre";
+
+  const ctl = el(stage, "abs panel ctl");
+  const ch = el(ctl, "head");
+  el(ch, null, "LangGraph controller");
+  el(ch, null, "graph.py · build_graph()");
+  const ctlState = el(ch, null, ""); ctlState.style.marginTop = "2px";
+  const svgNS = "http://www.w3.org/2000/svg";
+  const gsvg = document.createElementNS(svgNS, "svg");
+  gsvg.setAttribute("width", "272"); gsvg.setAttribute("height", "800");
+  ctl.appendChild(gsvg);
+  const defs = document.createElementNS(svgNS, "defs");
+  const marker = document.createElementNS(svgNS, "marker");
+  marker.setAttribute("id", "ah"); marker.setAttribute("viewBox", "0 0 10 10"); marker.setAttribute("refX", "8"); marker.setAttribute("refY", "5");
+  marker.setAttribute("markerWidth", "7"); marker.setAttribute("markerHeight", "7"); marker.setAttribute("orient", "auto-start-reverse");
+  const mp = document.createElementNS(svgNS, "path"); mp.setAttribute("d", "M0 0 L10 5 L0 10 z"); mp.setAttribute("fill", "currentColor");
+  marker.appendChild(mp); defs.appendChild(marker); gsvg.appendChild(defs);
+  const nodeEls = {};
+  const geo = {};
+  GRAPH.forEach((n) => {
+    const x = n.x || 36, w = n.w || 146;
+    geo[n.id] = { x, y: n.y, w, h: 40 };
+    const e = place(el(ctl, "gnode" + (n.term ? " term" : "")), x, n.y, w);
+    if (n.term) { e.textContent = n.id; e.style.width = "70px"; e.style.left = (x + 38) + "px"; geo[n.id].x = x + 38; geo[n.id].w = 70; }
+    else {
+      span(e, null, n.id);
+      const dots = el(e, "dots");
+      (n.ag || []).forEach((k) => { const i = document.createElement("i"); i.style.background = "var(--" + k + ")"; dots.appendChild(i); });
+    }
+    nodeEls[n.id] = e;
+  });
+  const EDGES = [
+    ["START", "detect"], ["detect", "estimate"], ["estimate", "rank"], ["rank", "select"], ["select", "explore"],
+    ["explore", "summarize"], ["summarize", "write"], ["write", "END"],
+  ];
+  const edgeEls = {};
+  function line(d, key, dashed) {
+    const p = document.createElementNS(svgNS, "path");
+    p.setAttribute("d", d); p.setAttribute("fill", "none"); p.setAttribute("stroke-width", "2");
+    p.setAttribute("marker-end", "url(#ah)");
+    if (dashed) p.setAttribute("stroke-dasharray", "4 3");
+    gsvg.appendChild(p);
+    edgeEls[key] = p;
+    return p;
+  }
+  EDGES.forEach(([a, b]) => {
+    const A = geo[a], B = geo[b];
+    const x = 36 + 73;
+    line("M" + x + " " + (A.y + 40) + " L" + x + " " + (B.y - 2), a + ">" + b);
+  });
+  // explore ⇄ rework, and explore's own loop to the next change.
+  const E = geo.explore, R = geo.rework;
+  line("M" + (E.x + E.w) + " " + (E.y + 12) + " L" + (R.x - 2) + " " + (R.y + 12), "explore>rework");
+  line("M" + (R.x) + " " + (R.y + 30) + " L" + (E.x + E.w + 2) + " " + (E.y + 30), "rework>explore");
+  line("M" + (E.x + 20) + " " + (E.y + 40) + " C " + (E.x - 26) + " " + (E.y + 76) + ", " + (E.x - 30) + " " + (E.y - 30) + ", " + (E.x + 8) + " " + (E.y - 2), "explore>explore");
+  const loopLbl = place(el(ctl, "mono"), 14, E.y + 48, 140); loopLbl.textContent = "↺ next change"; loopLbl.style.cssText += ";position:absolute;font-size:11px;color:var(--muted)";
+  const rwLbl = place(el(ctl, "mono"), R.x - 4, R.y + 46, 90); rwLbl.textContent = "≤ 2 rounds"; rwLbl.style.cssText += ";position:absolute;font-size:11px;color:var(--muted)";
+  const foot = el(ctl, "foot");
+  const lg = el(foot, "lg");
+  [["ret", "Retrieval"], ["chg", "Change"], ["fin", "Financial"], ["ver", "Verification"]].forEach(([k, n]) => { const s = span(lg, null, n); s.style.setProperty("--c", "var(--" + k + ")"); });
+  el(foot, null, "Routing, retry limits and budget stops are code, not model judgment. State is checkpointed after every step.");
+
+  const agentEls = {};
+  Object.entries(AGENTS).forEach(([k, a]) => {
+    const e = place(el(stage, "abs agent"), a.x, 72);
+    e.style.setProperty("--c", "var(--" + k + ")");
+    el(e, "nm", a.name);
+    el(e, "md", a.model);
+    const d = el(e, "doing", "");
+    agentEls[k] = { e, d };
+  });
+  const infraBox = el(stage, "abs infra");
+  const infraEls = {};
+  Object.entries(INFRA).forEach(([k, t]) => { infraEls[k] = span(infraBox, "chip", t); });
+
+  const canvas = el(stage, "abs panel canvas");
+  const side = el(stage, "abs side");
+  const docCard = el(side, "card doc");
+  const builtEl = el(side, "built");
+  const codeCard = el(side, "card code");
+  const notesEl = el(side, "notes");
+  const prog = el(stage, "abs prog"); const progFill = el(prog, null);
+  const titleO = el(stage, "abs overlay"), resultsO = el(stage, "abs overlay");
+  const titleX = buildTitle(titleO), resultsX = buildResults(resultsO);
+
+  // ----- Rendering ---------------------------------------------------------------------------
+  let cur = -1, sceneX = null, noteEls = [];
+  function enter(i) {
+    cur = i;
+    const s = SCENES[i];
+    hNum.textContent = "Step " + (i + 1) + " of " + SCENES.length;
+    hTtl.textContent = s.title;
+    titleO.classList.toggle("show", s.overlay === "title");
+    resultsO.classList.toggle("show", s.overlay === "results");
+    canvas.replaceChildren();
+    sceneX = null;
+    if (s.build) { sceneX = Ctx(canvas); s.build(sceneX); }
+    // Controller
+    const at = s.nodes.length ? Math.min(...s.nodes.map((n) => ORDER.indexOf(n))) : (s.allVisited ? ORDER.length : -1);
+    GRAPH.forEach((n, k) => {
+      const e = nodeEls[n.id];
+      const active = s.nodes.includes(n.id);
+      e.classList.toggle("active", active);
+      e.classList.toggle("visited", !active && (s.allVisited || (at > 0 && k < at && n.id !== "rework") || (n.id === "explore" && s.id === "rework")));
+    });
+    Object.entries(edgeEls).forEach(([key, p]) => {
+      const [a, b] = key.split(">");
+      const hot = (s.nodes.includes(b) && (nodeEls[a].classList.contains("visited") || nodeEls[a].classList.contains("active")));
+      p.setAttribute("stroke", hot ? cssVar("--ctl") : cssVar("--line"));
+      p.style.color = hot ? cssVar("--ctl") : cssVar("--line");
+    });
+    ctlState.textContent = s.idle ? s.idle : (s.nodes.length ? "node: " + s.nodes.join(" + ") : (s.allVisited ? "finished at END" : "the graph"));
+    ctlState.style.color = "var(--muted)";
+    // Agents and infrastructure
+    Object.entries(agentEls).forEach(([k, a]) => {
+      const doing = s.agents[k];
+      a.e.classList.toggle("on", !!doing);
+      a.e.style.opacity = doing || !Object.keys(s.agents).length ? "1" : ".45";
+      a.d.textContent = doing || "";
+    });
+    Object.entries(infraEls).forEach(([k, e]) => e.classList.toggle("on", s.infra.includes(k)));
+    // Design, built-differently note, code
+    docCard.replaceChildren();
+    const dl = el(docCard, "eyebrow", "Design document");
+    (s.design || []).forEach((d) => {
+      const r = el(docCard, "ref");
+      el(r, "dn", d.dn); el(r, "ds", d.ds); el(r, "dt", d.dt);
+    });
+    docCard.hidden = !s.design;
+    builtEl.replaceChildren();
+    if (s.built) { const bb = document.createElement("b"); bb.textContent = "As built"; builtEl.replaceChildren(bb, document.createTextNode(s.built)); }
+    builtEl.hidden = !s.built;
+    codeCard.replaceChildren();
+    el(codeCard, "eyebrow", "Code (src/sec_agent/)");
+    (s.code || []).forEach(([p, w]) => { const l = el(codeCard, "ln"); el(l, "p", p); el(l, "w", w); });
+    codeCard.hidden = !s.code;
+    notesEl.replaceChildren();
+    noteEls = (s.notes || []).map(([t0, txt]) => [t0, el(notesEl, "n", txt)]);
+    document.querySelectorAll(".chap").forEach((c, k) => c.classList.toggle("cur", k === i));
+  }
+  function sceneAt(t) {
+    for (let i = SCENES.length - 1; i >= 0; i--) if (t >= SCENES[i].start) return i;
+    return 0;
+  }
+  function render(t) {
+    t = Math.max(0, Math.min(total - 0.001, t));
+    const i = sceneAt(t);
+    if (i !== cur) enter(i);
+    const s = SCENES[i], tau = t - s.start;
+    if (sceneX) sceneX.update(tau);
+    if (s.overlay === "title") titleX.update(tau);
+    if (s.overlay === "results") resultsX.update(tau);
+    for (const [t0, e] of noteEls) {
+      const p = reduced ? (tau >= t0 ? 1 : 0) : ease((tau - t0) / 0.5);
+      e.style.opacity = 0.15 + 0.85 * p;
+    }
+    progFill.style.width = (100 * t / total) + "%";
+  }
+
+  // ----- Playback ----------------------------------------------------------------------------
+  let t = 0, playing = false, last = 0, raf = 0;
+  const scrub = $("scrub"), time = $("time"), play = $("play");
+  scrub.max = String(total);
+  function show(nt) { t = Math.max(0, Math.min(total, nt)); render(t); scrub.value = String(t); time.textContent = fmt(t) + " / " + fmt(total); }
+  function frame(now) {
+    if (!playing) return;
+    t += (now - last) / 1000; last = now;
+    if (t >= total) { show(total - 0.001); setPlaying(false); return; }
+    show(t);
+    raf = requestAnimationFrame(frame);
+  }
+  function setPlaying(on) {
+    playing = on;
+    play.textContent = on ? "❚❚ Pause" : "▶ Play";
+    if (on) { if (t >= total - 0.01) t = 0; last = performance.now(); raf = requestAnimationFrame(frame); }
+    else cancelAnimationFrame(raf);
+  }
+  play.addEventListener("click", () => setPlaying(!playing));
+  $("prev").addEventListener("click", () => { const i = sceneAt(t); show(SCENES[t - SCENES[i].start > 1 ? i : Math.max(0, i - 1)].start); });
+  $("next").addEventListener("click", () => { const i = sceneAt(t); if (i < SCENES.length - 1) show(SCENES[i + 1].start); });
+  scrub.addEventListener("input", () => show(Number(scrub.value)));
+  $("full").addEventListener("click", () => {
+    const w = $("wrap");
+    try { const r = w.requestFullscreen && w.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* not allowed here */ }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" && e.target.type !== "range") return;
+    if (e.key === " ") { e.preventDefault(); setPlaying(!playing); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); $("next").click(); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); $("prev").click(); }
+  });
+
+  // Fit the stage to its frame.
+  const wrap = $("wrap");
+  function fit() { const s = wrap.clientWidth / 1600, v = wrap.clientHeight / 900; stage.style.transform = "scale(" + Math.min(s, v) + ")"; }
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(wrap); else window.addEventListener("resize", fit);
+  fit();
+
+  // Chapters and the code map, built from the same data.
+  const chapWrap = $("chapters");
+  SCENES.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chap";
+    el(b, "m", (i + 1) + " · " + fmt(s.start) + (s.nodes.length ? " · node " + s.nodes.join(" + ") : ""));
+    el(b, "t", s.chapter || s.title);
+    const ag = el(b, "ag");
+    Object.keys(s.agents).forEach((k) => { const sp = span(ag, null, AGENTS[k].name); sp.style.setProperty("--c", "var(--" + k + ")"); });
+    if (s.design) el(b, "m", s.design.map((d) => d.dn).join(" · "));
+    b.addEventListener("click", () => { show(s.start); });
+    chapWrap.appendChild(b);
+  });
+  const MAP = [
+    ["Four agents, no planner; deterministic routing", "Multi-Agent Architecture Plan", "ctl", "graph.py: build_graph(), Stages, Workflow"],
+    ["Typed records through shared state", "Multi-Agent Architecture Plan", "ctl", "schemas.py, contracts.py, graph.py: RunState"],
+    ["Pinned corpus from EDGAR", "RAG Design Integration", "ret", "edgar/corpus.py, edgar/client.py, config/corpus.yaml"],
+    ["Parse by Item; validation gate before indexing", "RAG Design Integration; Safety Plan", "ret", "ingest/pipeline.py, ingest/sections.py, ingest/audit.py, ingest/fallback.py"],
+    ["Paragraph chunks with metadata", "RAG Design Integration", "ret", "ingest/chunker.py: chunk_section()"],
+    ["Vector index; DuckDB as source of truth", "RAG Design Integration", "ret", "ingest/index.py: ChunkIndex; finance/fact_store.py: FactStore"],
+    ["XBRL figures and a fixed metric catalog", "Agent Design Refinement (tool use)", "fin", "edgar/xbrl.py, finance/metrics.py: MetricCatalog, config/metrics.yaml"],
+    ["Aligned paragraph diff", "RAG Design Integration; DESIGN_CHANGES gap 3", "chg", "compare/align.py: align_comparison()"],
+    ["Metric scan (Financial pass 1)", "Multi-Agent Architecture Plan", "fin", "finance/scan.py: scan_comparison()"],
+    ["Cost estimate, confirmation and $10 cap", "Safety Plan (runtime monitoring)", "ctl", "graph.py: estimate, estimate_cost(); llm/ledger.py: CostLedger; cli.py"],
+    ["Materiality classifier (Opus)", "Agent Design Refinement", "chg", "compare/materiality.py: rank_changes()"],
+    ["Materiality order; cap of 10 changes", "Tree-of-Thought Design; DESIGN_CHANGES departure 4", "ctl", "graph.py: select, select_changes()"],
+    ["ToT generator", "Tree-of-Thought Design §2.4", "chg", "tot/generator.py: ThoughtGenerator"],
+    ["Critic and scoring rubric", "Tree-of-Thought Design §2.3", "chg", "tot/critic.py, tot/scoring.py, config/scoring.yaml"],
+    ["Beam, pruning, ties and stop rules", "Tree-of-Thought Design §2.3–2.4", "chg", "tot/controller.py: explore_change(), select_beam(), gather_evidence()"],
+    ["Hybrid search, rerank, per-period retrieval", "RAG Design Integration", "ret", "retrieval/hybrid.py, retrieval/rerank.py, retrieval/tools.py"],
+    ["ReAct rewording loop (built, off by default)", "Agent Design Refinement; DESIGN_CHANGES departure 2", "ret", "agents/retrieval.py: RetrievalAgent"],
+    ["Metric checks inside the search (Financial pass 2)", "Multi-Agent Architecture Plan", "fin", "finance/metrics.py: MetricCatalog as MetricChecker"],
+    ["Tree store behind MCP", "Tree-of-Thought Design §2.4; Multi-Agent Plan", "off", "tree_mcp/server.py, tree_mcp/store.py, tree_mcp/client.py"],
+    ["Citation checker", "Agent Design Refinement (tool use); Safety Plan", "ver", "agents/verification.py: check_citations()"],
+    ["Fresh-context entailment judge", "Multi-Agent Architecture Plan", "ver", "agents/verification.py: judge_entailment()"],
+    ["Labels and the causal-language rule", "Agent Design Refinement", "ver", "tot/labeling.py: label_result(); agents/verification.py: find_causal_language()"],
+    ["Verification retry loop (≤ 2 rounds)", "Multi-Agent Plan; DESIGN_CHANGES departure 3", "ctl", "graph.py: rework, after_explore(); tot/rework.py: rework_claim()"],
+    ["Checked summary with template fallback", "Safety Plan (output constraints)", "ver", "report/summary.py: write_summary(), template_summary()"],
+    ["Brief and audit trail with [C1] references", "Safety Plan §7", "ver", "report/brief.py: write_run(), check_brief()"],
+    ["Non-blocking human review queue", "Safety Plan §4", "ver", "report/run_view.py: review_items(); ui/streamlit_app.py"],
+    ["LLM access, cost ledger, replay cache", "Safety Plan; DESIGN_CHANGES departure 8", "off", "llm/client.py, llm/ledger.py, llm/cache.py"],
+    ["Checkpoint and resume", "DESIGN_CHANGES departure 6", "ctl", "graph.py: AsyncSqliteSaver checkpointer, run_analysis(resume=True)"],
+  ];
+  const NAMES = { ctl: "Controller", ret: "Retrieval", chg: "Change Analysis", fin: "Financial Analysis", ver: "Verification & Reporting", off: "Shared" };
+  const table = $("codemap");
+  const thead = document.createElement("thead"); const hr = document.createElement("tr");
+  ["Design element", "Design document", "Agent", "Code"].forEach((h) => { const th = document.createElement("th"); th.textContent = h; hr.appendChild(th); });
+  thead.appendChild(hr); table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  MAP.forEach(([a, d, k, c]) => {
+    const tr = document.createElement("tr");
+    const t1 = document.createElement("td"); t1.textContent = a;
+    const t2 = document.createElement("td"); t2.textContent = d;
+    const t3 = document.createElement("td"); const s = span(t3, "ag", NAMES[k]); s.style.setProperty("--c", "var(--" + k + ")");
+    const t4 = document.createElement("td"); const code = document.createElement("code"); code.textContent = c; t4.appendChild(code);
+    tr.append(t1, t2, t3, t4); tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  show(0);
+  // For exporting video frames: render any moment exactly, and show the stage alone.
+  window.__walkthrough = { total, seek: (s) => show(s), record: () => { document.documentElement.classList.add("recording"); fit(); }, scenes: SCENES.map((s) => [s.id, s.start, s.dur]) };
+})();
+</script>
+</body></html>
