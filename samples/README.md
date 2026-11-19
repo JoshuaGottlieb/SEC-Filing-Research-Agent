@@ -33,7 +33,7 @@ Click a run in the table. GitHub renders `brief.md` directly. Start with [HSY-yo
 
 The app shows each run's brief, its evidence trees, a step-by-step replay, the review queue and the cost and time. It reads only the files in this folder and never calls a model.
 
-You need Python 3.12 and git. The install is about 730 MB, mostly Streamlit and pandas. The full setup in the main README needs about 2.5 GB and a 15-minute indexing step.
+You need Python 3.12 and git. The install is about 730 MB, mostly Streamlit and pandas. The full setup in the [main README](../README.md#setup) needs about 2.5 GB and a 15-minute indexing step.
 
 **1. Fetch only the folders the app needs** (`src/`, `config/` and `samples/`, about 17 MB):
 

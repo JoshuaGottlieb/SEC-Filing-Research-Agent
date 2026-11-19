@@ -156,4 +156,4 @@ A reply cut off mid-JSON is charged its worst case, and only that branch ends.
 - **Latency.** Cutting it would let a run explore more changes in the same time. Fewer and faster model calls come first, since they are three quarters of a change's time; then GPU support for local search. See departure 4.
 - **Rewording.** It stays off until it is measured against the labeled findings.
 - **Live runs from the app.** A future enhancement, not currently included: the Streamlit app shows saved runs only, and runs start from `sec-agent analyze` (see gap 12).
-- **Parser rejections.** The gate still rejects some sound filings from very small companies (see the README's known limits).
+- **Parser rejections.** The gate still rejects some sound filings from very small companies (see the known limits in [src/sec_agent/ingest/](src/sec_agent/ingest/README.md#known-limits)).
