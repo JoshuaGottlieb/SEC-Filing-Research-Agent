@@ -26,9 +26,10 @@ A deterministic LangGraph controller runs the steps in order; no model decides t
 7. `write`: the `Brief` record, each finding's tree, and `write_run`, which refuses to write a
    brief that breaks a rule.
 
-`explore` does what `explore_changes` does (budget snapshot after each change; once the dollar
-cap stops a search, the remaining changes are filed unexamined), one change at a time, so the
-graph can checkpoint between changes and label each change as soon as its search ends.
+`explore` searches the ranked changes in order, one at a time, so the graph can checkpoint
+between changes and label each change as soon as its search ends. It writes the budget snapshot
+after each change, and once the dollar cap stops a search, the remaining changes are filed
+unexamined.
 
 Budget stops. The ledger's dollar cap is one per run. `explore_change` catches
 `BudgetExceededError` itself. `label_result` and `write_summary` do not, so the graph decides:

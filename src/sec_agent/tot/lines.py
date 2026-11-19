@@ -7,6 +7,8 @@ moved with). Kept apart from both so neither imports the other for it.
 
 from __future__ import annotations
 
+import re
+
 from sec_agent.schemas import MetricName
 
 # How filings name each metric. Chosen by hand from Hershey's MD&A and statements ("cost of sales",
@@ -31,9 +33,29 @@ METRIC_WORDS: dict[MetricName, tuple[str, ...]] = {
 }
 
 
+def _patterns() -> list[tuple[re.Pattern[str], frozenset[MetricName]]]:
+    names_by_word: dict[str, set[MetricName]] = {}
+    for name, words in METRIC_WORDS.items():
+        for word in words:
+            names_by_word.setdefault(word, set()).add(name)
+    # Whole words only (a plural allowed), and not after a hyphen: "non-operating income" is not
+    # operating income. Longest first, so "cost of revenue" is read, and blanked out, before
+    # "revenue" is looked for inside it.
+    return [
+        (re.compile(rf"(?<![\w-]){re.escape(word)}s?(?!\w)"), frozenset(names))
+        for word, names in sorted(names_by_word.items(), key=lambda item: -len(item[0]))
+    ]
+
+
+_PATTERNS = _patterns()
+
+
 def lines_named(text: str) -> frozenset[MetricName]:
     """The financial lines `text` names, as filings word them (`METRIC_WORDS`)."""
     lowered = text.casefold()
-    return frozenset(
-        name for name, words in METRIC_WORDS.items() if any(word in lowered for word in words)
-    )
+    found: set[MetricName] = set()
+    for pattern, names in _PATTERNS:
+        lowered, count = pattern.subn(lambda match: " " * len(match.group()), lowered)
+        if count:
+            found |= names
+    return frozenset(found)

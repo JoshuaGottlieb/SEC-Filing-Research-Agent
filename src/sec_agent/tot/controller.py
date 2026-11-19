@@ -33,7 +33,7 @@ from enum import StrEnum
 from pydantic import model_validator
 
 from sec_agent.contracts import MetricChecker, MetricLookup, MetricMoveLookup, Retriever
-from sec_agent.llm.ledger import BudgetExceededError, CostLedger
+from sec_agent.llm.ledger import BudgetExceededError
 from sec_agent.schemas import (
     Change,
     ChangeKind,
@@ -44,7 +44,6 @@ from sec_agent.schemas import (
     MetricName,
     NodeStatus,
     NumericCheck,
-    RankedChanges,
     Record,
     RetrievedPassage,
     Section,
@@ -61,7 +60,7 @@ from sec_agent.tot.critic import (
 from sec_agent.tot.generator import ThoughtGenerator, TriedSearch
 from sec_agent.tot.scoring import ScoringConfig
 from sec_agent.tree_mcp.client import TreeClient
-from sec_agent.tree_mcp.store import BudgetUse, NodeUpdate
+from sec_agent.tree_mcp.store import NodeUpdate
 
 # The reformulated search is one search of everywhere (`section=None`), and nothing else. Measured
 # on the real retriever (HSY FY2025 against FY2024, 2026-11-06, one filing pair and a handful of
@@ -175,6 +174,10 @@ class ToTContext:
     config: ScoringConfig
 
 
+# Score gaps are compared at this many decimal places; rubric scores have far fewer.
+GAP_DIGITS = 9
+
+
 def select_beam[T](
     items: Sequence[T],
     width: int,
@@ -193,11 +196,18 @@ def select_beam[T](
     if len(ranked) <= width:
         return ranked, [], False
     cutoff = score(ranked[width - 1])
-    if cutoff - score(ranked[width]) > margin:
+
+    def gap(item: T) -> float:
+        # Rounded, because 0.80 - 0.75 is 0.05000000000000004 in floating point: unrounded, a
+        # score exactly the margin above the cutoff was neither clear of it nor contending, and
+        # fell out of both lists, so the branch was never kept or pruned.
+        return round(score(item) - cutoff, GAP_DIGITS)
+
+    if -gap(ranked[width]) > margin:
         return ranked[:width], ranked[width:], False
-    clear = [item for item in ranked if score(item) > cutoff + margin]
-    contenders = [item for item in ranked if abs(score(item) - cutoff) <= margin]
-    below = [item for item in ranked if score(item) < cutoff - margin]
+    clear = [item for item in ranked if gap(item) > margin]
+    below = [item for item in ranked if gap(item) < -margin]
+    contenders = [item for item in ranked if -margin <= gap(item) <= margin]
     # sorted() is stable, so a full tie keeps the generator's order.
     ordered = sorted(contenders, key=tie_key)
     slots = width - len(clear)
@@ -257,6 +267,9 @@ class _Candidate:
     in_beam: bool = False
     # Set when the generator failed to propose sources for it.
     failure: str | None = None
+    # Whether sources were asked for: a budget stop can end the round before a candidate in the
+    # beam has its turn, and it must not then be closed as if it had none.
+    expanded: bool = False
     branches: list[_Branch] = field(default_factory=list)
     kept: list[_Branch] = field(default_factory=list)
 
@@ -371,6 +384,8 @@ class _Exploration:
         self._claims: list[str] = []
         self._failures: list[str] = []
         self._stopped: StopReason | None = None
+        # What stopped the current round, if anything; `_stopped` covers the whole search.
+        self._round_stop: StopReason | None = None
         self._generation_failed = False
         self._node_evaluations = 0
         self._model_calls = 0
@@ -405,6 +420,7 @@ class _Exploration:
     async def _round(self, number: int, limit: int) -> list[_Candidate]:
         self._used, self._limit = 0, limit
         self._generation_failed = False
+        self._round_stop = None
         candidates: list[_Candidate] = []
         try:
             await self._propose(f"{self._prefix}:r{number}", candidates)
@@ -423,6 +439,7 @@ class _Exploration:
         return await self._finalize(candidates)
 
     def _stop(self, reason: StopReason) -> None:
+        self._round_stop = reason
         # A spent dollar budget outranks a spent node budget: it also stops the other findings.
         if self._stopped is not StopReason.RUN_BUDGET:
             self._stopped = reason
@@ -526,6 +543,7 @@ class _Exploration:
             count=self._config.beam.sources,
         )
         self._model_calls += 1
+        candidate.expanded = True
         if proposal.failure:
             candidate.failure = proposal.failure
             self._failures.append(f"{candidate.node.node_id}: {proposal.failure}")
@@ -693,6 +711,12 @@ class _Exploration:
             candidate.kept = kept
             if kept:
                 survivors.append(candidate)
+            elif not candidate.expanded:
+                # The round stopped before its turn. Under the dollar cap it is closed as not
+                # judged (the user's decision, 2026-11-13); under the node cap it stays pending,
+                # as an unjudged branch does.
+                if self._stopped is StopReason.RUN_BUDGET:
+                    await self._close(candidate.node, NOT_JUDGED_REASON)
             elif all(branch.decided for branch in candidate.branches):
                 if candidate.failure:
                     reason = f"unresolved: {candidate.failure}"
@@ -844,8 +868,13 @@ class _Exploration:
             return f"a model failed before any explanation could be tested: {self._failures[-1]}"
         if self._stopped is StopReason.RUN_BUDGET:
             return "the run's dollar budget was reached before any explanation had evidence"
-        if self._stopped is StopReason.NODE_BUDGET:
+        if self._round_stop is StopReason.NODE_BUDGET:
             return "the finding's node budget was used up before any explanation had evidence"
+        if self._stopped is StopReason.NODE_BUDGET:
+            return (
+                "the first round used up its node budget before any explanation had evidence, "
+                "and every candidate in the fresh round was pruned"
+            )
         return "every candidate explanation was pruned, in the first round and in the fresh one"
 
     # -- the tree store -----------------------------------------------------------------------
@@ -895,49 +924,3 @@ async def gather_evidence(  # noqa: PLR0913 -- one rework round, its inputs pass
         raise ValueError(f"node {candidate.node_id!r} is not a candidate for {change.change_id!r}")
     exploration = _Exploration(change, comparison, context, candidate.run_id)
     return await exploration.gather(candidate, tried, prefix)
-
-
-async def explore_changes(
-    ranked: RankedChanges,
-    comparison: Comparison,
-    context: ToTContext,
-    ledger: CostLedger,
-    run_id: str,
-    *,
-    starting_evaluations: int = 0,
-) -> tuple[ToTResult, ...]:
-    """Search each change in order of materiality, until the run's dollar budget is reached.
-
-    The changes not reached come back unresolved with no tree, for human review, and are the least
-    material ones. The budget snapshot in the tree store is rewritten after each change.
-    `starting_evaluations` carries a resumed run's count forward, as a new ledger starts at 0.
-    """
-    results: list[ToTResult] = []
-    total = starting_evaluations
-    out_of_budget = False
-    for change in ranked.changes:
-        if out_of_budget:
-            results.append(
-                ToTResult(
-                    change_id=change.change_id,
-                    tree_root_id=None,
-                    outcome=Outcome.UNRESOLVED,
-                    stopped=StopReason.RUN_BUDGET,
-                    review_reason="the run's dollar budget was reached before this change was "
-                    "examined",
-                )
-            )
-            continue
-        result = await explore_change(change, comparison, context, run_id)
-        results.append(result)
-        total += result.node_evaluations
-        await context.tree.record_budget(
-            BudgetUse(
-                run_id=run_id,
-                spent_usd=ledger.spent_usd,
-                max_usd=ledger.max_usd,
-                node_evaluations=total,
-            )
-        )
-        out_of_budget = result.stopped is StopReason.RUN_BUDGET
-    return tuple(results)

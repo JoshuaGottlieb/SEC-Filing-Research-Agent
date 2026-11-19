@@ -1665,6 +1665,23 @@ def test_lines_are_read_as_filings_word_them():
     assert labeling.fits_lines("Gross margin fell.", frozenset())
 
 
+@pytest.mark.parametrize(
+    ("text", "named"),
+    [
+        ("Higher input costs raised cost of revenue.", {"cost_of_goods_sold", "cogs_ratio"}),
+        ("Non-operating income fell.", set()),
+        ("Revenues rose.", {"revenue", "revenue_growth"}),
+        (
+            "Net sales and cost of revenues both rose.",
+            {"revenue", "revenue_growth", "cost_of_goods_sold", "cogs_ratio"},
+        ),
+        ("Operating profits rose.", {"operating_income"}),
+    ],
+)
+def test_a_line_is_named_only_by_its_whole_name(text, named):
+    assert {name.value for name in labeling.lines_named(text)} == named
+
+
 async def test_the_quote_level_wording_is_written_from_the_confirming_quote_only():
     judge = ClaimJudge(
         {
@@ -1833,6 +1850,32 @@ async def test_a_judge_failure_on_the_back_reference_sends_the_finding_to_review
     assert TARIFFS.node_id in labeled.finding.review_reason
     # The claim's rework item carries the note, so a round that rules on the claim replaces it.
     assert labeled.rework[0].review_note == labeled.finding.review_reason
+
+
+async def test_two_judge_failures_on_one_claim_make_one_note_that_rework_clears():
+    judge = ClaimJudge(
+        {
+            (TARIFFS.thought, TEXTS["fits"]): LLMError("no parsable output"),
+            (CHAINED, BACK_JUDGED): LLMError("still no parsable output"),
+        }
+    )
+    # The back-reference restatement, then none for the plausible wording.
+    writer = QueuedRestater(CHAINED, None, None, None)
+    ctx = back_context(judge, writer)
+    result = resolved(
+        survivor(TARIFFS, branch(TARIFFS, 1, EvidenceSupport.STATES_CAUSE, cite("fits")))
+    )
+    labeled = await label_result(result, OPERATING_CHANGE, COMPARISON, ctx, RUN)
+    (note,) = labeled.review_notes
+    assert "no parsable output" in note and "still no parsable output" in note
+    assert labeled.rework[0].review_note == note
+
+    # The judge now confirms the claim on its own quote, so no note about it may remain.
+    judge.by_claim[(TARIFFS.thought, TEXTS["fits"])] = EntailmentVerdict.STATES_CAUSE
+    writer.queue = [ECHO]  # the claim as written, as the wording at the quote's level
+    after = await labeling.relabel_claim(labeled, TARIFFS.node_id, TARIFFS, (), COMPARISON, ctx)
+    assert after.finding.claims[0].label is ExplanationLabel.CONFIRMED
+    assert (after.review_notes, after.finding.review_reason) == ((), None)
 
 
 async def test_confirming_on_the_back_reference_clears_a_judge_failure_on_its_own_quotes():

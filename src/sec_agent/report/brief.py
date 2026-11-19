@@ -185,7 +185,11 @@ def parse_summary_line(line: str) -> tuple[str, tuple[str, ...]]:
 
 
 def format_summary_line(text: str, refs: Iterable[str]) -> str:
-    return f"{text.strip()} " + " ".join(f"[{ref}]" for ref in refs)
+    # One line however the text came: `check_brief` splits the summary into lines, so a line
+    # break inside a model's sentence (or a claim's text in the template) would leave a line
+    # citing nothing and stop the brief after the run's money was spent. `split()` breaks on
+    # every character `splitlines()` does.
+    return " ".join(text.split()) + " " + " ".join(f"[{ref}]" for ref in refs)
 
 
 def summary_line_problems(
