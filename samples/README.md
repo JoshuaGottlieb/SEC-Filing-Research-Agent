@@ -27,7 +27,7 @@ Each run folder holds:
 
 ## Read a brief on GitHub
 
-Click a run in the table. GitHub renders `brief.md` directly. Start with [HSY-yoy-10k](runs/HSY-yoy-10k-t81-20261115/brief.md), the run the demo video uses.
+Click a run in the table. GitHub renders `brief.md` directly. Start with [HSY-yoy-10k](runs/HSY-yoy-10k-t81-20261115/brief.md), Hershey's FY2025 10-K against its FY2024 10-K.
 
 ## Browse the runs in the app (about 5 minutes, no API key)
 
@@ -66,7 +66,7 @@ $env:SEC_AGENT_DATA_DIR = "samples"; $env:PYTHONPATH = "src"
 streamlit run src/sec_agent/ui/streamlit_app.py
 ```
 
-The app opens at <http://localhost:8501> on the first company and comparison in alphabetical order: Hershey, sequential quarters. To see the run the demo video uses, set **Comparison** in the sidebar to **Year over year (10-K)**. The **Company** and **Comparison** menus switch between the other runs.
+The app opens at <http://localhost:8501> on the first company and comparison in alphabetical order: Hershey, sequential quarters. To open HSY-yoy-10k, the run suggested above, set **Comparison** in the sidebar to **Year over year (10-K)**. The **Company** and **Comparison** menus switch between the other runs.
 
 **What to look at:**
 
