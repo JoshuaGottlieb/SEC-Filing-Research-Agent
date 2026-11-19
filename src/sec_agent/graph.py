@@ -152,9 +152,10 @@ from sec_agent.tree_mcp.store import BudgetUse
 
 # How many ranked changes a run explores unless told otherwise (user's decision, 2026-11-12, "for
 # now"). Chosen by hand: in Hershey's yoy-10k ranking it covers every importance-5 change and the
-# labeled tariff change (rank 10). Measured on the 9 full runs (T6.6, 2026-11-16; beam width 6, a
-# 4-core CPU machine): a change takes about 3.5 minutes of search, labeling and rework (median; 6
-# at p90, 8 at most), so 10 changes take 22 to 47 minutes and all 52 would take about 3 hours.
+# labeled tariff change (rank 10). Measured on the 9 full runs after the review fixes (T6.6 rerun,
+# 2026-11-19; beam width 6, a 4-core CPU machine): a change takes about 3.5 minutes of search,
+# labeling and rework (median 3.4; 5.5 at p90, under 8 at most), so 10 changes take 23 to 44
+# minutes and all 52 would take about 3 hours.
 DEFAULT_MAX_CHANGES = 10
 
 # What a search must leave free for after it: the entailment judge's and the summary's worst-case
@@ -170,12 +171,14 @@ LABELING_RESERVE_USD = 0.25
 # T6.3 test run measured $0.069 a batch over 76 batches (2026-11-15).
 MATERIALITY_BATCH_USD = 0.075
 # One change's search (generator, critic and retrieval on Haiku), labeling (the judge and the
-# claim writer) and rework rounds. Measured on the 9 full runs at beam width 6 (T6.6, 2026-11-16,
-# 84 changes not replayed): mean $0.085, median $0.079, p90 $0.146, max $0.253. Set at the mean.
-# The first paid run (3 changes at width 4, 2026-11-13) had measured about $0.04.
-PER_CHANGE_USD = 0.085
+# claim writer) and rework rounds. Measured on the 9 full runs at beam width 6 after the review
+# fixes (T6.6 rerun, 2026-11-19, all 90 changes live): mean $0.091, median $0.078, p90 $0.166,
+# max $0.221. Set at the mean. Before the fixes (2026-11-16, 84 changes) the mean was $0.085; the
+# first paid run (3 changes at width 4, 2026-11-13) had measured about $0.04.
+PER_CHANGE_USD = 0.091
 # The first paid run: $0.026 per summary call, and a rejected first draft made it two calls. Set
-# at two calls' worth (user's decision, 2026-11-13); the 9 full runs measured $0.043 to $0.067.
+# at two calls' worth (user's decision, 2026-11-13); the 9 full runs measured $0.042 to $0.057
+# after the review fixes ($0.043 to $0.067 before).
 SUMMARY_USD = 0.05
 
 # Review reasons the graph writes. Each must pass the causal-language check (`check_brief`).

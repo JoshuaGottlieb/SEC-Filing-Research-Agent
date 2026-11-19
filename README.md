@@ -60,7 +60,7 @@ The design's four agents (Retrieval, Change Analysis, Financial Analysis, and Ve
 
 Four ways to review the project, none of which needs an API key or ingestion:
 
-1. **Read a sample brief.** [samples/](samples/README.md) holds nine real runs: three companies by three comparisons, each with its brief, full audit trail, model-call ledger and step timings. Start with [the Hershey 10-K brief](samples/runs/HSY-yoy-10k-t81-20261115/brief.md), which compares Hershey's FY2025 10-K with its FY2024 10-K. GitHub renders it directly.
+1. **Read a sample brief.** [samples/](samples/README.md) holds nine real runs: three companies by three comparisons, each with its brief, full audit trail, model-call ledger and step timings. Start with [the Hershey 10-K brief](samples/runs/HSY-yoy-10k-t811live-20261119/brief.md), which compares Hershey's FY2025 10-K with its FY2024 10-K. GitHub renders it directly.
 2. **Browse the runs in the app.** The Streamlit app shows each run's brief, evidence trees, a step-by-step replay, the review queue and the cost and time. A light install of about 730 MB runs it on the samples in about 5 minutes; see [samples/README.md](samples/README.md#browse-the-runs-in-the-app-about-5-minutes-no-api-key).
 3. **Check the evaluation.** [docs/EVALUATION.md](docs/EVALUATION.md) reports every result. The hand-checked benchmark is in [eval/benchmark/](eval/benchmark/README.md), the scripts are under [eval/](eval/), and the retrieval and judge result files are committed beside their scripts.
 4. **Run the tests.** After the [setup](#setup) below (`uv sync --frozen` only), `uv run --frozen pytest` runs over 2,100 unit tests in about a minute. They need no network, no API key, no downloaded models and no ingested filings.
@@ -139,8 +139,8 @@ uv run --frozen sec-agent analyze TICKER --comparison yoy-10k|yoy-10q|seq-10q [o
 | `--resume ID` | Continue a stopped or killed run from its last finished change. Paid calls already made replay at no cost. |
 
 **Cost and time.** The estimate printed before each run is the guide. Measured on 9 runs of 10 changes each, on a 4-core CPU:
-- **Each change:** about $0.085 and 3.5 minutes, but up to $0.25 and 8 minutes. Three quarters of the time is waiting on model calls; the rest is local search.
-- **A run with the default 10 changes:** $0.55 to $1.29 and 22 to 47 minutes.
+- **Each change:** about $0.09 and 3.5 minutes, but up to $0.22 and 8 minutes. About 70% of the time is waiting on model calls; the rest is local search.
+- **A run with the default 10 changes:** $0.44 to $1.41 and 23 to 44 minutes.
 - **The first run on a comparison** also pays for materiality: about $0.07 per batch of 20 changes, 6 to 22 batches per comparison. Later runs replay it from the cache at no cost.
 
 The full measurements are in [docs/EVALUATION.md](docs/EVALUATION.md#cost-and-latency-t66-free-from-the-runs-above).

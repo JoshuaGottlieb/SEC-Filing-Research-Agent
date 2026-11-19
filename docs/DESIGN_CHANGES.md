@@ -139,7 +139,7 @@ Now:
 - the first round may use 55 nodes, 42 of its own plus 13 for retries;
 - a fresh round, if needed, may use 45.
 
-On HSY, causes kept rose from 5 to 6 of 8 (numeric) and from 7 to 8 of 8 (text). The cost is more surviving distractors and about 40% more searches per change. The dollar cap still bounds each run.
+On HSY, causes kept rose from 5 to 6 of 8 (numeric) and from 7 to 8 of 8 (text); a recheck after the review fixes gave the same 6 and 8. The cost is more surviving distractors and about 40% more searches per change. The dollar cap still bounds each run.
 
 **2. The Retrieval Agent's rewording is off by default.** Modules 2 and 5 have a bounded ReAct loop on Haiku (at most 3 rounds) that rewords a query when one filing comes back empty. It is built and tested (`agents/retrieval.py`), but switched off, so retrieval is one plain search.
 
@@ -153,13 +153,13 @@ As built:
 - A round stops if it would eat into the money reserved for labeling.
 - A claim whose quote fails the code checks is not retried. It stays out of the brief.
 
-**4. At most 10 changes are explored per run.** Modules 4 and 5 explore findings in materiality order until the budget runs out. The cap is set by wall time, not money: each explored change takes about 3.7 minutes on average and up to 8, so the run explores the 10 most material by default (`--max-changes`). The brief says how many were left, and `audit.json` lists them.
+**4. At most 10 changes are explored per run.** Modules 4 and 5 explore findings in materiality order until the budget runs out. The cap is set by wall time, not money: each explored change takes about 3.5 minutes on average and up to 8, so the run explores the 10 most material by default (`--max-changes`). The brief says how many were left, and `audit.json` lists them.
 
 Most of a change's time goes to two things:
-- **Model calls** take 76% of it, more than planned. A run of 10 changes sends 330 to 760 of them, and a typical call takes 1.4 to 4.5 seconds.
+- **Model calls** take 71% of it, more than planned. A run of 10 changes sends 410 to 770 of them, and a typical call takes 1.0 to 4.1 seconds.
 - **Local search** takes most of the rest. Embedding and cross-encoder reranking run on a 4-core CPU with no GPU, and would be far faster on a GPU.
 
-The evaluation measured the trade-off. A run of 10 changes costs $0.55 to $1.29 and takes 22 to 47 minutes on a 4-core CPU. In exchange, the agent covers fewer of the labeled material changes than the prompt-only baseline: 7 of 16 on the test split, against 13. The ones it missed were all found material but ranked below its 10 (see [EVALUATION.md](EVALUATION.md), T6.5).
+The evaluation measured the trade-off. A run of 10 changes costs $0.44 to $1.41 and takes 23 to 44 minutes on a 4-core CPU. In exchange, the agent covers fewer of the labeled material changes than the prompt-only baseline: 7 of 16 on the test split, against 13. The ones it missed were all found material but ranked below its 10 (see [EVALUATION.md](EVALUATION.md), T6.5).
 
 **5. Two budget checks before spending.** Modules 4 and 5 have a dollar cap that drops the least material findings. Two checks were added, so money is not spent on work the cap cannot finish:
 - Before materiality, the run needs enough free budget for the whole step, or it ends having spent nothing.
@@ -175,6 +175,8 @@ The evaluation measured the trade-off. A run of 10 changes costs $0.55 to $1.29 
 - When the judge says "implies", the claim is restated at the level its quote supports, then judged again.
 - One addition works the other way, recovering a confirmation the searches missed. A ratio claim its own quotes leave unconfirmed is tried once more, on the current filing's MD&A paragraph that names the ratio, gives both of its values and states a cause. In one Hershey run, the searches had retrieved only the six-month paragraphs, so gross margin had no confirmed cause although the 10-Q states one.
 - A `plausible` claim cannot cite a quote that covers a longer span than the change. A claim left with no quotes stays out of the brief.
+
+`confirmed` does not also require a second, independent branch to find the same cause. Each confirmed claim already rests on a verbatim quote from the right filing, period and section, a fresh-context judge's verdict that the quote states the cause, and the direction check against the metric. Requiring a corroborating branch would mostly drop causes a filing states once. In the evaluation on the fixed code, no distractor was asserted as fact on either split, and none of the agent's asserted causes on the test split was unsupported ([EVALUATION.md](EVALUATION.md), T6.5).
 
 **8. Claude through the official SDK.** Module 4 runs the generator and critic as LangChain chains, which would call Claude through `langchain-anthropic`. Claude is called through the `anthropic` SDK instead, wrapped in a LangChain `Runnable`, because current models reject forced tool choice and sampling parameters. The wrapper (`llm/client.py`) adds:
 - structured output, through `messages.parse`;
@@ -200,18 +202,23 @@ A reply cut off mid-JSON is charged its worst case, and only that branch ends.
 
 - **An explanation can be pruned for one wrong extra expectation.** Agreeing with the metric being explained earns an explanation nothing, so that it cannot survive on the change alone. If the only other metric it expects contradicts the filings, its numerical consistency is 0. The depth-1 pre-screen then prunes it, at a score of 0.25 against a threshold of 0.30.
   - On HSY's 10-K comparison, "lower sales volume compressed gross margin" was pruned this way. It also expected revenue to fall, but revenue rose on price. Lower volume still reached that brief, as a confirmed cause of the operating margin change.
-  - In the cached HSY runs this happened to 5 of 90 numeric explanations, all in the 10-K comparison. The other four expected SG&A's share of revenue to rise, which it did not.
+  - In the HSY runs on the fixed code this happened to 4 of 54 numeric explanations, 3 of them in the 10-K comparison. Two of the others expected SG&A's share of revenue to rise, which it did not; the fourth, in the sequential comparison, expected revenue growth to rise.
   - Counting the agreement whenever another metric is checked would score such an explanation 0.625, as the text form of a change already does. Because the problem is rare, this was left unchanged.
 
-- **Sequential causes are not flagged as year over year.** The 10-Qs explain each move only against the same quarter a year earlier. In the sequential comparisons, the agent offers those causes for the quarter-to-quarter move and almost never says they are year over year (1 of 32 asserted causes across both splits). Its quotes cite the right filing and period, so the problem is the wording, which a reader can misread.
+- **Sequential causes are not flagged as year over year.** The 10-Qs explain each move only against the same quarter a year earlier. In the sequential comparisons, the agent offers those causes for the quarter-to-quarter move and almost never says they are year over year (1 of 26 asserted causes across both splits). Its quotes cite the right filing and period, so the problem is the wording, which a reader can misread.
 - **Some claims are weak or unspecific.** In the blinded hand check, the reviewer found some supported claims weak or vague. The prompts were not changed for this; better claim prompting could improve it.
 - **Parser rejections.** The gate still rejects some sound filings from very small companies (see the known limits in [src/sec_agent/ingest/](../src/sec_agent/ingest/README.md#known-limits)).
+- **A missed search and missing evidence end the same way.** With rewording off (departure 2), a search that finds nothing is not retried in new words. An explanation whose evidence the search missed goes to review as unsupported, just like one the filing does not support.
+- **Some disclosures are untested.** The benchmark labels changes in the notes to the financial statements (an acquisition, a divestiture, litigation, credit facilities, a share repurchase), and materiality ranked them material. It labels no change in an accounting assumption, such as an estimate or a discount rate, and none that appears only in a table.
+- **Amended filings are not handled.** If a company files a 10-K/A or 10-Q/A that corrects figures, nothing marks the original figures as superseded or flags briefs built on them. The pinned corpus holds no amendments, so the evaluation never meets one.
 
 ## Future enhancements
 
-- **Latency.** Cutting it would let a run explore more changes in the same time. Fewer and faster model calls come first, since they are three quarters of a change's time; then GPU support for local search. See departure 4.
+- **Latency.** Cutting it would let a run explore more changes in the same time. Fewer and faster model calls come first, since they are about 70% of a change's time; then GPU support for local search. See departure 4.
 - **A wider search.** Test a wider beam, and more candidates and evidence sources per candidate. The current limits (6 candidates, all 6 kept, 6 sources each and 3 kept, node budgets of 55 and 45) are set to fit the time budget, not because a wider search was measured and found no better.
 - **Other models for each role.** Test other models to trade off latency, cost and quality, role by role. Only one such test was run: Sonnet against Haiku as the search model, on HSY (see [EVALUATION.md](EVALUATION.md)). The Opus roles (materiality, the judge, the brief) were not tested with cheaper or faster models.
 - **Models outside Claude.** Each role's model is a setting, but the client (`llm/client.py`) calls the Anthropic SDK only. A provider-neutral client would let any model serve each role, including other vendors' models and models run locally.
+- **Tests on tables and accounting assumptions.** Label changes in critical accounting estimates and in complex tables (debt maturities, segment results), and measure detection and support on them.
+- **Amended filings.** Detect 10-K/A and 10-Q/A filings when filings are fetched, mark the figures they supersede, and flag saved briefs that relied on them.
 - **Rewording.** It stays off until it is measured against the labeled findings.
 - **Live runs from the app.** The Streamlit app shows saved runs only, and runs start from `sec-agent analyze` (see gap 12).
