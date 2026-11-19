@@ -150,6 +150,12 @@ class LLMClient:
         effort: Effort | None = None,
         max_tokens: int | None = None,
     ) -> LLMResult[T]:
+        """One structured call for `role`, parsed into `output_type`.
+
+        The role sets the model and default limits. An identical earlier request replays from the
+        cache at no cost. Otherwise the call's worst-case cost is reserved against the budget
+        first, so a call that could pass the cap raises `BudgetExceededError` before it is sent.
+        """
         model, effort, max_tokens = self._settle(role, effort, max_tokens)
         key = self._key(model, system, user, output_type, effort, max_tokens)
         # A cache hit costs nothing but is still logged, so the ledger shows every call.

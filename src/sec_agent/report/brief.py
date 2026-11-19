@@ -13,7 +13,8 @@ end, with the reason.
 Two kinds of text reach the brief, and they are treated differently:
 
 - Text the system wrote (claims, the summary, change rationales, review reasons) goes through the
-  causal-language check: only a confirmed claim may say why something happened (gap 13).
+  causal-language check: only a confirmed claim may say why something happened (design gap 13,
+  DESIGN_CHANGES.md).
 - Filing text (quotes and changed paragraphs) is shown as a block quote and never checked: a
   filing's own "due to" is evidence, not a claim of ours. A quoted table row is shown under its
   table's opening lines, copied from the same chunk, so its columns can be read.
@@ -143,6 +144,7 @@ class Refs:
 
 
 def strongest_label(finding: Finding) -> ExplanationLabel:
+    """The best label among a finding's claims; unresolved when it has none."""
     labels = {claim.label for claim in finding.claims}
     return next((label for label in _LABEL_ORDER if label in labels), ExplanationLabel.UNRESOLVED)
 
@@ -185,6 +187,7 @@ def parse_summary_line(line: str) -> tuple[str, tuple[str, ...]]:
 
 
 def format_summary_line(text: str, refs: Iterable[str]) -> str:
+    """One summary sentence on one line, followed by its references, such as "[F1] [C2]"."""
     # One line however the text came: `check_brief` splits the summary into lines, so a line
     # break inside a model's sentence (or a claim's text in the template) would leave a line
     # citing nothing and stop the brief after the run's money was spent. `split()` breaks on
@@ -209,7 +212,7 @@ def summary_line_problems(
     flagged = find_causal_language(text)
     if flagged:
         # Causal wording only where everything cited is a confirmed claim: a finding reference or
-        # a plausible claim cannot carry a cause (gap 13).
+        # a plausible claim cannot carry a cause (design gap 13).
         all_confirmed = bool(refs) and all(
             ref in claims_by_ref and claims_by_ref[ref].label is ExplanationLabel.CONFIRMED
             for ref in refs

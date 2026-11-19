@@ -5,7 +5,8 @@ A multi-agent system that compares a company's 10-K and 10-Q filings across repo
 It is a first-pass research aid. It does not give investment advice, recommendations, or price predictions. Every explanation in a brief carries a verbatim quote from a filing. Only explanations that pass every check are labeled `confirmed`.
 
 - **[DESIGN_CHANGES.md](DESIGN_CHANGES.md):** how the build fills the gaps in the original design, and where it departs from it.
-- **[EVALUATION.md](EVALUATION.md):** what has been measured so far, and what is still to run.
+- **[EVALUATION.md](EVALUATION.md):** what was measured, on which data, and the results.
+- **[TASKS.md](TASKS.md):** the build tasks that code comments cite by ID, such as "T4.4", and where each one's code is.
 - **[samples/](samples/README.md):** nine real runs (three companies by three comparisons). Read the briefs on GitHub, or browse them in the Streamlit app with a light install: no ingestion, no models, no API key. Instructions are in [samples/README.md](samples/README.md).
 
 ## How it works
@@ -29,6 +30,28 @@ Each claim is labeled:
 - **`unresolved`:** queued for human review in the brief, without pausing the run.
 
 Causal wording, such as "due to" or "driven by", is only allowed in `confirmed` claims.
+
+### Where the code is
+
+The design has four agents and no planner. `src/sec_agent/graph.py` is the deterministic controller: it runs the steps in order, and makes the retry, budget and stop decisions in code. Paths below are under `src/sec_agent/`, and each package's `__init__.py` describes its modules.
+
+| Step or part | Agent | Code |
+|---|---|---|
+| Filings, sections, chunks and facts (run once by `ingest` and `index`) | | `edgar/`, `ingest/`, `finance/fact_store.py` |
+| Detect: paragraph alignment and diff | Change Analysis | `compare/align.py` |
+| Detect: metric scan and seasonality | Financial Analysis | `finance/scan.py`, `finance/metrics.py` |
+| Rank: materiality | Change Analysis | `compare/materiality.py` |
+| Explore: Tree-of-Thought search | Change Analysis | `tot/generator.py`, `tot/critic.py`, `tot/scoring.py`, `tot/controller.py` |
+| Explore: evidence search | Retrieval | `retrieval/`, `agents/retrieval.py` |
+| Explore: metric checks inside the search | Financial Analysis | `finance/metrics.py` |
+| Explore: labeling and rework | Verification and Reporting | `tot/labeling.py`, `tot/rework.py`, `agents/verification.py` |
+| Write: summary and brief | Verification and Reporting | `report/brief.py`, `report/summary.py` |
+| Tree store (every node, score and pruned branch) | | `tree_mcp/` |
+| Model calls, cost ledger, budget stop, replay cache | | `llm/` |
+| Shared records passed between agents | | `schemas.py`, `contracts.py` |
+| Command line | | `cli.py`, `eval_cli.py` |
+| Streamlit app over saved runs | | `ui/`, `report/run_view.py` |
+| Evaluation scripts | | `eval/` (see [Evaluation](#evaluation)) |
 
 ## Setup
 

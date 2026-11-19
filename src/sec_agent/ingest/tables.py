@@ -199,6 +199,7 @@ def _record(index: int, table: lxml.html.HtmlElement, removed: bool) -> TableRec
 
 
 def parse_html_tree(html: str) -> lxml.html.HtmlElement:
+    """A filing's HTML parsed with lxml, including 10-Ks too large for its default limits."""
     # Bytes, because filings open with an XML encoding declaration that lxml rejects on str.
     # huge_tree lifts lxml's default limits, which large 10-Ks exceed.
     parser = lxml.html.HTMLParser(encoding="utf-8", huge_tree=True)

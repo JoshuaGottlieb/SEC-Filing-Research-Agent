@@ -383,8 +383,8 @@ def _tidy_candidates(
 def _tidy_sources(sources: Sequence[EvidenceSource], count: int) -> tuple[EvidenceSource, ...]:
     """Make each source one kind, drop unusable ones and repeats, and keep at most `count`.
 
-    Repeats are by section and by metric (gap 5). Several queries in one section would mostly return
-    the same passages, and spend node evaluations that the other sources need.
+    Repeats are by section and by metric (design gap 5). Several queries in one section would
+    mostly return the same passages, and spend node evaluations that the other sources need.
     """
     seen: set[object] = set()
     kept: list[EvidenceSource] = []

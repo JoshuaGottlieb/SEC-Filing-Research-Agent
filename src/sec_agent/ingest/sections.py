@@ -273,6 +273,7 @@ REQUIRED_CONTENT_CHARS: dict[FormType, dict[Section, int]] = {
 
 
 def qa_problems(form: FormType, sections: dict[Section, ParsedSection]) -> list[str]:
+    """Required sections that are missing or shorter than expected; empty when the parse passes."""
     problems = []
     for section, minimum in REQUIRED_CONTENT_CHARS[form].items():
         parsed = sections[section]

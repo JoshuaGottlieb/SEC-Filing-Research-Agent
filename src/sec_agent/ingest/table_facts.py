@@ -563,6 +563,10 @@ def parse_table(
     contexts: dict[str, XbrlContext],
     preceding: list[str],
 ) -> ParsedTable:
+    """One table's facts, or the reason none could be read from it.
+
+    `preceding` is the text just before the table, where a filing may state the table's scale.
+    """
     # The route below returns early with a reason whenever the table can't be fully explained.
     # Nothing is guessed: each early return sends the whole table to text.
     known_ends = reporting_period_ends(contexts, filing.form)

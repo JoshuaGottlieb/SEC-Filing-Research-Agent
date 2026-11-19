@@ -163,6 +163,7 @@ class RunSummary:
 
 
 def summarize(run: SavedRun) -> RunSummary:
+    """The figures the app's run header shows: comparison, cost, findings and claims by label."""
     comparison = run.brief.comparison
     labels: dict[str, int] = {}
     for finding in run.brief.findings:

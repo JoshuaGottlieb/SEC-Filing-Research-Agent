@@ -236,6 +236,7 @@ def is_numeric_paragraph(text: str) -> bool:
 
 
 def find_numeric_paragraphs(sections: dict[Section, ParsedSection]) -> tuple[str, ...]:
+    """Excerpts of kept paragraphs that are mostly figures: table rows the stripper missed."""
     return tuple(
         paragraph.text[:EXCERPT_CHARS]
         for parsed in sections.values()
@@ -247,6 +248,7 @@ def find_numeric_paragraphs(sections: dict[Section, ParsedSection]) -> tuple[str
 def audit_tables(
     original_html: str, strip: StripResult, sections: dict[Section, ParsedSection]
 ) -> TableAudit:
+    """How table removal went: tables removed, prose lost, and figures left in the text."""
     return TableAudit(
         tables_total=len(strip.tables),
         tables_removed=len(strip.removed),

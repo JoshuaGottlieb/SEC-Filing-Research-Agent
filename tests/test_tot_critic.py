@@ -880,7 +880,7 @@ async def test_the_prescreen_gives_no_credit_for_the_changed_metric(settings, co
     )
     assert credited.numeric_check is NumericCheck.AGREE
     assert uncredited.numeric_check is NumericCheck.NOT_APPLICABLE
-    # The metric drops out and the rest is rescaled (gap 1), so a fully specific claim scores
+    # The metric drops out and the rest is rescaled (design gap 1), so a fully specific claim scores
     # the same either way; the free agreement only lifted claims that are less specific.
     assert uncredited.score < credited.score
 

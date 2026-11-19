@@ -48,7 +48,9 @@ class Retriever(Protocol):
 
     async def retrieve(
         self, query: str, comparison: Comparison, section: Section | None = None
-    ) -> RetrievalResult: ...
+    ) -> RetrievalResult:
+        """The best passages for `query` in each filing, limited to `section` if given."""
+        ...
 
 
 @runtime_checkable
@@ -85,7 +87,9 @@ class MetricChecker(Protocol):
 
     def check(
         self, comparison: Comparison, expectations: Sequence[MetricExpectation]
-    ) -> MetricCheckResult: ...
+    ) -> MetricCheckResult:
+        """Each expected move checked against the filings: agree, contradict or not applicable."""
+        ...
 
 
 @runtime_checkable

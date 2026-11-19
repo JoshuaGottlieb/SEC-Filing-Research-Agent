@@ -1,6 +1,6 @@
 # Evaluation
 
-This note covers what has been measured so far, and what is still to run. Each evaluation can be rerun with `sec-agent eval` (see the [README](README.md#evaluation)). Design changes made in response to these results are in [DESIGN_CHANGES.md](DESIGN_CHANGES.md).
+This note covers what was measured, on which data, and the results. Each evaluation can be rerun with `sec-agent eval` (see the [README](README.md#evaluation)). Design changes made in response to these results are in [DESIGN_CHANGES.md](DESIGN_CHANGES.md).
 
 **Status (2026-11-16):** every planned evaluation has been run on the final version of the agent, including the test split, once. The three optional reruns also ran on 2026-11-16 (retrieval at rerank pool 10, survival on the test split at width 6, and Haiku against Sonnet); nothing is left to run.
 

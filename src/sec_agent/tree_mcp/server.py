@@ -42,6 +42,7 @@ def _refusals_reach_the_client() -> Iterator[None]:
 
 
 def build_server(store: TreeStore, db_path: Path) -> MCPServer:
+    """The MCP server with one tool per `TreeClient` operation, each backed by `store`."""
     # WARNING because INFO logs a line per request to stderr, which is the run's console.
     server = MCPServer("sec-agent-tree-store", log_level="WARNING")
 
@@ -95,6 +96,7 @@ def build_server(store: TreeStore, db_path: Path) -> MCPServer:
 
 
 def main() -> None:
+    """Serve the tree store over stdio. `McpTreeClient` starts this as a subprocess."""
     parser = argparse.ArgumentParser(description="Tree-of-Thought tree store (stdio MCP server)")
     parser.add_argument("--db", type=Path, required=True, help="SQLite file, on local disk")
     db_path = parser.parse_args().db
