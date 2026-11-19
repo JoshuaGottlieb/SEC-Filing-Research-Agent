@@ -66,7 +66,7 @@ $env:SEC_AGENT_DATA_DIR = "samples"; $env:PYTHONPATH = "src"
 streamlit run src/sec_agent/ui/streamlit_app.py
 ```
 
-The app opens at <http://localhost:8501>. Pick a company, a comparison and the run in the sidebar.
+The app opens at <http://localhost:8501> on the first company and comparison in alphabetical order: Hershey, sequential quarters. To see the run the demo video uses, set **Comparison** in the sidebar to **Year over year (10-K)**. The **Company** and **Comparison** menus switch between the other runs.
 
 **What to look at:**
 
