@@ -2,21 +2,21 @@
 
 These are the agent's real outputs: nine full runs, three companies by three comparisons, saved exactly as the pipeline wrote them. You can read them on GitHub, or browse them in the Streamlit app with a light install: no ingestion, no models to download, no API key and no paid calls.
 
-They come from the full-corpus batch of 2026-11-15 to 16. Each run explored its 10 most material changes under a $1.50 cap. Hershey (HSY) is the company the settings were tuned on. Mattel (MAT) and Stanley Black & Decker (SWK) are the held-out test set, run once (see [docs/EVALUATION.md](../docs/EVALUATION.md)).
+They come from the full-corpus batch of 2026-11-19, rerun on the code after the review fixes. Each run explored its 10 most material changes under a $2.00 cap. Hershey (HSY) is the company the settings were tuned on. Mattel (MAT) and Stanley Black & Decker (SWK) are the held-out test set, run once (see [docs/EVALUATION.md](../docs/EVALUATION.md)).
 
 | Run | Comparison | Periods | Confirmed | Plausible | Cost | Time |
 |---|---|---|---|---|---|---|
-| [HSY-yoy-10k](runs/HSY-yoy-10k-t81-20261115/brief.md) | year over year (10-K) | FY2025 against FY2024 | 18 | 12 | $0.86 | 33 min |
-| [HSY-yoy-10q](runs/HSY-yoy-10q-t81-20261115/brief.md) | year over year (10-Q) | Q2 2026 against Q2 2025 | 14 | 17 | $0.55 | 22 min |
-| [HSY-seq-10q](runs/HSY-seq-10q-t81-20261115/brief.md) | sequential quarters (10-Q) | Q2 2026 against Q1 2026 | 18 | 14 | $0.68 | 31 min |
-| [MAT-yoy-10k](runs/MAT-yoy-10k-t81-20261115/brief.md) | year over year (10-K) | FY2025 against FY2024 | 11 | 25 | $0.85 | 41 min |
-| [MAT-yoy-10q](runs/MAT-yoy-10q-t81-20261115/brief.md) | year over year (10-Q) | Q2 2026 against Q2 2025 | 16 | 21 | $0.89 | 36 min |
-| [MAT-seq-10q](runs/MAT-seq-10q-t81-20261115/brief.md) | sequential quarters (10-Q) | Q2 2026 against Q1 2026 | 2 | 21 | $0.57 | 30 min |
-| [SWK-yoy-10k](runs/SWK-yoy-10k-t81-20261115/brief.md) | year over year (10-K) | FY2025 against FY2024 | 13 | 18 | $0.88 | 35 min |
-| [SWK-yoy-10q](runs/SWK-yoy-10q-t81-20261115/brief.md) | year over year (10-Q) | Q2 2026 against Q2 2025 | 15 | 23 | $1.04 | 42 min |
-| [SWK-seq-10q](runs/SWK-seq-10q-t81-20261115/brief.md) | sequential quarters (10-Q) | Q2 2026 against Q1 2026 | 12 | 26 | $1.29 | 47 min |
+| [HSY-yoy-10k](runs/HSY-yoy-10k-t811live-20261119/brief.md) | year over year (10-K) | FY2025 against FY2024 | 24 | 14 | $1.41 | 43 min |
+| [HSY-yoy-10q](runs/HSY-yoy-10q-t811live-20261119/brief.md) | year over year (10-Q) | Q2 2026 against Q2 2025 | 12 | 20 | $1.13 | 38 min |
+| [HSY-seq-10q](runs/HSY-seq-10q-t811live-20261119/brief.md) | sequential quarters (10-Q) | Q2 2026 against Q1 2026 | 16 | 12 | $0.68 | 29 min |
+| [MAT-yoy-10k](runs/MAT-yoy-10k-t811live-20261119/brief.md) | year over year (10-K) | FY2025 against FY2024 | 10 | 20 | $0.70 | 30 min |
+| [MAT-yoy-10q](runs/MAT-yoy-10q-t811live-20261119/brief.md) | year over year (10-Q) | Q2 2026 against Q2 2025 | 16 | 17 | $0.89 | 32 min |
+| [MAT-seq-10q](runs/MAT-seq-10q-t811live-20261119/brief.md) | sequential quarters (10-Q) | Q2 2026 against Q1 2026 | 2 | 16 | $0.44 | 23 min |
+| [SWK-yoy-10k](runs/SWK-yoy-10k-t811live-20261119/brief.md) | year over year (10-K) | FY2025 against FY2024 | 11 | 23 | $1.13 | 37 min |
+| [SWK-yoy-10q](runs/SWK-yoy-10q-t811live-20261119/brief.md) | year over year (10-Q) | Q2 2026 against Q2 2025 | 11 | 21 | $0.99 | 38 min |
+| [SWK-seq-10q](runs/SWK-seq-10q-t811live-20261119/brief.md) | sequential quarters (10-Q) | Q2 2026 against Q1 2026 | 8 | 22 | $1.22 | 44 min |
 
-Confirmed and plausible count the claims in each brief. Cost is model spend; time is wall-clock time on a 4-core CPU with no GPU.
+Confirmed and plausible count the claims in each brief. Cost is model spend; materiality was cached from an earlier step, so it is not included (see [docs/EVALUATION.md](../docs/EVALUATION.md)). Time is wall-clock time on a 4-core CPU with no GPU.
 
 Each run folder holds:
 
@@ -27,7 +27,7 @@ Each run folder holds:
 
 ## Read a brief on GitHub
 
-Click a run in the table. GitHub renders `brief.md` directly. Start with [HSY-yoy-10k](runs/HSY-yoy-10k-t81-20261115/brief.md), Hershey's FY2025 10-K against its FY2024 10-K.
+Click a run in the table. GitHub renders `brief.md` directly. Start with [HSY-yoy-10k](runs/HSY-yoy-10k-t811live-20261119/brief.md), Hershey's FY2025 10-K against its FY2024 10-K.
 
 ## Browse the runs in the app (about 5 minutes, no API key)
 
