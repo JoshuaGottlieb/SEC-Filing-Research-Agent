@@ -165,7 +165,7 @@ LABELING_RESERVE_USD = 0.25
 
 # The cost estimate's figures (`estimate_cost`). Rough on purpose: the estimate is for deciding
 # whether to go ahead, and the hard stop is the dollar cap, not these.
-# One 20-change materiality batch cost $0.074 to $0.075 live (lane 1, 2026-11-11, two calls); the
+# One 20-change materiality batch cost $0.074 to $0.075 live (2026-11-11, two calls); the
 # T6.3 test run measured $0.069 a batch over 76 batches (2026-11-15).
 MATERIALITY_BATCH_USD = 0.075
 # One change's search (generator, critic and retrieval on Haiku), labeling (the judge and the
@@ -740,7 +740,7 @@ async def run_analysis(  # noqa: PLR0913 -- the CLI's options, passed through
 ) -> RunReport:
     """Analyze one comparison with the real pieces and write its brief.
 
-    Wiring from both lanes' hand-offs: one read-only fact store per process (it is also the chunk
+    Wiring: one read-only fact store per process (it is also the chunk
     and fact lookup); one bge model shared by the embedding cache and the chunk index; one
     retriever on this event loop; the tree store opened once around the whole run, in this task.
     `confirm` sees the cost estimate before anything is spent (`Workflow.confirm`); if it returns

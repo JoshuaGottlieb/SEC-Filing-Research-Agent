@@ -213,7 +213,7 @@ async def run(args: argparse.Namespace) -> None:
     llm = LLMClient(settings, ledger, cache=ReplayCache(work / "replay_cache.sqlite"))
     with FactStore(settings.duckdb_path, read_only=True) as store:
         catalog = MetricCatalog(store, corpus, MetricsConfig.load())
-        bge = BgeEmbedder()  # loaded once and shared, as the integration hand-off says
+        bge = BgeEmbedder()  # loaded once and shared, as `graph.run_analysis` does
         changes: dict[str, Change] = {}
         alignments: dict[str, tuple[Change, ...]] = {}
         for cause in causes:

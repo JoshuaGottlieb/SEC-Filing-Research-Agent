@@ -306,7 +306,8 @@ def test_real_figures_find_the_right_fact_and_stay_cheap():
     corpus = Corpus.load(REPO_ROOT / "config" / "corpus.yaml")
     accession = corpus.comparison("HSY", ComparisonType.YOY_10K).current.accession
     with FactStore(settings.duckdb_path, read_only=True) as store:
-        # Lane 2's case: "$ | 661,949" in a table with no dollar scale is in thousands.
+        # The citation checker's case: "$ | 661,949" in a table with no dollar scale is in
+        # thousands.
         assert store.find_usd_fact(accession, 661_949_000.0, 500.0) is not None
         assert store.find_usd_fact(accession, 661_949.0, 0.5) is None
         # Net sales, as the filing tags it.

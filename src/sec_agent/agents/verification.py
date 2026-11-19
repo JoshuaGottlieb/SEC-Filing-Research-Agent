@@ -415,7 +415,7 @@ class _Figure(NamedTuple):
 # The text is casefolded first, so only lower case is matched.
 #
 # Models abbreviate amounts ("$563.0M", "$1.35B", "$45K"): 6 of 107 HSY materiality rationales
-# did, measured by lane 1 on 2026-11-12. Before this was handled, "$563M" was read as no figure, so
+# did, measured on 2026-11-12. Before this was handled, "$563M" was read as no figure, so
 # a claim stating it passed unchecked, and "$563.0M" was read as $563. An abbreviation counts only
 # after a currency symbol, joined to the number or after one space: without one, "10-K" and
 # "Form 10K" would read as ten thousand. Other letters joined to an amount make it unreadable,
@@ -509,7 +509,7 @@ def _matches(claimed: _Figure, evidence: _Figure) -> bool:
 
 
 # A relative change means little from a prior ratio this small: a margin going from 0.5% to 1% is
-# "up 100%". Lane 1 left the cutoff to the caller. 1% (0.01) is chosen by hand.
+# "up 100%". The metric catalog leaves the cutoff to its caller. 1% (0.01) is chosen by hand.
 MIN_PRIOR_FOR_RELATIVE_CHANGE = 0.01
 
 
@@ -838,10 +838,10 @@ def untraced_rationale_figures(
 ) -> tuple[str, ...]:
     """The figures in a change's materiality rationale that nothing backs. Empty means it passes.
 
-    Lane 1 calls this once per ranked change (T3.3) and drops a rationale that fails, because the
-    brief would print it as why the change was flagged and the generator and the tree's root
-    would read it as why the change matters. Nothing else checks it: the critic and the judge
-    check explanations, not the premise.
+    The materiality step calls this once per ranked change (T3.3) and drops a rationale that
+    fails, because the brief would print it as why the change was flagged and the generator and
+    the tree's root would read it as why the change matters. Nothing else checks it: the critic
+    and the judge check explanations, not the premise.
 
     The evidence is what the materiality model was shown:
     - the change's own earlier and later text, each read as a quote of the chunks that hold it,

@@ -15,13 +15,13 @@ labeled passage is looked for in four lists:
 - `hybrid@20`: the hybrid top 20, the pool before it became 10 (2026-11-15), so the table shows
   what the smaller pool gives up.
 
-The scored unit is the labeled quote (lane 1's method, its integration hand-off section 6). A quote
+The scored unit is the labeled quote (the method used to tune Hershey). A quote
 is found when any chunk holding it within the question's section is in the list; chunks overlap,
 so a quote near a boundary can sit in two, and either counts. A side with no quote is a filing
 where the topic is absent; there the agent's list should come back empty, and the report says
 whether it did.
 
-Hershey is the tuning set (lane 1 measured it on 2026-11-12: 17 of 21 found at `MIN_SCORE` -6, all
+Hershey is the tuning set (measured on 2026-11-12: 17 of 21 found at `MIN_SCORE` -6, all
 4 misses in HSY-R01, and the absent side not emptied). The test file (MAT, SWK) is run once, for
 the reported table. The fact store and the index open read-only.
 
@@ -83,8 +83,8 @@ def run(args: argparse.Namespace) -> None:
         scorer = CrossEncoderScorer()
         agent = Reranker(hybrid, scorer)
         # Every candidate, reordered, with no cutoff: the diagnostic view of the same scores.
-        # The reranker refuses an infinite cutoff; raw scores run about -11.4 to +6.3 (lane 1's
-        # measurement), so -1e9 keeps every candidate.
+        # The reranker refuses an infinite cutoff; raw scores run about -11.4 to +6.3, so
+        # -1e9 keeps every candidate.
         wide = Reranker(hybrid, scorer, min_score=NO_CUTOFF, keep=CANDIDATES_PER_PERIOD)
         for question in questions:
             comparison = comparisons[question.comparison_id]

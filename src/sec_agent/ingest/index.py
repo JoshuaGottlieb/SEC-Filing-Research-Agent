@@ -23,7 +23,6 @@ import chromadb
 from chromadb.config import Settings as ChromaSettings
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from sec_agent.finance.fact_store import FactStore
 from sec_agent.ingest.chunker import EMBEDDING_MODEL
 from sec_agent.schemas import Chunk, FormType, Section
 
@@ -265,15 +264,3 @@ class ChunkIndex:
             if len(self._query_vectors) > QUERY_VECTORS_KEPT:
                 self._query_vectors.popitem(last=False)
         return vector
-
-
-def build_index(store: FactStore, index: ChunkIndex) -> IndexSummary:
-    """Bring the index in line with the chunks in the store.
-
-    Run `chunk_corpus` first: a filing the store has no chunks for is removed from the index.
-
-    A full build took about 15 minutes on the project's 4-core VM, and an open store blocks every
-    other process from the DuckDB file. For a large build, read `store.chunks()`, close the store,
-    and then call `index.sync` directly.
-    """
-    return index.sync(store.chunks())

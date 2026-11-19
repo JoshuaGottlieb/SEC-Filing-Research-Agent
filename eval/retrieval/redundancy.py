@@ -8,10 +8,9 @@ The plan adds MMR only if "more than 2 of the top 5 exceed 0.95 similarity" (see
 (`SearchRetriever`: hybrid search, cross-encoder rerank, top 5 per filing) and prints how many of
 each filing's passages nearly copy a higher-ranked one, then the totals the decision rests on.
 
-Label files are read for `retrieval[].item_id`, `comparison_id`, `question` and `section` only, so
-this runs before the benchmark module is merged; once it is, it can load files through
-`sec_agent.benchmark.load_benchmark` instead. `--stand-in` searches hand-picked queries over every
-comparison's MD&A instead: a preview of the measurement, not the benchmark.
+Label files are read for `retrieval[].item_id`, `comparison_id`, `question` and `section` only.
+`--stand-in` searches hand-picked queries over every comparison's MD&A instead: a preview of the
+measurement, not the benchmark.
 
 Local models only: no network, no paid calls. Reads the chunk store and the index read-only.
 """

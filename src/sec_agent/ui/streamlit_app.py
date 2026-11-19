@@ -31,14 +31,6 @@ BADGE_COLOURS = {
     ExplanationLabel.PLAUSIBLE: "orange",
     ExplanationLabel.UNRESOLVED: "violet",
 }
-REVIEW_COLOURS = {
-    rv.NEEDS_REVIEW: "red",
-    rv.LEFT_OUT: "orange",
-    rv.SHOWN_WITH_NOTE: "blue",
-    rv.SEARCH_INCOMPLETE: "red",
-    rv.RATIONALE_DROPPED: "gray",
-    rv.NOT_EXAMINED: "gray",
-}
 # The review queue lists at most this many items of one kind; the rest are counted.
 REVIEW_PAGE = 60
 # The replay page's height in the app, in pixels; the tree scrolls inside it.

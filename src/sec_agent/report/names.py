@@ -45,7 +45,7 @@ METRIC_NAMES: dict[MetricName, str] = {
     MetricName.REVENUE_GROWTH: "Revenue growth",
     MetricName.COGS_RATIO: "Cost of sales to revenue",
     MetricName.SGA_RATIO: "SG&A to revenue",
-    # Dollar metrics (lane 1's PR #32): signed whole dollars.
+    # Dollar metrics (PR #32): signed whole dollars.
     MetricName.REVENUE: "Revenue",
     MetricName.COST_OF_GOODS_SOLD: "Cost of sales",
     MetricName.GROSS_PROFIT: "Gross profit",

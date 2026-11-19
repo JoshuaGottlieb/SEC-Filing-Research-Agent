@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import threading
-from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -119,9 +118,3 @@ class CostLedger:
                 row = {"at": datetime.now(UTC).isoformat(), **asdict(entry)}
                 with self.path.open("a", encoding="utf-8") as handle:
                     handle.write(json.dumps(row) + "\n")
-
-    def cost_by_role(self) -> dict[str, float]:
-        totals: dict[str, float] = defaultdict(float)
-        for entry in self.entries:
-            totals[entry.role] += entry.cost_usd
-        return dict(totals)

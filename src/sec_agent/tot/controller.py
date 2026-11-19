@@ -722,9 +722,9 @@ class _Exploration:
                     branch, "no evidence, and the search ended before its reformulated attempt"
                 )
             elif not branch.decided and self._stopped is StopReason.RUN_BUDGET:
-                # Closed so the audit trail says why it has no rating (lane 2's suggestion, the
-                # user's decision, 2026-11-13). Left undecided, so its candidate is not closed as if
-                # its evidence had been weighed and failed.
+                # Closed so the audit trail says why it has no rating (the user's
+                # decision, 2026-11-13). Left undecided, so its candidate is not closed as if its
+                # evidence had been weighed and failed.
                 await self._close(branch.node, NOT_JUDGED_REASON)
         eligible = [branch for branch in branches if branch.eligible]
         kept, dropped, _ = select_beam(

@@ -101,7 +101,7 @@ async def test_returns_parsed_output_and_records_cost(settings):
     assert not result.replayed
     expected = cost_usd("claude-haiku-5-5", input_tokens=1_000, output_tokens=100)
     assert ledger.spent_usd == pytest.approx(expected)
-    assert ledger.cost_by_role() == {"critic": pytest.approx(expected)}
+    assert [entry.role for entry in ledger.entries] == ["critic"]
 
 
 async def test_roles_use_the_agreed_models(settings):

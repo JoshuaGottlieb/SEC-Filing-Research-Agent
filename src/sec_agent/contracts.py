@@ -1,11 +1,11 @@
 """Interfaces between the parts that are built in parallel.
 
-The retrieval and change-detection code (lane 1) and the Tree-of-Thought and verification
-code (lane 2) meet at these points. Each lane tests against fakes of the other side's
-interface, so the fakes must match what the real code will return. The records they pass
-are in schemas.py.
+The project built its two halves at the same time: retrieval and change detection on one side,
+the Tree-of-Thought search and verification on the other. They meet at these points. Each side
+tests against fakes of the other side's interface, so the fakes must match what the real code
+will return. The records they pass are in schemas.py.
 
-Ranked changes are not a call, so they have no interface here: lane 1's materiality step
+Ranked changes are not a call, so they have no interface here: the materiality step
 (T3.3) returns a `RankedChanges` record and the controller receives it through the graph
 state (T5.5). Its validator enforces the ranking. One rule it cannot enforce: a numeric
 change's `metric_id` should resolve through `MetricLookup`.
@@ -36,7 +36,7 @@ from sec_agent.schemas import (
 class Retriever(Protocol):
     """Finds passages for a query in both of a comparison's filings.
 
-    Built by lane 1 (the search tools, T2.5, and the Retrieval Agent, T3.4); called by the
+    Built by the search tools (T2.5) and the Retrieval Agent (T3.4); called by the
     Tree-of-Thought controller. It is async because the Retrieval Agent calls the LLM to
     reformulate a weak query; a plain search tool can be wrapped.
 
@@ -55,7 +55,7 @@ class Retriever(Protocol):
 class MetricChecker(Protocol):
     """Tests whether computed metrics agree with the movements a claim implies.
 
-    Built by lane 1 (the metric catalog, T1.6); called by the critic's scoring (T4.3).
+    Built by the metric catalog (T1.6); called by the critic's scoring (T4.3).
 
     It returns one outcome per expectation, in order. An expectation that moved the opposite
     way is CONTRADICT, one that moved as expected is AGREE, and one with no data in either
@@ -92,7 +92,7 @@ class MetricChecker(Protocol):
 class ChunkLookup(Protocol):
     """Fetches a stored passage by id, or None if there is no such chunk.
 
-    Built by lane 1 (the chunk store, T1.3 and T2.1); used by the citation checker (T5.1) to
+    Built by the chunk store (T1.3 and T2.1); used by the citation checker (T5.1) to
     confirm a quote appears in the chunk it cites and that the chunk is from the right period.
     """
 
@@ -103,7 +103,7 @@ class ChunkLookup(Protocol):
 class MetricLookup(Protocol):
     """Fetches a computed metric by id, or None if there is no such metric.
 
-    Built by lane 1 (the metric catalog, T1.6); used by the citation checker (T5.1) to trace
+    Built by the metric catalog (T1.6); used by the citation checker (T5.1) to trace
     a numeric claim to the metric it cites and compare the claim's figure with its value.
 
     What a `MetricValue` holds:
@@ -150,7 +150,7 @@ class ComparedMetric(Record):
 class MetricMoveLookup(MetricLookup, Protocol):
     """A `MetricLookup` that also says how a numeric change's metric moved.
 
-    Built by lane 1 (the metric catalog); used by the thought generator, which must be told which
+    Built by the metric catalog; used by the thought generator, which must be told which
     way a metric moved rather than infer it. T6.4 found candidates that said a margin moved the
     wrong way when only its later value was shown (user's decision, 2026-11-13). The catalog
     computes the move in one place, which the metric scan also reads, so the generator is told
@@ -170,7 +170,7 @@ class MetricMoveLookup(MetricLookup, Protocol):
 class FactLookup(Protocol):
     """Finds a dollar fact a filing tagged in XBRL, or None if it tagged no such value.
 
-    Built by lane 1 (the fact store); used by the citation checker (T5.1) to supply a scale that a
+    Built by the fact store; used by the citation checker (T5.1) to supply a scale that a
     table's text does not state. "$ | 661,949" could be dollars or thousands of dollars, and if the
     filing tagged 661,949,000 then it is thousands. On tables whose caption gives the answer, a
     wrong scale also found a fact for 79 of 3,923 figures (2%), so one match is good evidence but
