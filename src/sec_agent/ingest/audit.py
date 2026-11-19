@@ -48,7 +48,7 @@ MIN_SENTENCE_COVERAGE = 0.90
 # A single tagged number can sit in prose that happens to be inside a table, so one or
 # two tags prove nothing; four tags in a mostly numeric table is a financial table that
 # should have been removed. These values were set on the 115 development filings, so
-# there is no fair error rate for them (see eval/parser_holdout.md).
+# there is no fair error rate for them (see eval/ingestion/parser_holdout.md).
 LEFTOVER_MIN_TAGGED_VALUES = 4
 LEFTOVER_MIN_NUMERIC_SHARE = 0.3
 

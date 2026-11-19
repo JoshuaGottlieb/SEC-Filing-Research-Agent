@@ -1,12 +1,12 @@
 # Evaluation
 
-This note covers what was measured, on which data, and the results. Each evaluation can be rerun with `sec-agent eval` (see [eval/README.md](eval/README.md)). Design changes made in response to these results are in [DESIGN_CHANGES.md](DESIGN_CHANGES.md).
+This note covers what was measured, on which data, and the results. Each evaluation can be rerun with `sec-agent eval` (see [eval/README.md](../eval/README.md)). Design changes made in response to these results are in [DESIGN_CHANGES.md](DESIGN_CHANGES.md). Task IDs in the headings, such as T6.2, are the build tasks listed in [TASKS.md](TASKS.md).
 
 **Status (2026-11-16):** every planned evaluation has been run on the final version of the agent, including the test split, once. The three optional reruns also ran on 2026-11-16 (retrieval at rerank pool 10, survival on the test split at width 6, and Haiku against Sonnet); nothing is left to run.
 
 ## Benchmark
 
-Labels are in [eval/benchmark/](eval/benchmark/README.md):
+Labels are in [eval/benchmark/](../eval/benchmark/README.md):
 - Claude drafted them from the indexed filing text, without running any of the agent's code, so a label cannot inherit the agent's mistakes.
 - A person reviewed every one of the 130 items. None was edited, and three were rejected.
 
@@ -97,11 +97,11 @@ The evaluation did find claims confirmed without explaining their change:
 - a claim that named the change only inside a denial;
 - a claim about one metric filed under a text change about another.
 
-Each now has a code guard (see DESIGN_CHANGES.md, departure 7). One questionable confirmation is open: a Stanley claim that pairs a stated cause with an unstated one, which the judge accepted on the stated part.
+Each now has a code guard (see [DESIGN_CHANGES.md](DESIGN_CHANGES.md), departure 7). One questionable confirmation is open: a Stanley claim that pairs a stated cause with an unstated one, which the judge accepted on the stated part.
 
 ### Agent against a prompt-only baseline (T6.5)
 
-This is the evaluation D1 commits to: unsupported claims and wrong-period citations, compared with a prompt-only baseline.
+This is the evaluation the [Module 5 plan](design/Module5_Multi-Agent_Architecture_Plan.pdf) commits to: unsupported claims and wrong-period citations, compared with a prompt-only baseline.
 
 The baseline is one Opus call per comparison. It gets the filing text (MD&A, risk factors, market risk) and the same metric table the agent uses, and returns up to 10 changes with cited explanations. Its prompt carries the agent's causal-wording rule and its quote rule, but not its period rule, since periods are what is measured. The prompt was fixed after the Hershey check (version `e1b5caf7b755`).
 

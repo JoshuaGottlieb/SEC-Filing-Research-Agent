@@ -14,7 +14,7 @@ Two kinds of text reach the brief, and they are treated differently:
 
 - Text the system wrote (claims, the summary, change rationales, review reasons) goes through the
   causal-language check: only a confirmed claim may say why something happened (design gap 13,
-  DESIGN_CHANGES.md).
+  docs/DESIGN_CHANGES.md).
 - Filing text (quotes and changed paragraphs) is shown as a block quote and never checked: a
   filing's own "due to" is evidence, not a claim of ours. A quoted table row is shown under its
   table's opening lines, copied from the same chunk, so its columns can be read.

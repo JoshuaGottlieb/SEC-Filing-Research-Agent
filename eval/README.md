@@ -1,6 +1,6 @@
 # Evaluation
 
-This folder holds the benchmark, the evaluation scripts and the committed result files. [EVALUATION.md](../EVALUATION.md) reports every result. This page says how to rerun each evaluation and where its pieces are.
+This folder holds the benchmark, the evaluation scripts and the committed result files. [docs/EVALUATION.md](../docs/EVALUATION.md) reports every result. This page says how to rerun each evaluation and where its pieces are.
 
 ## The benchmark and the fair-test rule
 
@@ -35,7 +35,7 @@ Add `--split test` for the test split. Results go to `<data dir>/eval/results/` 
 | `hand-check` | T6.5 | free | draw or tally the blinded hand check | [baseline/hand_check.py](baseline/hand_check.py) |
 | `cost` | T6.6 | free | cost and latency per finding from saved runs | [cost/cost_latency.py](cost/cost_latency.py) |
 
-[TASKS.md](../TASKS.md) explains the task IDs.
+[docs/TASKS.md](../docs/TASKS.md) explains the task IDs.
 
 ## Committed results
 
@@ -45,7 +45,7 @@ Add `--split test` for the test split. Results go to `<data dir>/eval/results/` 
 | [retrieval/recall_hsy_2026-11-15.json](retrieval/recall_hsy_2026-11-15.json) | Retrieval recall on HSY at the final rerank pool of 10 |
 | [retrieval/recall_test_2026-11-16.json](retrieval/recall_test_2026-11-16.json) | Retrieval recall on the test split at the final rerank pool of 10 |
 | [judge/agreement_2026-11-12.json](judge/agreement_2026-11-12.json) | The judge's agreement with the labeled examples |
-| [parser_holdout.md](parser_holdout.md) | The parser's validation gate on four sets of randomly drawn companies |
+| [ingestion/parser_holdout.md](ingestion/parser_holdout.md) | The parser's validation gate on four sets of randomly drawn companies |
 
 The nine full agent runs that the agent's results come from are in [samples/](../samples/README.md).
 

@@ -31,7 +31,7 @@ A rejected filing makes `ingest` exit 1 and print its problems. Records are in `
 
 ## Figures
 
-`ingest` loads two kinds of figures. `search-facts` and the Financial Agent search both through the `facts` view:
+`ingest` loads two kinds of figures. `search-facts` and the Financial Analysis Agent search both through the `facts` view:
 
 - **XBRL facts:** everything a filer tagged, read from the filing's inline XBRL (`edgar/xbrl.py`). This includes segment values, which the SEC's aggregate API leaves out.
 - **Table facts:** untagged figures from tables that parsed cleanly (`table_facts.py`). Figures XBRL already reports are left out, allowing for rounding.
@@ -46,7 +46,7 @@ Read table facts with care:
 ## Commands for checking ingestion
 
 ```bash
-uv run --frozen sec-agent search-facts HSY "segment margin"   # search figures as the Financial Agent does
+uv run --frozen sec-agent search-facts HSY "segment margin"   # search figures as the Financial Analysis Agent does
 uv run --frozen sec-agent parse-report                         # re-parse every filing and print what happened
 uv run --frozen sec-agent discover-corpus                      # re-pin the latest filings (changes the corpus)
 uv run --frozen pytest -m corpus                               # validate all downloaded filings
@@ -66,11 +66,11 @@ uv run --frozen sec-agent analyze ABC --comparison yoy-10k --corpus /tmp/new.yam
 Fiscal years and quarters are derived from each company's 10-K dates, because filers' own tags are sometimes wrong. `discover-corpus` prints the filer's tag beside any filing it corrected.
 
 Passing the gate is good evidence, but not proof:
-- The latest fair test accepted 17 of 25 filings.
+- The latest fair test (the fourth) accepted 17 of 25 filings.
 - None of the accepted filings had a materially wrong section.
 - Its 8 rejections look like false alarms, such as long row labels or length floors that don't fit very small companies.
 
-Results are in [eval/parser_holdout.md](../../../eval/parser_holdout.md).
+Results are in [eval/ingestion/parser_holdout.md](../../../eval/ingestion/parser_holdout.md).
 
 ## Known limits
 

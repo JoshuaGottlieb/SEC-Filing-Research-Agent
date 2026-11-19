@@ -2,7 +2,8 @@
 
 Hand-confirmed labels for the evaluations in Phase 6. The record types and the quote resolver are in
 `src/sec_agent/benchmark.py`; `check.py` validates a label file and `draw_sample.py` draws the
-false-positive sample.
+false-positive sample. Task IDs such as T6.2 are the build tasks listed in
+[docs/TASKS.md](../../docs/TASKS.md).
 
 ## Splits
 
@@ -32,9 +33,9 @@ materiality, Tree-of-Thought or verification code was run to produce a draft, so
 inherit the agent's mistakes. Two consequences to keep in mind:
 
 - Labels can only point at text the index holds. Text the parser lost is out of reach for both the
-  agent and the labels; ingestion is measured separately (`docs/How_SEC_Filing_Ingestion_Is_Tested.md`).
+  agent and the labels; ingestion is measured separately ([How SEC Filing Ingestion Is Tested](../../docs/How_SEC_Filing_Ingestion_Is_Tested.md)).
 - The drafter is the same model family the agent uses for materiality and the judge, so the two
-  could share blind spots. The user's confirmation of every label is the check on that, and the
+  could share blind spots. The author's confirmation of every label is the check on that, and the
   review log records every edit and rejection.
 
 The **sampled changes** are the exception: they are T3.1 alignment output by design, drawn by
@@ -70,7 +71,7 @@ decides only which paragraphs pair up, never whether a change matters.
 
 ## Review and freezing
 
-The user confirms every label on a review page (accept, edit or reject, with a note). For a
+The author confirmed every label on a review page (accept, edit or reject, with a note). For a
 retrieval question the scored unit is the chunk a quote locates, not the quote itself: a question
 whose chunk answers it is accepted even when the highlighted sentence does not, and the note names
 the answering sentence, which replaces the quote at freezing so the anchor cannot also select a
@@ -126,7 +127,7 @@ which falls to retrieval and change analysis, not to alignment. This matches the
 The first T5.2 agreement run on Hershey disagreed with two `states_cause` labels, `HSY-J01` and
 `HSY-J07`. Each quote began "The decrease (increase) was driven by…" without naming what changed;
 the subject was in the sentence before. Read alone, such a quote only implies the claim's cause,
-and the judge said so. With the user's approval, each quote now starts with the preceding sentence
+and the judge said so. With the author's approval, each quote now starts with the preceding sentence
 from the same chunk (gross margin for `J01`, SM&A for `J07`). Claims and verdicts are unchanged.
 `review_log.json` records both under `label_fixes`, and `freeze.py` applies and checks them. No test
 quote had this problem: every Mattel and Stanley `states_cause` quote names the metric it explains.

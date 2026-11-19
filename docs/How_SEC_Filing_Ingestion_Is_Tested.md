@@ -138,7 +138,7 @@ How to read these results:
 - **Across all four tests,** 4 of 76 accepted filings had a wrong section (interval 2% to 13%). All 4 come from two companies, so this figure is rough.
 - **Table values have held up.** The latest audit found 27 of 27 right. The one wrong fact before it was the AT&T subscriber count, now fixed. No clean table in the latest draw uses shorthand scales, so new data hasn't tested that fix.
 
-The method and every traced finding are in `eval/parser_holdout.md`.
+The method and every traced finding are in [eval/ingestion/parser_holdout.md](../eval/ingestion/parser_holdout.md).
 
 ## What each check contributes
 

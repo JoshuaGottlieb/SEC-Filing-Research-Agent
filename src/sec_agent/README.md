@@ -2,16 +2,15 @@
 
 This folder is the `sec_agent` package: the agents, the workflow that runs them, the command line and the Streamlit app. The [main README](../../README.md) gives the overview. This page shows how a run moves through the code and where each part lives.
 
-Each package's `__init__.py` describes its modules. Code comments cite build tasks by ID, such as "T4.4", which [TASKS.md](../../TASKS.md) explains. They also cite the design's gaps as "design gap N", which [DESIGN_CHANGES.md](../../DESIGN_CHANGES.md) explains.
+Each package's `__init__.py` describes its modules. Code comments cite build tasks by ID, such as "T4.4", which [docs/TASKS.md](../../docs/TASKS.md) explains. They also cite the design's gaps as "design gap N", which [docs/DESIGN_CHANGES.md](../../docs/DESIGN_CHANGES.md) explains.
 
 ## The workflow
 
 `graph.py` is a fixed LangGraph workflow. It is the deterministic controller of the design: code, not a model, decides the route, the retries, the budget checks and when to stop. There is no planner agent.
 
-```
-detect → estimate → rank → select ─┬─→ explore ⇄ rework ─┬─→ summarize → write
-                                   └──────────────────────┘
-```
+![The controller's steps from detect to write, with rework under explore, and the four agents that act in them](../../docs/images/architecture.svg)
+
+`select` goes straight to `summarize` when there is nothing to explore. `explore` handles one change at a time; claims the judge found only implied go to `rework`, and when every change is done the run moves on to `summarize`.
 
 | Step | What it does | Code |
 |---|---|---|
@@ -30,7 +29,7 @@ The graph saves its state after every step, so `sec-agent analyze --resume RUN_I
 
 | Agent | Where | Models |
 |---|---|---|
-| Retrieval | `agents/retrieval.py`, `retrieval/` | None by default: the rewording loop is built but off (DESIGN_CHANGES.md, departure 2) |
+| Retrieval | `agents/retrieval.py`, `retrieval/` | None by default: the rewording loop is built but off ([DESIGN_CHANGES.md](../../docs/DESIGN_CHANGES.md), departure 2) |
 | Change Analysis | `compare/` (alignment, materiality), `tot/` (Tree-of-Thought) | Opus for materiality; Haiku for the generator and critic |
 | Financial Analysis | `finance/` (fact store, metric catalog, scan) | None: fixed calculations in code |
 | Verification and Reporting | `agents/verification.py`, `tot/labeling.py`, `report/` | Code checks; Opus for the judge and the brief |

@@ -167,7 +167,7 @@ main cost is coverage: filings that could have been used are refused.
 
 ## Third held-out test: current rules
 
-Measured on 2026-11-04 with the scripts in [ingestion/](ingestion/README.md). Same method with a
+Measured on 2026-11-04 with the scripts in [this folder](README.md). Same method with a
 new seed (20261105), excluding every company used so far. Two draws were skipped: UP Fintech files
 no 10-K or 10-Q, and SSHT S&T has fewer than two 10-Ks. Selected: RxSight, Comstock, Autoscope,
 Everus, AT&T, for 25 filings in `config/parser_holdout3.yaml`. The rule files matched
@@ -273,7 +273,7 @@ FY2025 10-K), and it can split a sentence across a page break.
 
 ## Fourth held-out test: current rules
 
-Measured on 2026-11-04 with the scripts in [ingestion/](ingestion/README.md). Same method with a new
+Measured on 2026-11-04 with the scripts in [this folder](README.md). Same method with a new
 seed (20261106), excluding every company used so far. Three draws were skipped because they file no
 10-K or 10-Q: GEMZ, Linkage Global and PMA Graphene. Selected: Jabil, CapForce, United Natural Foods,
 First America Resources and Regis, for 25 filings in `config/parser_holdout4.yaml`. The rule files

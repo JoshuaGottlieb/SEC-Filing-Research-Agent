@@ -12,8 +12,8 @@ failure this guards against most. This is also plain code. It proves a quote is 
 not that the quote supports the claim; that is the entailment judge's job (T5.2).
 
 Entailment (T5.2): code cannot tell whether a quote states a cause or only hints at one (design
-gap 4, DESIGN_CHANGES.md), so a separate model call classifies it. It is the one check here that
-uses a model, and it is kept apart from everything that produced the claim: it sees only the
+gap 4, docs/DESIGN_CHANGES.md), so a separate model call classifies it. It is the one check here
+that uses a model, and it is kept apart from everything that produced the claim: it sees only the
 claim's text and one quote, never the reasoning, the critic's rating or the search, so it cannot
 be argued into agreeing.
 

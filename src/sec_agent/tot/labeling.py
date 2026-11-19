@@ -1,7 +1,7 @@
 """Labeling (T4.5): turns what the search found for one change into a finding with labeled claims.
 
 Each surviving candidate becomes one claim, labeled by the ToT design's standard (design gap 4,
-DESIGN_CHANGES.md):
+docs/DESIGN_CHANGES.md):
 
 - `confirmed`: a kept evidence branch the critic rated "states the cause" has a quote that passes
   `check_citations` for the claim, and the entailment judge, which sees only the claim and that

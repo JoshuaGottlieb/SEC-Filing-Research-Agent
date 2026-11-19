@@ -1,7 +1,7 @@
 """The rework loop (T5.5): more evidence for a claim the judge found only implied, then relabel it.
 
 The submitted plans say failed verification returns a claim for rework, at most two retries per
-claim, and after that it goes on without pausing the run (design gap 11, DESIGN_CHANGES.md;
+claim, and after that it goes on without pausing the run (design gap 11, docs/DESIGN_CHANGES.md;
 architecture plan "verification retry loop"; design refinement "loops back for more evidence until
 the retry limit"). Here a retry is one round (user's decision, 2026-11-13, option 1):
 
