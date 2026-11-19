@@ -407,7 +407,8 @@ CHIP_STYLES = {
     "pending": ChipStyle("#e57373", "never finished"),
 }
 _PRUNED_GREY = "#9e9e9e"
-_REWORK = re.compile(r":w(?P<round>\d+)(?::|$)")
+# A resumed attempt's rounds carry the attempt after a dot: `{claim}:w1.{attempt}:e1`.
+_REWORK = re.compile(r":w(?P<round>\d+)(?:[.:]|$)")
 _ROUND = re.compile(r":r(?P<round>\d+):c\d+$")
 
 
@@ -865,8 +866,10 @@ class ReviewItem:
 
 def _note_reason(note: str, ids: Mapping[str, str]) -> str:
     """A labeling note with full ids replaced by short references where the brief has them."""
-    for full, short in ids.items():
-        note = note.replace(full, short)
+    # Longest first: a finding id is the prefix of every claim id in its tree, so replacing it
+    # first would leave "F1:r1:c2" where the claim's own reference belongs.
+    for full in sorted(ids, key=len, reverse=True):
+        note = note.replace(full, ids[full])
     return note
 
 

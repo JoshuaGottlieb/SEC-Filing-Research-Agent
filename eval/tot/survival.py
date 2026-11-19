@@ -313,7 +313,7 @@ async def run(args: argparse.Namespace) -> None:
                 f"{len(rows)} candidates survived, ${ledger.spent_usd - before:.4f}"
             )
             # A spent node budget ends only this change's search; the dollar cap ends the run,
-            # as in `explore_changes`.
+            # as in `graph.explore`.
             if result.stopped is StopReason.NODE_BUDGET:
                 print("stopped: node_budget for this change; the next one still runs")
             elif result.stopped is StopReason.RUN_BUDGET or capped:

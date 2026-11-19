@@ -207,6 +207,22 @@ async def test_a_good_draft_becomes_the_summary_and_passes_the_brief_check():
     assert check_brief(brief(result.text)) == ()
 
 
+@pytest.mark.parametrize("brk", ["\n", "\r\n", "\u2028", "\x85"])
+async def test_a_line_break_inside_a_sentence_still_makes_one_summary_line(brk):
+    writer = FakeWriter(draft((f"Higher input costs{brk}lowered gross margin.", ("C1",))))
+    result = await write_summary(FINDINGS, COMPARISON, context(writer))
+    assert result.text.splitlines() == ["Higher input costs lowered gross margin. [C1]"]
+    assert check_brief(brief(result.text)) == ()
+
+
+def test_a_line_break_in_a_claim_still_makes_one_template_line():
+    broken = CONFIRMED.model_copy(update={"text": "Higher input costs\nlowered gross margin."})
+    findings = (MARGIN.model_copy(update={"claims": (PLAUSIBLE, broken)}), RISK)
+    text = template_summary(findings)
+    assert text.splitlines()[0] == "Confirmed: Higher input costs lowered gross margin. [C1]"
+    assert check_brief(brief(text, findings)) == ()
+
+
 async def test_the_model_sees_claims_and_labels_but_no_filing_text():
     writer = FakeWriter(GOOD)
     await write_summary(FINDINGS, COMPARISON, context(writer))

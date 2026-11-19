@@ -17,7 +17,7 @@ from pydantic import ValidationError
 
 from sec_agent.agents.verification import EntailmentJudgment
 from sec_agent.llm.client import LLMError
-from sec_agent.llm.ledger import BudgetExceededError, CostLedger
+from sec_agent.llm.ledger import BudgetExceededError
 from sec_agent.retrieval.hybrid import IndexOutOfSyncError
 from sec_agent.schemas import (
     Change,
@@ -41,7 +41,6 @@ from sec_agent.schemas import (
     MetricValue,
     NodeStatus,
     NumericCheck,
-    RankedChanges,
     RetrievalResult,
     RetrievedPassage,
     Section,
@@ -58,7 +57,6 @@ from sec_agent.tot.controller import (
     claim_node,
     claim_of,
     explore_change,
-    explore_changes,
     gather_evidence,
     select_beam,
     tried_searches,
@@ -414,10 +412,26 @@ def test_outside_the_margin_the_higher_score_wins_whatever_the_evidence():
 
 
 def test_the_margin_is_inclusive_of_its_edge():
+    # 0.80 - 0.75 is 0.05000000000000004 in floating point; it is still exactly the margin.
     kept, _, tied = pick([Item("a", 0.80, level=1), Item("b", 0.75, level=0)], 1, margin=0.05)
-    # 0.80 - 0.75 is not exactly 0.05 in floating point, so test the intent with a clear gap.
-    assert tied is (abs(0.80 - 0.75) <= 0.05)
-    assert names(kept) == (["b"] if tied else ["a"])
+    assert (names(kept), tied) == (["b"], True)
+
+
+@pytest.mark.parametrize(
+    "scores",
+    [
+        (0.8, 0.75, 0.75, 0.75),  # the best is exactly the margin above a tied cutoff
+        (0.75, 0.65, 0.6, 0.6),  # seen in a saved Hershey run: the 0.65 branch was lost
+        (1.0, 0.88, 0.83, 0.78),  # seen in a saved Stanley run: 0.88 lost, 0.78 kept
+    ],
+)
+def test_every_branch_is_either_kept_or_dropped(scores):
+    items = [Item(f"i{n}", score) for n, score in enumerate(scores)]
+    kept, dropped, _ = pick(items, 3)
+    assert sorted(names(kept + dropped)) == sorted(names(items))
+    assert len(kept) == 3
+    # Nothing scoring higher than a kept branch is dropped once it is clear of the cutoff.
+    assert max(scores) in [item.score for item in kept]
 
 
 def test_the_better_supporting_passage_breaks_a_tie_in_evidence_level():
@@ -1269,14 +1283,11 @@ async def test_a_retriever_failure_ends_the_run_and_is_not_read_as_missing_evide
     generator = one_search()
     ctx = context(tree, config, generator, FakeCritic(), FailsOnCall(fail_on))
     with pytest.raises(IndexOutOfSyncError):
-        await explore_changes(ranked("chg-1", "chg-2"), COMPARISON, ctx, CostLedger(1.0), RUN)
-    stored = await tree.read_tree(f"{RUN}:chg-1:root")
+        await explore_change(CHANGE, COMPARISON, ctx, RUN)
+    stored = await tree.read_tree(f"{RUN}:{CHANGE.change_id}:root")
     branch = next(node for node in stored if node.depth == 2)
     # Never judged, so it is pending with no reason and no score, and the audit trail shows that.
     assert (branch.status, branch.prune_reason, branch.score) == (NodeStatus.PENDING, None, None)
-    # Known gap: a change that ends this way has no budget snapshot, and the later change was never
-    # started, so whoever resumes the run must treat the tree as unfinished.
-    assert await tree.read_budget(RUN) is None
     assert len(generator.candidate_calls) == 1
 
 
@@ -1326,6 +1337,23 @@ async def test_the_fresh_round_has_its_own_node_budget(tree, config):
     assert result.outcome is Outcome.RESOLVED
     assert result.fresh_round is True and result.stopped is StopReason.NODE_BUDGET
     assert result.node_evaluations == 3 + 2
+
+
+async def test_a_fresh_round_that_prunes_everything_says_so_after_a_capped_first_round(
+    tree, config
+):
+    # The first round's cap ends it with nothing; the fresh round then prunes its only candidate
+    # at prescreen without reaching its own cap. The reason must not blame the node budget alone.
+    generator = FakeGenerator(
+        [candidates("First try"), candidates("Conditions changed")],
+        {"First try": sources(*[search(f"q{i}", None if i else Section.MDNA) for i in range(6)])},
+    )
+    critic = FakeCritic(specificity={"Conditions changed": Specificity.VAGUE})
+    small = with_budget(config, first_round_nodes=3)
+    result = await explore(tree, small, generator, critic, FakeRetriever())
+    assert result.outcome is Outcome.UNRESOLVED and result.fresh_round is True
+    assert result.stopped is StopReason.NODE_BUDGET  # the search as a whole was capped
+    assert "every candidate in the fresh round was pruned" in result.review_reason
 
 
 async def test_a_spent_node_budget_ends_the_search_with_the_best_branches_so_far(tree, config):
@@ -1390,6 +1418,25 @@ async def test_a_spent_run_budget_before_any_evidence_is_unresolved_for_review(t
     assert result.outcome is Outcome.UNRESOLVED and result.stopped is StopReason.RUN_BUDGET
     assert "dollar budget" in result.review_reason
     assert len(generator.candidate_calls) == 1
+
+
+async def test_a_candidate_the_dollar_cap_reached_first_is_not_judged_rather_than_sourceless(
+    tree, config
+):
+    generator = FakeGenerator(
+        [candidates("Cocoa costs rose", "Promotions rose")],
+        {"Cocoa costs rose": sources(search("cocoa"))},
+    )
+    retriever = FakeRetriever({("cocoa", Section.MDNA): found("cocoa", passage("now-1"))})
+    # Both prescreens succeed; the first candidate's evidence judgment is refused, so the second
+    # candidate never has its sources proposed.
+    critic = FakeCritic(raise_after=(2, BudgetExceededError("cap reached")))
+    result = await explore(tree, config, generator, critic, retriever)
+    assert result.stopped is StopReason.RUN_BUDGET
+    stored = {node.node_id: node for node in await tree.read_tree(result.tree_root_id)}
+    second = stored[f"{RUN}:chg-1:r1:c2"]
+    assert (second.status, second.prune_reason) == (NodeStatus.PRUNED, NOT_JUDGED_REASON)
+    assert not any(node.parent_id == second.node_id for node in stored.values())
 
 
 # -- the whole tree ---------------------------------------------------------------------------
@@ -1524,54 +1571,6 @@ async def test_a_branch_rebuilt_from_the_stored_tree_is_what_the_critic_was_show
     assert (rebuilt.thought, rebuilt.expected_metrics) == (claim_seen, metrics_seen)
     assert claim_of(evidence, stored_tree) == "Cocoa costs rose" == rebuilt.thought
     assert evidence.thought == "compute it"
-
-
-# -- a run of changes -------------------------------------------------------------------------
-
-
-def ranked(*ids: str) -> RankedChanges:
-    return RankedChanges(
-        comparison_id="HSY-yoy",
-        changes=tuple(
-            CHANGE.model_copy(update={"change_id": cid, "materiality_rank": rank})
-            for rank, cid in enumerate(ids, start=1)
-        ),
-    )
-
-
-async def test_changes_are_searched_in_order_and_the_budget_is_recorded(tree, config):
-    generator = FakeGenerator(
-        [candidates("Cocoa costs rose"), candidates("Cocoa costs rose")],
-        {"Cocoa costs rose": sources(search("cocoa"))},
-    )
-    retriever = FakeRetriever({("cocoa", Section.MDNA): found("cocoa", passage("now-1"))})
-    ledger = CostLedger(1.0)
-    ctx = context(tree, config, generator, FakeCritic(), retriever)
-    results = await explore_changes(
-        ranked("chg-1", "chg-2"), COMPARISON, ctx, ledger, RUN, starting_evaluations=10
-    )
-    assert [r.change_id for r in results] == ["chg-1", "chg-2"]
-    assert all(r.outcome is Outcome.RESOLVED for r in results)
-    budget = await tree.read_budget(RUN)
-    # The resumed run's earlier count is carried forward, because a new ledger starts at zero.
-    assert budget.node_evaluations == 10 + sum(r.node_evaluations for r in results)
-    assert (budget.spent_usd, budget.max_usd) == (0.0, 1.0)
-
-
-async def test_when_the_run_budget_is_reached_the_least_material_changes_go_to_review(tree, config):
-    generator = FakeGenerator([candidates("Cocoa costs rose")])
-    critic = FakeCritic(raise_after=(0, BudgetExceededError("cap reached")))
-    ctx = context(tree, config, generator, critic)
-    results = await explore_changes(
-        ranked("chg-1", "chg-2", "chg-3"), COMPARISON, ctx, CostLedger(1.0), RUN
-    )
-    assert [r.outcome for r in results] == [Outcome.UNRESOLVED] * 3
-    assert results[0].tree_root_id is not None
-    for skipped in results[1:]:
-        assert skipped.tree_root_id is None and skipped.stopped is StopReason.RUN_BUDGET
-        assert "before this change was examined" in skipped.review_reason
-    # Only the first change was searched.
-    assert len(generator.candidate_calls) == 1
 
 
 # -- the result record ------------------------------------------------------------------------

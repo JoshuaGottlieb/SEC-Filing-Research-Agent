@@ -1049,8 +1049,15 @@ async def _label_survivor(
         if note is not None:
             tally.review_notes.append(note)
             notes.append(note)
-            # A rework round that rules on the claim replaces one note; the first stands for it.
-            review_note = review_note or note
+    if len(notes) > 1:
+        # One note per claim, because a rework round that rules on the claim replaces exactly
+        # one: kept apart, a later judge failure's note outlived the claim being confirmed.
+        for earlier in notes:
+            tally.review_notes.remove(earlier)
+        review_note = "; ".join(notes)
+        tally.review_notes.append(review_note)
+    elif notes:
+        review_note = notes[0]
     # A quote the judge found unrelated (another cause or change, or the opposite direction) is not
     # evidence for the claim, whatever the critic rated it (user's decision, 2026-11-15): on the
     # fourth paid Hershey run a claim that a non-operating loss lowered net margin cited other

@@ -14,7 +14,8 @@ import pytest
 from conftest import DOLLAR_QUOTE, GONE_ID, MARGIN_ID, RISK_ID, RUN_ID
 from sec_agent.report import run_view as rv
 from sec_agent.report.brief import assign_refs
-from sec_agent.schemas import ExplanationLabel, NodeStatus, NumericCheck
+from sec_agent.schemas import ExplanationLabel, NodeStatus, NumericCheck, TreeNode
+from sec_agent.tot.rework import rework_prefix
 
 
 def test_runs_with_an_audit_trail_are_listed_newest_first(saved_runs) -> None:
@@ -284,3 +285,23 @@ def test_change_ids_read_as_words() -> None:
         "New paragraph in Risk Factors (paragraph 0059)"
     )
     assert rv.describe_change_id("odd-id") == "odd-id"
+
+
+def test_a_resumed_attempts_rework_searches_keep_their_round() -> None:
+    claim = "run1:chg-1:r1:c2"
+    for attempt, expected in ((None, 2), ("run1.r20261118T010203Z", 2)):
+        node = TreeNode(
+            node_id=f"{rework_prefix(claim, 2, attempt)}:e1",
+            run_id="run1",
+            change_id="chg-1",
+            parent_id=claim,
+            depth=2,
+            thought="Search the MD&A for cocoa costs.",
+        )
+        assert rv.rework_round(node) == expected, attempt
+
+
+def test_a_note_naming_a_claim_gets_the_claims_reference_not_its_findings() -> None:
+    refs = {"run1:chg-1": "F1", "run1:chg-1:r1:c1": "C1", "run1:chg-1:r1:c2": "C2"}
+    note = "confirmed as saying no more than run1:chg-1:r1:c1, so merged"
+    assert rv._note_reason(note, refs) == "confirmed as saying no more than C1, so merged"
