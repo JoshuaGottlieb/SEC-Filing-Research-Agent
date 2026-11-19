@@ -71,7 +71,7 @@ The design has four agents and no planner. `src/sec_agent/graph.py` is the deter
 
 Four ways to review the project, none of which needs an API key or ingestion:
 
-1. **Read a sample brief.** [samples/](samples/README.md) holds nine real runs: three companies by three comparisons, each with its brief, full audit trail, model-call ledger and step timings. Start with [the Hershey 10-K brief](samples/runs/HSY-yoy-10k-t81-20261115/brief.md), the run the demo video uses. GitHub renders it directly.
+1. **Read a sample brief.** [samples/](samples/README.md) holds nine real runs: three companies by three comparisons, each with its brief, full audit trail, model-call ledger and step timings. Start with [the Hershey 10-K brief](samples/runs/HSY-yoy-10k-t81-20261115/brief.md), which compares Hershey's FY2025 10-K with its FY2024 10-K. GitHub renders it directly.
 2. **Browse the runs in the app.** The Streamlit app shows each run's brief, evidence trees, a step-by-step replay, the review queue and the cost and time. A light install of about 730 MB runs it on the samples in about 5 minutes; see [samples/README.md](samples/README.md#browse-the-runs-in-the-app-about-5-minutes-no-api-key).
 3. **Check the evaluation.** [EVALUATION.md](EVALUATION.md) reports every result. The hand-checked benchmark is in [eval/benchmark/](eval/benchmark/README.md), the scripts are under [eval/](eval/), and the retrieval and judge result files are committed beside their scripts.
 4. **Run the tests.** After the [setup](#setup) below (`uv sync --frozen` only), `uv run --frozen pytest` runs over 2,100 unit tests in about a minute. They need no network, no API key, no downloaded models and no ingested filings.
