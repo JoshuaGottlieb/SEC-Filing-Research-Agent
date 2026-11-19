@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 570" width="1000" height="570" role="img" aria-labelledby="t d">
+  <title id="t">SEC Filing Research Agent architecture</title>
+  <desc id="d">A fixed LangGraph controller runs detect, estimate, rank, select, explore, summarize and write, with a rework loop under explore. Four agents (Retrieval, Change Analysis, Financial Analysis, Verification and Reporting) act inside those steps, over local stores.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#152033"/>
+    </marker>
+    <style>
+      .sans { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+      .mono { font-family: SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+      .serif { font-family: Georgia, "Times New Roman", serif; }
+      .ink { fill: #152033; }
+      .muted { fill: #5B6475; }
+      .kicker { font-size: 11px; letter-spacing: 1.5px; font-weight: 700; fill: #5B6475; }
+      .node { fill: #FFFFFF; stroke: #152033; stroke-width: 1.3; }
+      .name { font-size: 14px; font-weight: 700; text-anchor: middle; }
+      .sub { font-size: 11px; text-anchor: middle; }
+      .edge { stroke: #152033; stroke-width: 1.4; fill: none; }
+      .lbl { font-size: 10.5px; fill: #5B6475; }
+      .card { fill: #FFFFFF; stroke: #D8D2C4; stroke-width: 1; }
+      .ctitle { font-size: 14px; font-weight: 700; }
+      .body { font-size: 12px; fill: #152033; }
+      .model { font-size: 11.5px; fill: #152033; font-style: italic; }
+      .code { font-size: 10.5px; fill: #5B6475; }
+      .chip { fill: #FFFFFF; stroke: #B9B2A3; stroke-width: 1; }
+      .chiptext { font-size: 11.5px; fill: #152033; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="1000" height="570" fill="#F6F4EF"/>
+
+  <text x="24" y="38" class="serif ink" font-size="21" font-weight="700">How a run moves through the agent</text>
+  <text x="24" y="60" class="sans muted" font-size="12.5">sec-agent analyze runs a fixed LangGraph workflow (graph.py). Code, not a model, decides each route, retry and budget stop.</text>
+
+  <!-- Controller band -->
+  <rect x="24" y="76" width="952" height="196" rx="10" fill="#ECE8DF"/>
+  <text x="38" y="96" class="sans kicker">CONTROLLER · graph.py</text>
+
+  <!-- Skip edge: select to summarize when nothing is selected -->
+  <path class="edge" d="M500,124 C500,92 768,92 768,122" marker-end="url(#a)"/>
+  <text x="634" y="117" class="sans lbl" text-anchor="middle">nothing to explore</text>
+
+  <!-- Main row of nodes -->
+  <g class="sans">
+    <rect class="node" x="46" y="124" width="104" height="62" rx="6"/>
+    <text x="98" y="146" class="mono name ink">detect</text>
+    <text x="98" y="162" class="sub muted">diff + metric scan</text>
+    <circle cx="92" cy="175" r="4" fill="#C8641E"/><circle cx="104" cy="175" r="4" fill="#3C8A4E"/>
+
+    <rect class="node" x="180" y="124" width="104" height="62" rx="6"/>
+    <text x="232" y="146" class="mono name ink">estimate</text>
+    <text x="232" y="162" class="sub muted">cost check, asks</text>
+
+    <rect class="node" x="314" y="124" width="104" height="62" rx="6"/>
+    <text x="366" y="146" class="mono name ink">rank</text>
+    <text x="366" y="162" class="sub muted">Opus: materiality</text>
+    <circle cx="366" cy="175" r="4" fill="#C8641E"/>
+
+    <rect class="node" x="448" y="124" width="104" height="62" rx="6"/>
+    <text x="500" y="146" class="mono name ink">select</text>
+    <text x="500" y="162" class="sub muted">top 10 changes</text>
+
+    <rect class="node" x="582" y="124" width="104" height="62" rx="6" stroke-width="2.2"/>
+    <text x="634" y="146" class="mono name ink">explore</text>
+    <text x="634" y="162" class="sub muted">per change, in order</text>
+    <circle cx="616" cy="175" r="4" fill="#2F6DB5"/><circle cx="628" cy="175" r="4" fill="#C8641E"/><circle cx="640" cy="175" r="4" fill="#3C8A4E"/><circle cx="652" cy="175" r="4" fill="#7B4FA6"/>
+
+    <rect class="node" x="716" y="124" width="104" height="62" rx="6"/>
+    <text x="768" y="146" class="mono name ink">summarize</text>
+    <text x="768" y="162" class="sub muted">Opus: summary</text>
+    <circle cx="768" cy="175" r="4" fill="#7B4FA6"/>
+
+    <rect class="node" x="850" y="124" width="104" height="62" rx="6"/>
+    <text x="902" y="146" class="mono name ink">write</text>
+    <text x="902" y="162" class="sub muted">checked brief</text>
+    <circle cx="902" cy="175" r="4" fill="#7B4FA6"/>
+
+    <!-- Rework under explore -->
+    <rect class="node" x="582" y="208" width="104" height="54" rx="6"/>
+    <text x="634" y="229" class="mono name ink">rework</text>
+    <text x="634" y="244" class="sub muted">up to 2 rounds</text>
+    <circle cx="628" cy="254" r="4" fill="#2F6DB5"/><circle cx="640" cy="254" r="4" fill="#7B4FA6"/>
+
+    <!-- Outputs under write -->
+    <rect x="850" y="208" width="104" height="54" rx="6" fill="#FFFFFF" stroke="#152033" stroke-width="1" stroke-dasharray="4 3"/>
+    <text x="902" y="231" class="mono ink" font-size="11" text-anchor="middle">brief.md</text>
+    <text x="902" y="248" class="mono ink" font-size="11" text-anchor="middle">audit.json</text>
+  </g>
+
+  <!-- Main row edges -->
+  <path class="edge" d="M150,155 L178,155" marker-end="url(#a)"/>
+  <path class="edge" d="M284,155 L312,155" marker-end="url(#a)"/>
+  <path class="edge" d="M418,155 L446,155" marker-end="url(#a)"/>
+  <path class="edge" d="M552,155 L580,155" marker-end="url(#a)"/>
+  <path class="edge" d="M686,155 L714,155" marker-end="url(#a)"/>
+  <path class="edge" d="M820,155 L848,155" marker-end="url(#a)"/>
+  <!-- explore and rework -->
+  <path class="edge" d="M620,186 L620,206" marker-end="url(#a)"/>
+  <path class="edge" d="M648,208 L648,188" marker-end="url(#a)"/>
+  <text x="614" y="201" class="sans lbl" text-anchor="end">claims judged "implies"</text>
+  <text x="654" y="201" class="sans lbl">next change</text>
+  <!-- rework to summarize -->
+  <path class="edge" d="M686,235 L768,235 L768,188" marker-end="url(#a)"/>
+  <text x="694" y="252" class="sans lbl">all changes done</text>
+  <!-- write to outputs -->
+  <path class="edge" d="M902,186 L902,206" marker-end="url(#a)"/>
+
+  <!-- Agents -->
+  <text x="24" y="300" class="sans kicker">THE FOUR AGENTS</text>
+  <text x="976" y="300" class="sans lbl" text-anchor="end">A step's dots show which agents act in it.</text>
+
+  <g class="sans">
+    <rect class="card" x="24" y="310" width="229" height="160" rx="8"/>
+    <rect x="24" y="310" width="229" height="5" rx="2" fill="#2F6DB5"/>
+    <text x="38" y="338" class="ctitle" fill="#2F6DB5">Retrieval</text>
+    <text x="38" y="360" class="body">Hybrid search: BM25 and dense,</text>
+    <text x="38" y="376" class="body">fused by reciprocal rank, then</text>
+    <text x="38" y="392" class="body">reranked by a cross-encoder,</text>
+    <text x="38" y="408" class="body">with a score floor per filing</text>
+    <text x="38" y="432" class="model">No model by default</text>
+    <text x="38" y="462" class="mono code">retrieval/, agents/retrieval.py</text>
+
+    <rect class="card" x="265" y="310" width="229" height="160" rx="8"/>
+    <rect x="265" y="310" width="229" height="5" rx="2" fill="#C8641E"/>
+    <text x="279" y="338" class="ctitle" fill="#C8641E">Change Analysis</text>
+    <text x="279" y="360" class="body">Aligns paragraphs and diffs</text>
+    <text x="279" y="376" class="body">them; ranks changes by</text>
+    <text x="279" y="392" class="body">materiality; proposes and scores</text>
+    <text x="279" y="408" class="body">explanations (Tree-of-Thought)</text>
+    <text x="279" y="432" class="model">Opus ranks; Haiku proposes</text>
+    <text x="279" y="446" class="model">and critiques</text>
+    <text x="279" y="462" class="mono code">compare/, tot/</text>
+
+    <rect class="card" x="506" y="310" width="229" height="160" rx="8"/>
+    <rect x="506" y="310" width="229" height="5" rx="2" fill="#3C8A4E"/>
+    <text x="520" y="338" class="ctitle" fill="#3C8A4E">Financial Analysis</text>
+    <text x="520" y="360" class="body">Scans XBRL metrics for moves,</text>
+    <text x="520" y="376" class="body">with a seasonality check; tests</text>
+    <text x="520" y="392" class="body">each explanation's metrics</text>
+    <text x="520" y="408" class="body">inside the search</text>
+    <text x="520" y="432" class="model">No model: fixed calculations</text>
+    <text x="520" y="446" class="model">from a metric catalog</text>
+    <text x="520" y="462" class="mono code">finance/</text>
+
+    <rect class="card" x="747" y="310" width="229" height="160" rx="8"/>
+    <rect x="747" y="310" width="229" height="5" rx="2" fill="#7B4FA6"/>
+    <text x="761" y="338" class="ctitle" fill="#7B4FA6">Verification and Reporting</text>
+    <text x="761" y="360" class="body">Checks each quote against the</text>
+    <text x="761" y="376" class="body">cited filing, period and section;</text>
+    <text x="761" y="392" class="body">labels each claim; writes the</text>
+    <text x="761" y="408" class="body">brief under the wording rules</text>
+    <text x="761" y="432" class="model">Opus: fresh-context judge</text>
+    <text x="761" y="446" class="model">and the summary</text>
+    <text x="761" y="462" class="mono code">agents/verification.py, report/</text>
+  </g>
+
+  <!-- Local stores -->
+  <text x="24" y="500" class="sans kicker">LOCAL STORES</text>
+  <g class="sans">
+    <rect class="chip" x="24" y="510" width="182" height="30" rx="15"/>
+    <text x="115" y="529" class="chiptext">DuckDB: chunks and figures</text>
+    <rect class="chip" x="218" y="510" width="138" height="30" rx="15"/>
+    <text x="287" y="529" class="chiptext">Chroma: embeddings</text>
+    <rect class="chip" x="368" y="510" width="214" height="30" rx="15"/>
+    <text x="475" y="529" class="chiptext">MCP tree store: every ToT node</text>
+    <rect class="chip" x="594" y="510" width="214" height="30" rx="15"/>
+    <text x="701" y="529" class="chiptext">LLM client: ledger, cap, replay</text>
+    <rect class="chip" x="820" y="510" width="156" height="30" rx="15"/>
+    <text x="898" y="529" class="chiptext">Checkpoints: --resume</text>
+  </g>
+</svg>

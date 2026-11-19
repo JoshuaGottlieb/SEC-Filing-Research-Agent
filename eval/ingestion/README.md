@@ -1,6 +1,6 @@
 # Ingestion measurements
 
-These scripts produce the numbers in [../parser_holdout.md](../parser_holdout.md). They aren't
+These scripts produce the numbers in [parser_holdout.md](parser_holdout.md). They aren't
 in the test suite because a person has to read their output. Run them from the repo root with
 `uv run --frozen python eval/ingestion/<script>`. A corpus is a path or a bare name from `config/`.
 

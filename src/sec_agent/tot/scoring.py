@@ -3,10 +3,10 @@
 The critic and the metric checker supply the criteria, and nothing here calls a model. The rubric
 is in the ToT design and its numbers are in config/scoring.yaml.
 
-Numerical consistency has three states (design gap 1, DESIGN_CHANGES.md). Not applicable removes
-the criterion and rescales the rest, because the design as first written had a bug: a text-only
-explanation, such as a new risk factor, scored at most 0.25 at depth 1, below the 0.30 threshold,
-so all of them were pruned.
+Numerical consistency has three states (design gap 1, docs/DESIGN_CHANGES.md). Not applicable
+removes the criterion and rescales the rest, because the design as first written had a bug: a
+text-only explanation, such as a new risk factor, scored at most 0.25 at depth 1, below the 0.30
+threshold, so all of them were pruned.
 
 When it applies, numerical consistency is the share of a branch's checked metrics that agree
 (`numeric_consistency`), not all or nothing. The generator sometimes adds a metric that moved the

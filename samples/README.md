@@ -2,7 +2,7 @@
 
 These are the agent's real outputs: nine full runs, three companies by three comparisons, saved exactly as the pipeline wrote them. You can read them on GitHub, or browse them in the Streamlit app with a light install: no ingestion, no models to download, no API key and no paid calls.
 
-They come from the full-corpus batch of 2026-11-15 to 16. Each run explored its 10 most material changes under a $1.50 cap. Hershey (HSY) is the company the settings were tuned on. Mattel (MAT) and Stanley Black & Decker (SWK) are the held-out test set, run once (see [EVALUATION.md](../EVALUATION.md)).
+They come from the full-corpus batch of 2026-11-15 to 16. Each run explored its 10 most material changes under a $1.50 cap. Hershey (HSY) is the company the settings were tuned on. Mattel (MAT) and Stanley Black & Decker (SWK) are the held-out test set, run once (see [docs/EVALUATION.md](../docs/EVALUATION.md)).
 
 | Run | Comparison | Periods | Confirmed | Plausible | Cost | Time |
 |---|---|---|---|---|---|---|
@@ -16,7 +16,7 @@ They come from the full-corpus batch of 2026-11-15 to 16. Each run explored its 
 | [SWK-yoy-10q](runs/SWK-yoy-10q-t81-20261115/brief.md) | year over year (10-Q) | Q2 2026 against Q2 2025 | 15 | 23 | $1.04 | 42 min |
 | [SWK-seq-10q](runs/SWK-seq-10q-t81-20261115/brief.md) | sequential quarters (10-Q) | Q2 2026 against Q1 2026 | 12 | 26 | $1.29 | 47 min |
 
-Confirmed and plausible count the claims in each brief. Cost is model spend; time is wall-clock time on a 4-core laptop with no GPU.
+Confirmed and plausible count the claims in each brief. Cost is model spend; time is wall-clock time on a 4-core CPU with no GPU.
 
 Each run folder holds:
 

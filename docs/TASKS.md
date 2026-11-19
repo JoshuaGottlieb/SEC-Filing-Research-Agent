@@ -2,7 +2,7 @@
 
 The code, tests and evaluation files cite build tasks by ID, for example "T4.4" or "T6.5". This index says what each task built and where its code lives. Paths under `src/sec_agent/` are written without that prefix.
 
-The design the tasks implement is the Multi-Agent Architecture Plan (D1) and the Module 3 and Module 4 designs. [DESIGN_CHANGES.md](DESIGN_CHANGES.md) says how the build fills the design's 14 gaps; code comments cite those as "design gap N". [EVALUATION.md](EVALUATION.md) has the results of Phase 6.
+The tasks implement the design in [design/](design/), chiefly the Module 3 to 5 documents ([README.md](README.md) summarizes each). [DESIGN_CHANGES.md](DESIGN_CHANGES.md) says how the build fills the design's 14 gaps; code comments cite those as "design gap N". [EVALUATION.md](EVALUATION.md) has the results of Phase 6.
 
 ## Phase 0: Foundation
 
@@ -90,6 +90,6 @@ The step-by-step replay and the cost and time tab were added beyond the plan (`u
 | Task | What it produced | Where |
 |---|---|---|
 | T8.1 | The full-corpus run: 9 comparisons, three companies by three comparison types | `samples/` |
-| T8.2 | README, design changes note and evaluation summary | `README.md`, `DESIGN_CHANGES.md`, `EVALUATION.md` |
+| T8.2 | README, design changes note and evaluation summary | `README.md`, `docs/DESIGN_CHANGES.md`, `docs/EVALUATION.md` |
 | T8.8 | Repository ready for outside review: sample runs, link check, license | `samples/`, `LICENSE` |
 | T8.10 | Cleanup, documentation and code review | |

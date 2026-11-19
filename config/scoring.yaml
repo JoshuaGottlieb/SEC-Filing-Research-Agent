@@ -8,7 +8,7 @@ threshold: 0.30
 
 # The full rubric at depth 2, where passages have been retrieved. The design's weights. When
 # numerical consistency is not applicable it is removed and the others are rescaled (design gap 1,
-# DESIGN_CHANGES.md).
+# docs/DESIGN_CHANGES.md).
 rubric:
   evidence_support: 0.40
   numerical_consistency: 0.30

@@ -219,8 +219,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Local-only project files: editor settings, the course documents, and the working plan.
-# docs/How_SEC_Filing_Ingestion_Is_Tested.md is tracked and unaffected by these rules.
+# Local-only project files: editor settings and the working plan.
 .vscode/
-docs/*.pdf
 docs/IMPLEMENTATION_PLAN.md
