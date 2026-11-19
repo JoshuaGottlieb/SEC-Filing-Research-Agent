@@ -18,10 +18,16 @@ Weaker explanations are labeled `plausible`, and anything left open is queued fo
 
 ## Documents
 
-- **[DESIGN_CHANGES.md](DESIGN_CHANGES.md):** how the build fills the gaps in the original design, and where it departs from it.
-- **[EVALUATION.md](EVALUATION.md):** what was measured, on which data, and the results.
-- **[TASKS.md](TASKS.md):** the build tasks that code comments cite by ID, such as "T4.4", and where each one's code is.
-- **[samples/](samples/README.md):** nine real runs (three companies by three comparisons). Read the briefs on GitHub, or browse them in the Streamlit app with a light install: no ingestion, no models, no API key. Instructions are in [samples/README.md](samples/README.md).
+| Read | For |
+|---|---|
+| [samples/](samples/README.md) | Nine real runs (three companies by three comparisons): read the briefs on GitHub, or browse them in the app with a light install |
+| [src/sec_agent/](src/sec_agent/README.md) | How a run moves through the code: the workflow, the four agents, where each part lives, and what a run leaves on disk |
+| [src/sec_agent/ingest/](src/sec_agent/ingest/README.md) | The corpus, how filings are validated, the figures loaded, and trying a new company |
+| [src/sec_agent/ui/](src/sec_agent/ui/README.md) | The Streamlit app's five tabs |
+| [eval/](eval/README.md) | Rerunning each evaluation, the benchmark, and the committed result files |
+| [EVALUATION.md](EVALUATION.md) | What was measured, on which data, and the results |
+| [DESIGN_CHANGES.md](DESIGN_CHANGES.md) | How the build fills the gaps in the original design, and where it departs from it |
+| [TASKS.md](TASKS.md) | The build tasks that code comments cite by ID, such as "T4.4", and where each one's code is |
 
 ## How it works
 
@@ -45,27 +51,7 @@ Each claim is labeled:
 
 Causal wording, such as "due to" or "driven by", is only allowed in `confirmed` claims.
 
-### Where the code is
-
-The design has four agents and no planner. `src/sec_agent/graph.py` is the deterministic controller: it runs the steps in order, and makes the retry, budget and stop decisions in code. Paths below are under `src/sec_agent/`, and each package's `__init__.py` describes its modules.
-
-| Step or part | Agent | Code |
-|---|---|---|
-| Filings, sections, chunks and facts (run once by `ingest` and `index`) | | `edgar/`, `ingest/`, `finance/fact_store.py` |
-| Detect: paragraph alignment and diff | Change Analysis | `compare/align.py` |
-| Detect: metric scan and seasonality | Financial Analysis | `finance/scan.py`, `finance/metrics.py` |
-| Rank: materiality | Change Analysis | `compare/materiality.py` |
-| Explore: Tree-of-Thought search | Change Analysis | `tot/generator.py`, `tot/critic.py`, `tot/scoring.py`, `tot/controller.py` |
-| Explore: evidence search | Retrieval | `retrieval/`, `agents/retrieval.py` |
-| Explore: metric checks inside the search | Financial Analysis | `finance/metrics.py` |
-| Explore: labeling and rework | Verification and Reporting | `tot/labeling.py`, `tot/rework.py`, `agents/verification.py` |
-| Write: summary and brief | Verification and Reporting | `report/brief.py`, `report/summary.py` |
-| Tree store (every node, score and pruned branch) | | `tree_mcp/` |
-| Model calls, cost ledger, budget stop, replay cache | | `llm/` |
-| Shared records passed between agents | | `schemas.py`, `contracts.py` |
-| Command line | | `cli.py`, `eval_cli.py` |
-| Streamlit app over saved runs | | `ui/`, `report/run_view.py` |
-| Evaluation scripts | | `eval/` (see [Evaluation](#evaluation)) |
+The design's four agents (Retrieval, Change Analysis, Financial Analysis, and Verification and Reporting) pass typed records through the graph, and every Tree-of-Thought node, score and pruned branch is kept in a local MCP tree store. [src/sec_agent/README.md](src/sec_agent/README.md) maps each step to its agent and code.
 
 ## Reviewing without running
 
@@ -127,15 +113,7 @@ uv run --frozen sec-agent index      # chunk them and build the search index; sa
 uv run --frozen sec-agent analyze HSY --comparison yoy-10k --max-changes 3
 ```
 
-`ingest` reads the pinned corpus in [config/corpus.yaml](config/corpus.yaml). It covers Hershey (HSY), Mattel (MAT) and Stanley Black & Decker (SWK), with five filings each:
-- the latest two 10-Ks;
-- the latest 10-Q;
-- the same quarter a year earlier;
-- the quarter before.
-
-`ingest` exits 1 if any filing fails validation (see [How filings are validated](#how-filings-are-validated)).
-
-`index` splits the validated filings into chunks of 300 to 500 tokens and embeds them into a local Chroma index. On the pinned corpus that is about 2,200 chunks, roughly 15 minutes on a 4-core CPU the first time. A re-run embeds only chunks that changed.
+The pinned corpus ([config/corpus.yaml](config/corpus.yaml)) holds five filings each for Hershey (HSY), Mattel (MAT) and Stanley Black & Decker (SWK). `ingest` exits 1 if any filing fails validation. The first `index` takes about 15 minutes on a 4-core CPU; a re-run embeds only chunks that changed. [src/sec_agent/ingest/](src/sec_agent/ingest/README.md) covers the corpus, validation, the figures loaded, the commands for checking them, and trying a new company.
 
 ### Running an analysis
 
@@ -173,7 +151,7 @@ The full measurements are in [EVALUATION.md](EVALUATION.md#cost-and-latency-t66-
 | `ledger.jsonl` | Every model call, with its tokens, cost, latency and the step it served |
 | `timings.jsonl` | Wall time of every step and every local search |
 
-Every Tree-of-Thought node is kept in `<data dir>/tot_tree.sqlite`, including pruned branches and their scores. The workflow reads and writes trees through a local MCP server.
+[src/sec_agent/README.md](src/sec_agent/README.md#what-a-run-leaves-on-disk) lists everything else a run keeps, such as the Tree-of-Thought tree store and the checkpoints `--resume` reads.
 
 ### Browsing saved runs
 
@@ -181,96 +159,20 @@ Every Tree-of-Thought node is kept in `<data dir>/tot_tree.sqlite`, including pr
 uv run --frozen sec-agent app             # opens http://localhost:8501; --port to change it
 ```
 
-A Streamlit app over the saved runs in `<data dir>/runs/`. It reads each run's `audit.json`, `ledger.jsonl` and `timings.jsonl` and calls no model, so browsing is free. Pick a company, a comparison and a run (the newest is the default). The app has five tabs:
-- **Brief:** the summary and each change with its labeled claims. Filter by strongest label and by section. The changed text shows both versions side by side, with the words that differ marked. Expand a quote to see the full passage it came from, with the quote highlighted, and a link to the filing on SEC.gov.
-- **Evidence trees:** one change's Tree-of-Thought tree, drawn top-down: the change, then one card per candidate explanation with its score and label. A card's evidence searches show as a row of coloured chips, one per search: the colour is what the search found, solid if kept, hollow if pruned. Open a candidate's branch to see each search as its own box, stacked under it. Pruned branches are dashed, with the reason on hover and in the node table, and can be hidden. Candidates that reached the brief are outlined in their label's colour. Below the tree, pick a candidate to see its searches and the quotes they found.
-- **Replay audit:** an animated replay of the run, step by step: detecting the changes (with paragraphs from this run aligned and their changed sentences marked), ranking them (the changes explored, then some of those past the cap), then for each change the candidates proposed and pre-screened, each candidate's evidence searches, labeling and rework rounds, and the summary. The tree grows as the run built it, with the run's clock, running cost and model calls, and a note on what each step does. Play, pause, step, change the speed, scrub, or jump to a change. It is built from the saved timings, ledger and audit trail; runs saved before timings were recorded replay without a clock.
-- **Review queue:** what to check by hand. Findings that need review, explanations left out of the brief or annotated by labeling (with the reason and the evidence found), searches that did not finish, rationales left out, and the changes past the `--max-changes` cap. Nothing in it stopped the run.
-- **Cost and time:** the run's cost, wall time and calls by step and model, as `sec-agent eval cost` reports them.
+A Streamlit app over the saved runs in `<data dir>/runs/`: each run's brief, evidence trees, a step-by-step replay, the review queue, and the cost and time. It calls no model, so browsing is free. It shows saved runs only; start runs with `sec-agent analyze`. [src/sec_agent/ui/](src/sec_agent/ui/README.md) describes the tabs.
 
-To browse the committed sample runs instead, point the data directory at them: `SEC_AGENT_DATA_DIR=samples uv run --frozen sec-agent app`. Without a full setup, use the light install in [samples/README.md](samples/README.md).
-
-The app shows saved runs only. Starting a run from the app is a future enhancement and is not currently included; start runs with `sec-agent analyze`.
-
-The full passages come from the DuckDB store, opened read-only. While `ingest` or `index` holds it for writing, the app shows the quotes alone.
+To browse the committed sample runs instead: `SEC_AGENT_DATA_DIR=samples uv run --frozen sec-agent app`. Without a full setup, use the light install in [samples/README.md](samples/README.md).
 
 ## Evaluation
 
-`sec-agent eval` runs the evaluations against the hand-checked benchmark in [eval/benchmark/](eval/benchmark/README.md):
-- **Tune split (default):** Hershey. Settings were tuned on it.
-- **Test split:** Mattel and Stanley Black & Decker, run once after settings were fixed. A test-split run asks for confirmation first.
+`sec-agent eval` reruns each evaluation against the hand-checked benchmark. Hershey is the tune split, the one settings were tuned on; Mattel and Stanley Black & Decker are the test split, run once.
 
 ```bash
 uv run --frozen sec-agent eval tasks                  # list the commands, their task and cost
 uv run --frozen sec-agent eval retrieval              # recall@5 (free, local models)
-uv run --frozen sec-agent eval judge --cap 0.30       # paid commands require --cap and ask first
-uv run --frozen sec-agent eval cost RUN_DIR           # cost and latency of a saved run (free)
 ```
 
-Results go to `<data dir>/eval/results/` unless `--out` is given. The results so far are in [EVALUATION.md](EVALUATION.md).
-
-## Other commands
-
-```bash
-uv run --frozen sec-agent search-facts HSY "segment margin"   # search figures as the Financial Agent does
-uv run --frozen sec-agent parse-report                         # re-parse every filing and print what happened
-uv run --frozen sec-agent discover-corpus                      # re-pin the latest filings (changes the corpus)
-```
-
-## How filings are validated
-
-`sec-agent ingest` sends every filing through one gate (`ingest/pipeline.py`). Later stages read filings with `load_validated_filing`, which refuses anything that failed, so a bad parse can't reach the index.
-
-1. **Tables:** rows of figures are removed, because figures come from XBRL. Prose rows, such as footnotes, stay in the text. Each removed table is kept in the filing's record.
-2. **Sections:** `edgartools` splits the filing into items. They are mapped to canonical names (MD&A, risk factors, market risk), so that a 10-K and a 10-Q can be compared. If validation fails, the fallback parser (`ingest/fallback.py`) tries instead, under the same checks.
-3. **Validation:** `ingest/audit.py` checks results against evidence the parser didn't use. It looks for:
-   - sentences wrongly removed with tables;
-   - leftover tables;
-   - lost text;
-   - wrong section boundaries.
-4. **Facts:** filings that pass are loaded into DuckDB.
-
-A rejected filing makes `ingest` exit 1 and print its problems. Records are in `<data dir>/parsed/<ticker>/<accession>.json`. Bump `PARSER_VERSION` after changing parsing or validation, so that existing records are redone.
-
-### Figures
-
-`ingest` loads two kinds of figures. `search-facts` and the Financial Agent search both through the `facts` view:
-
-- **XBRL facts:** everything a filer tagged, read from the filing's inline XBRL. This includes segment values, which the SEC's aggregate API leaves out.
-- **Table facts:** untagged figures from tables that parsed cleanly. Figures XBRL already reports are left out, allowing for rounding.
-
-A table only yields facts if all of it can be explained: stated scale, evidence of dollars, a period for each column, and rows that can be told apart. Anything else is indexed as text, so that no figure is unreachable.
-
-Read table facts with care:
-- **Sign:** as displayed, so a cost in parentheses is negative.
-- **Duration:** describes the column, so `end_date` is the reliable part.
-- **`row_group` and `heading`:** hints only. Check the source table before relying on them.
-
-### Trying a new company
-
-The parser was developed against the three analysis companies, plus five chosen for unusual layouts (`config/parser_validation.yaml`). It was measured on four sets of five randomly drawn companies (`config/parser_holdout*.yaml`). To try others:
-
-```bash
-uv run --frozen sec-agent discover-corpus --corpus /tmp/new.yaml --ticker ABC --ticker XYZ
-uv run --frozen sec-agent ingest --corpus /tmp/new.yaml
-uv run --frozen sec-agent index --corpus /tmp/new.yaml
-uv run --frozen sec-agent analyze ABC --comparison yoy-10k --corpus /tmp/new.yaml
-```
-
-Fiscal years and quarters are derived from each company's 10-K dates, because filers' own tags are sometimes wrong. `discover-corpus` prints the filer's tag beside any filing it corrected.
-
-Passing the gate is good evidence, but not proof:
-- The latest fair test accepted 17 of 25 filings.
-- None of the accepted filings had a materially wrong section.
-- Its 8 rejections look like false alarms, such as long row labels or length floors that don't fit very small companies.
-
-Results are in [eval/parser_holdout.md](eval/parser_holdout.md), and the scripts are in [eval/ingestion/](eval/ingestion/README.md). [docs/How_SEC_Filing_Ingestion_Is_Tested.md](docs/How_SEC_Filing_Ingestion_Is_Tested.md) explains the tests in plain language.
-
-Known limits:
-- A company whose ticker moved to a new registrant has its older filings under the old CIK, so `discover-corpus` stops with an error (ExxonMobil).
-- Filings whose MD&A or statements are in Exhibit 13 can't be read.
-- AT&T's 10-Ks are rejected until their market-risk section is repaired.
-- A 10-Q whose date doesn't fit the company's fiscal calendar, as after a change of fiscal year, is left out. Selection may then stop with an error for that company.
+Paid commands require `--cap` and ask first. [eval/](eval/README.md) lists every command, its script and the committed result files, and [EVALUATION.md](EVALUATION.md) reports the results.
 
 ## Development
 
