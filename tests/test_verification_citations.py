@@ -583,7 +583,7 @@ def test_a_metric_in_an_unknown_unit_supports_nothing():
 
 
 def usd(metric_id: str, value: float, name: str = "revenue", period=CURRENT) -> MetricValue:
-    # Lane 1's dollar metrics (PR #32): whole dollars, signed, unrounded.
+    # Dollar metrics (PR #32): whole dollars, signed, unrounded.
     return metric(metric_id, value, name=name, unit="USD", period=period)
 
 
@@ -774,7 +774,7 @@ def test_a_table_stating_two_scales_supports_either():
         assert not traced(text, table, "Cell | 5").passed
 
 
-# Found by lane 1: this line is in 7 tables in the pinned filings.
+# This line is in 7 tables in the pinned filings.
 SHARE_CAPTION = (
     "Earnings per share\nNet income | $ | 1,000\nDenominator (shares in thousands):\n"
     "Weighted average shares | 427\nBasic earnings per share | $ | 2.34"
@@ -852,7 +852,7 @@ def test_only_the_word_except_makes_an_exception():
 
 
 def test_a_short_sentence_mentioning_a_scale_states_no_scale():
-    # Found by lane 1: the parser's rule alone accepts this sentence as a scale.
+    # The parser's rule alone accepts this sentence as a scale.
     table = "Segment summary\nWe sold millions of units.\nNet sales | $ | 5,000"
     assert traced("Net sales were $5,000.", table, "Net sales | $ | 5,000").passed
     result = traced("Net sales were $5,000 million.", table, "Net sales | $ | 5,000")

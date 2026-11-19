@@ -10,8 +10,7 @@ Run from the repository root (paid: Opus materiality batches, as in `sec-agent a
 For each comparison of the label file's companies, it runs the pipeline's own detection and
 materiality code, wired as `graph.run_analysis` wires it: `align_comparison` for text changes,
 `scan_comparison` for numeric ones, then `rank_changes`. Nothing after materiality runs. It then
-scores the decisions against the labels, with the method lane 1 used to tune Hershey on 2026-11-12
-(`INTEGRATION_HANDOFF.md`, section 6):
+scores the decisions against the labels, with the method used to tune Hershey on 2026-11-12:
 
 - **Missed changes.** A labeled material change is found when an aligned change that holds one
   of its quotes, from the same filing, was called material. A label whose quotes no aligned

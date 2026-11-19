@@ -533,7 +533,7 @@ async def test_a_text_change_reaches_the_model_with_its_text(settings):
     [
         (True, True, "possibly_seasonal"),
         (True, False, "not_seasonal"),
-        # Lane 1's PR #32: unchecked means no year-earlier figure, not "not seasonal".
+        # PR #32: unchecked means no year-earlier figure, not "not seasonal".
         (False, False, "not_checked"),
     ],
 )
@@ -596,7 +596,7 @@ def test_the_prompts_treat_input_as_untrusted(system):
 
 @pytest.mark.parametrize("system", [CANDIDATE_SYSTEM, SOURCE_SYSTEM])
 def test_the_prompts_warn_about_revenue_growth(system):
-    # Agreed with lane 1, and recorded in contracts.MetricChecker. The hard gate prunes a sound
+    # Recorded in contracts.MetricChecker. The hard gate prunes a sound
     # claim if "growth slowed" is written as revenue_growth down, because revenue still rose.
     assert '"up" means revenue rose' in " ".join(system.split())
     assert '"down" means revenue fell' in " ".join(system.split())

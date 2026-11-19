@@ -19,7 +19,6 @@ from sec_agent.ingest.index import (
     BgeEmbedder,
     ChunkFilter,
     ChunkIndex,
-    build_index,
     chunk_fingerprint,
 )
 from sec_agent.schemas import Chunk, ComparisonType, FiscalPeriod, FormType, Section
@@ -209,17 +208,17 @@ def test_an_interrupted_build_keeps_its_progress(settings):
         assert len(resumed.passages) == 5
 
 
-def test_build_index_reads_the_store(settings, embedder):
+def test_sync_follows_the_store(settings, embedder):
     stored = [chunk(1), chunk(2, accession="mat-q2-2026", ticker="MAT")]
     with FactStore(settings.duckdb_path) as store, ChunkIndex(settings.chroma_dir, embedder) as idx:
         for item in stored:
             store.replace_chunks(
                 item.accession, [SourcedChunk(chunk=item, paragraph_ids=(item.paragraph_id,))]
             )
-        assert build_index(store, idx).added == 2
+        assert idx.sync(store.chunks()).added == 2
         # Chunks cleared from the store, as a reload does, leave the index on the next build.
         store.remove_filing("mat-q2-2026")
-        assert build_index(store, idx).removed == 1
+        assert idx.sync(store.chunks()).removed == 1
         assert idx.count() == 1
 
 

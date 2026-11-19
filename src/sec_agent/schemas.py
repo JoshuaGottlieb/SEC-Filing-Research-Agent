@@ -236,22 +236,6 @@ class RetrievalResult(Record):
         return not self.current or not self.prior
 
 
-class MetricFact(Record):
-    """One reported XBRL value. `segment` is None for company-wide facts."""
-
-    fact_id: str
-    ticker: str
-    concept: str
-    period: FiscalPeriod
-    start_date: date | None = None
-    end_date: date
-    duration: Duration
-    value: float
-    unit: str
-    accession: str
-    segment: str | None = None
-
-
 class MetricValue(Record):
     """A computed metric, traceable to the facts it was computed from."""
 
@@ -359,10 +343,6 @@ class RankedChanges(Record):
     What the change-detection code hands to the Tree-of-Thought controller. Later steps run
     findings in this order and a budget stop drops the last ones, so an unranked or misordered
     list would drop the wrong changes without any error. The validator makes that impossible.
-
-    PROVISIONAL. Added with the contract, before the two lanes were built. Revisit when they
-    are brought back together (T5.5): the real output of T3.3 may need different rules, such
-    as ties or a cap on the list. See the plan's T3.3 and T5.5 rows.
     """
 
     comparison_id: str

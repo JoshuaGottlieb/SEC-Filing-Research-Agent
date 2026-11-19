@@ -32,7 +32,7 @@ from sec_agent.schemas import (
     TreeNode,
 )
 
-# The two build lanes meet at these records and interfaces, so these tests pin down the rules
+# The pipeline's two halves meet at these records and interfaces, so these tests pin down the rules
 # each side can rely on: what counts as incomplete, what a verdict must cite, and that the
 # new tree node field is optional so earlier saved trees still load.
 PERIOD = FiscalPeriod(fiscal_year=2025, fiscal_period="Q2", period_end=date(2025, 6, 29))
@@ -290,8 +290,8 @@ def test_evidence_support_is_ordered_strongest_first_as_the_tie_rule_reads_it():
     ]
 
 
-# Minimal stand-ins for the real implementations. They show the shape each lane builds and
-# fakes; a lane that needs richer behavior writes its own fake beside its own tests.
+# Minimal stand-ins for the real implementations. They show the shape each side builds and
+# fakes; a side that needs richer behavior writes its own fake beside its own tests.
 class FakeRetriever:
     async def retrieve(
         self, query: str, comparison: Comparison, section: Section | None = None

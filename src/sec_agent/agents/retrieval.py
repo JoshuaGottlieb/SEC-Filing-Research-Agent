@@ -8,7 +8,7 @@ T2.5). It searches, looks at which filing came back empty, asks Haiku (`Role.RET
 reworded query, and searches again, at most `MAX_SEARCHES` times in all.
 
 - The section is never changed. Broadening to every section is the Tree-of-Thought controller's
-  own retry (lane 2), so the agent stays inside what the caller asked for.
+  own retry, so the agent stays inside what the caller asked for.
 - Each filing keeps the passages from the first search that found any. Cross-encoder scores
   depend on the query, so passages found for different queries can't be ranked together.
 - It stops early when both filings have passages, when Haiku judges the topic absent from the
@@ -54,7 +54,7 @@ from sec_agent.schemas import (
     Section,
 )
 
-# Searches per retrieve, the original included: the bound on the ReAct loop in the lane plan
+# Searches per retrieve, the original included: the bound on the ReAct loop in the build plan
 # (T3.4, "at most 3 rounds"). Each search takes about 3 to 4 s on this CPU.
 MAX_SEARCHES = 3
 # Passages from the filing that did match, shown to Haiku for the company's own vocabulary.
