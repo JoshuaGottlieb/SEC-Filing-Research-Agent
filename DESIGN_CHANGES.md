@@ -99,7 +99,11 @@ As built:
 - A round stops if it would eat into the money reserved for labeling.
 - A claim whose quote fails the code checks is not retried. It stays out of the brief.
 
-**4. At most 10 changes are explored per run.** D1 explored findings in materiality order until the budget ran out. Each explored change takes minutes of local search and some model spend, so the run explores the 10 most material by default (`--max-changes`). The brief says how many were left, and `audit.json` lists them.
+**4. At most 10 changes are explored per run.** D1 explored findings in materiality order until the budget ran out. The cap is set by wall time, not money: each explored change takes about 3.7 minutes on average and up to 8, so the run explores the 10 most material by default (`--max-changes`). The brief says how many were left, and `audit.json` lists them.
+
+Most of a change's time goes to two things:
+- **Model calls** take 76% of it, more than planned. A run of 10 changes sends 330 to 760 of them, and a typical call takes 1.4 to 4.5 seconds.
+- **Local search** takes most of the rest. Embedding and cross-encoder reranking run on a 4-core CPU with no GPU, and would be far faster on a GPU.
 
 The evaluation measured the trade-off. A run of 10 changes costs $0.55 to $1.29 and takes 22 to 47 minutes on a 4-core CPU. In exchange, the agent covers fewer of the labeled material changes than the prompt-only baseline: 7 of 16 on the test split, against 13. The ones it missed were all found material but ranked below its 10 (see EVALUATION.md, T6.5).
 
@@ -149,6 +153,7 @@ A reply cut off mid-JSON is charged its worst case, and only that branch ends.
 
 ## Still open
 
+- **Latency.** Cutting it would let a run explore more changes in the same time. Fewer and faster model calls come first, since they are three quarters of a change's time; then GPU support for local search. See departure 4.
 - **Rewording.** It stays off until it is measured against the labeled findings.
 - **Live runs from the app.** A future enhancement, not currently included: the Streamlit app shows saved runs only, and runs start from `sec-agent analyze` (see gap 12).
 - **Parser rejections.** The gate still rejects some sound filings from very small companies (see the README's known limits).

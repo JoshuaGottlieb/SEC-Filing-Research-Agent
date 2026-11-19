@@ -4,6 +4,20 @@ A multi-agent system that compares a company's 10-K and 10-Q filings across repo
 
 It is a first-pass research aid. It does not give investment advice, recommendations, or price predictions. Every explanation in a brief carries a verbatim quote from a filing. Only explanations that pass every check are labeled `confirmed`.
 
+## Problem and user
+
+The user is a fundamental equity analyst who follows a company through its SEC filings. Each quarter they need to know what changed since the last filing, which changes matter, and what the company says caused them. Today that means reading two long filings side by side, section by section. A careful reader still misses a reworded risk factor or a cause stated three sections away from the number it explains.
+
+A single prompt to a language model is fast but unreliable here. It can quote the wrong period, attribute a cause the filing never states, or skip changes it doesn't find interesting. This agent splits the job into steps that code can check:
+- code finds every changed paragraph and every metric move;
+- a model ranks them by materiality;
+- Tree-of-Thought search tests competing explanations against retrieved passages;
+- only an explanation whose quote states the cause, in the right filing and period, is labeled `confirmed`.
+
+Weaker explanations are labeled `plausible`, and anything left open is queued for the analyst to check.
+
+## Documents
+
 - **[DESIGN_CHANGES.md](DESIGN_CHANGES.md):** how the build fills the gaps in the original design, and where it departs from it.
 - **[EVALUATION.md](EVALUATION.md):** what was measured, on which data, and the results.
 - **[TASKS.md](TASKS.md):** the build tasks that code comments cite by ID, such as "T4.4", and where each one's code is.
@@ -52,6 +66,15 @@ The design has four agents and no planner. `src/sec_agent/graph.py` is the deter
 | Command line | | `cli.py`, `eval_cli.py` |
 | Streamlit app over saved runs | | `ui/`, `report/run_view.py` |
 | Evaluation scripts | | `eval/` (see [Evaluation](#evaluation)) |
+
+## Reviewing without running
+
+Four ways to review the project, none of which needs an API key or ingestion:
+
+1. **Read a sample brief.** [samples/](samples/README.md) holds nine real runs: three companies by three comparisons, each with its brief, full audit trail, model-call ledger and step timings. Start with [the Hershey 10-K brief](samples/runs/HSY-yoy-10k-t81-20261115/brief.md), the run the demo video uses. GitHub renders it directly.
+2. **Browse the runs in the app.** The Streamlit app shows each run's brief, evidence trees, a step-by-step replay, the review queue and the cost and time. A light install of about 730 MB runs it on the samples in about 5 minutes; see [samples/README.md](samples/README.md#browse-the-runs-in-the-app-about-5-minutes-no-api-key).
+3. **Check the evaluation.** [EVALUATION.md](EVALUATION.md) reports every result. The hand-checked benchmark is in [eval/benchmark/](eval/benchmark/README.md), the scripts are under [eval/](eval/), and the retrieval and judge result files are committed beside their scripts.
+4. **Run the tests.** After the [setup](#setup) below (`uv sync --frozen` only), `uv run --frozen pytest` runs over 2,100 unit tests in about a minute. They need no network, no API key, no downloaded models and no ingested filings.
 
 ## Setup
 
@@ -260,3 +283,7 @@ uv run --frozen ruff format src tests
 ```
 
 After changing dependencies, run `scripts/lock.sh` instead of `uv lock`, then `uv sync --frozen`. `uv lock` fails on VirtualBox shared folders with "Text file busy".
+
+## License
+
+[MIT](LICENSE).
