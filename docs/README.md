@@ -19,6 +19,7 @@ Six design documents, one per course module, written as the design developed. Th
 
 | Document | What it contains |
 |---|---|
+| [Final Report](design/Module7_Final_Report.pdf) | The 10-section capstone report: the problem and user, goal and scope, the final architecture, how the design evolved across the six modules, the implementation, evaluation results, safety, limitations and next steps |
 | [DESIGN_CHANGES.md](DESIGN_CHANGES.md) | How the build filled the 14 gaps found in the design, where it departs from the design and why, what was built beyond it, known limitations and future enhancements |
 | [EVALUATION.md](EVALUATION.md) | The benchmark, the fair-test rule, and every result: retrieval, materiality, the judge, Tree-of-Thought survival, the agent against a prompt-only baseline, the blinded hand check, and cost and latency |
 | [TASKS.md](TASKS.md) | The index of build tasks that code comments and documents cite by ID, such as "T4.4": what each built and where its code is |
